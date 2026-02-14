@@ -1,0 +1,88 @@
+{
+  "results": [
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/uWpG7GqfKGQqX4YMAo3nv5OrglV.jpg",
+      "title": "The Simpsons",
+      "tmdbId": 456,
+      "year": "1989"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/70kTz0OmjjZe7zHvIDrq2iKW7PJ.jpg",
+      "title": "The Rookie",
+      "tmdbId": 79744,
+      "year": "2018"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/3PFsEuAiyLkWsP4GG6dIV37Q6gu.jpg",
+      "title": "Family Guy",
+      "tmdbId": 1434,
+      "year": "1999"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/abrZg2iodq4XeBngpNESOgfPvBM.jpg",
+      "title": "A Knight of the Seven Kingdoms",
+      "tmdbId": 224372,
+      "year": "2026"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/lv3OlrXyTNg4Dz0JrtopOmMziNs.jpg",
+      "title": "Kamen Rider",
+      "tmdbId": 2661,
+      "year": "1971"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/pv5WNnLUo7mpT8k901Lo8UovrqI.jpg",
+      "title": "Raw",
+      "tmdbId": 4656,
+      "year": "1993"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/2jIi55JtYKJTL1km8qHMuUilOWo.jpg",
+      "title": "Men on a Mission",
+      "tmdbId": 70672,
+      "year": "2015"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/9jkThAGYj2yp8jsS6Nriy5mzKFT.jpg",
+      "title": "The Late Show with Stephen Colbert",
+      "tmdbId": 63770,
+      "year": "2015"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/2Wmmu1MkqxJ48J7aySET9EKEjXz.jpg",
+      "title": "Running Man",
+      "tmdbId": 33238,
+      "year": "2010"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/jJfk8NXauN4UgFQ1qn9lFzEk7ib.jpg",
+      "title": "The Pendragon Cycle: Rise of the Merlin",
+      "tmdbId": 235685,
+      "year": "2026"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/amemXW39lMbNBJFRMJ5W7q9mLP2.jpg",
+      "title": "PokÃ©mon Horizons",
+      "tmdbId": 220150,
+      "year": "2023"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/vrbqaBXB8AALynQzpWz6JdCPEJS.jpg",
+      "title": "The Graham Norton Show",
+      "tmdbId": 1220,
+      "year": "2007"
+    }
+  ]
+}

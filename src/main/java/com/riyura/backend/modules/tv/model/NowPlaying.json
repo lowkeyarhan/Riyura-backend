@@ -1,0 +1,88 @@
+{
+  "results": [
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/2jIi55JtYKJTL1km8qHMuUilOWo.jpg",
+      "title": "Men on a Mission",
+      "tmdbId": 70672,
+      "year": "2015"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/lT9pZfrFk8PgdzsQ7QzpCdiCfFF.jpg",
+      "title": "Fights Break Sphere",
+      "tmdbId": 79481,
+      "year": "2017"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/kPKAigYUlWRpnfo4Ptiwlz4FWXU.jpg",
+      "title": "Teen Titans Go!",
+      "tmdbId": 45140,
+      "year": "2013"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/wsTjWy6NE2s3h0neChr0D92ddwI.jpg",
+      "title": "Hello Saturday",
+      "tmdbId": 154770,
+      "year": "2022"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/2XlU2bzsESbc6x9lBKe0gyk90oO.jpg",
+      "title": "Love Stories in the Countryside",
+      "tmdbId": 49036,
+      "year": "2006"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/9hjOtCY0X4BsovRK3nCphRvyo4b.jpg",
+      "title": "Casualty",
+      "tmdbId": 1021,
+      "year": "1986"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/nEwybsfZBSPjcZamPpKDTaTI5g.jpg",
+      "title": "Amazing Saturday",
+      "tmdbId": 78648,
+      "year": "2018"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/y656ZhHU2Hh3bmC5vBtMa2vKpUM.jpg",
+      "title": "La promesa",
+      "tmdbId": 212907,
+      "year": "2023"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/dLRQI1TikEQ92BKlfPLJOoOceXC.jpg",
+      "title": "How Dare You!?",
+      "tmdbId": 280632,
+      "year": "2026"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/dJd8LFodX9831AeRD3CzWklYcS5.jpg",
+      "title": "How Do You Play?",
+      "tmdbId": 91121,
+      "year": "2019"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/jASfIetUKhrbqEEKBnjRjjgfuGK.jpg",
+      "title": "The Manager",
+      "tmdbId": 80736,
+      "year": "2018"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/ycjyG5emOtzXycIQl4oZwy4nt1f.jpg",
+      "title": "American Masters",
+      "tmdbId": 15069,
+      "year": "1986"
+    }
+  ]
+}

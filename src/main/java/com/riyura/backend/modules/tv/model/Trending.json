@@ -1,0 +1,88 @@
+{
+  "results": [
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/nP2PRGSmLdbZtQtoXPPppcDAsNw.jpg",
+      "title": "The Art of Sarah",
+      "tmdbId": 273977,
+      "year": "2026"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/dqZENchTd7lp5zht7BdlqM7RBhD.jpg",
+      "title": "Frieren: Beyond Journey's End",
+      "tmdbId": 209867,
+      "year": "2023"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/c15BtJxCXMrISLVmysdsnZUPQft.jpg",
+      "title": "Fallout",
+      "tmdbId": 106379,
+      "year": "2024"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/fHpKWq9ayzSk8nSwqRuaAUemRKh.jpg",
+      "title": "JUJUTSU KAISEN",
+      "tmdbId": 95479,
+      "year": "2020"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/abrZg2iodq4XeBngpNESOgfPvBM.jpg",
+      "title": "A Knight of the Seven Kingdoms",
+      "tmdbId": 224372,
+      "year": "2026"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/kvFSpESyBZMjaeOJDx7RS3P1jey.jpg",
+      "title": "The Pitt",
+      "tmdbId": 250307,
+      "year": "2025"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/7WU3cXD0rip5ONc7owI2dBWAVjW.jpg",
+      "title": "Love Story",
+      "tmdbId": 131142,
+      "year": "2026"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/76gwCVQG1MoItK25o48opYP7TmG.jpg",
+      "title": "Swords Into Plowshares",
+      "tmdbId": 279446,
+      "year": "2026"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/6hhKdavCEZi8d584ZtIrQIrBvZI.jpg",
+      "title": "Cross",
+      "tmdbId": 213306,
+      "year": "2024"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/dLRQI1TikEQ92BKlfPLJOoOceXC.jpg",
+      "title": "How Dare You!?",
+      "tmdbId": 280632,
+      "year": "2026"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/lcyax0pIH6vZWbho2hxsMTt9KpN.jpg",
+      "title": "The Artful Dodger",
+      "tmdbId": 202208,
+      "year": "2023"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/OvNMzIOJIzDlouhZVqCHRE6HlL.jpg",
+      "title": "Unfamiliar",
+      "tmdbId": 274776,
+      "year": "2026"
+    }
+  ]
+}

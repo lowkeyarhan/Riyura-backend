@@ -1,0 +1,88 @@
+{
+  "results": [
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/hjJkrLXhWvGHpLeLBDFznpBTY1S.jpg",
+      "title": "Grey's Anatomy",
+      "tmdbId": 1416,
+      "year": "2005"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/uWpG7GqfKGQqX4YMAo3nv5OrglV.jpg",
+      "title": "The Simpsons",
+      "tmdbId": 456,
+      "year": "1989"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/u40gJarLPlIkwouKlzGdobQOV9k.jpg",
+      "title": "Supernatural",
+      "tmdbId": 1622,
+      "year": "2005"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/iofokHZoUB4Qhik4PflvJl8TT6a.jpg",
+      "title": "Law & Order: Special Victims Unit",
+      "tmdbId": 2734,
+      "year": "1999"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/70kTz0OmjjZe7zHvIDrq2iKW7PJ.jpg",
+      "title": "The Rookie",
+      "tmdbId": 79744,
+      "year": "2018"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/3PFsEuAiyLkWsP4GG6dIV37Q6gu.jpg",
+      "title": "Family Guy",
+      "tmdbId": 1434,
+      "year": "1999"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/uOOtwVbSr4QDjAGIifLDwpb2Pdl.jpg",
+      "title": "Stranger Things",
+      "tmdbId": 66732,
+      "year": "2016"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/haJ9eHytVO3H3JooMJG1DiWwDNm.jpg",
+      "title": "Law & Order",
+      "tmdbId": 549,
+      "year": "1990"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/abrZg2iodq4XeBngpNESOgfPvBM.jpg",
+      "title": "A Knight of the Seven Kingdoms",
+      "tmdbId": 224372,
+      "year": "2026"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/onSD9UXfJwrMXWhq7UY7hGF2S1h.jpg",
+      "title": "Watch What Happens Live with Andy Cohen",
+      "tmdbId": 22980,
+      "year": "2009"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/mBcu8d6x6zB1el3MPNl7cZQEQ31.jpg",
+      "title": "NCIS",
+      "tmdbId": 4614,
+      "year": "2003"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/mHZSq8LA5Dt48JjaOZ5tcPXQRVN.jpg",
+      "title": "Smallville",
+      "tmdbId": 4604,
+      "year": "2001"
+    }
+  ]
+}
