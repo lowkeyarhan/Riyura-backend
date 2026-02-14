@@ -1,0 +1,88 @@
+{
+  "results": [
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/z2tqCJLsw6uEJ8nJV8BsQXGa3dr.jpg",
+      "title": "Greenland 2: Migration",
+      "tmdbId": 840464,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/mJGFduBPAzTKzOeCeTjBBOxnalB.jpg",
+      "title": "The Housemaid",
+      "tmdbId": 1368166,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/gbVwHl4YPSq6BcC92TQpe7qUTh6.jpg",
+      "title": "The Wrecking Crew",
+      "tmdbId": 1168190,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/57cyAMc9c8iveudogTRuDOQjujn.jpg",
+      "title": "Primate",
+      "tmdbId": 1315303,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/oJ7g2CifqpStmoYQyaLQgEU32qO.jpg",
+      "title": "Zootopia 2",
+      "tmdbId": 1084242,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/3Eaqedg8MAlnP51GYY8MCSIdTnV.jpg",
+      "title": "State of Fear",
+      "tmdbId": 1426964,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/e0RU6KpdnrqFxDKlI3NOqN8nHL6.jpg",
+      "title": "The Shadow's Edge",
+      "tmdbId": 1419406,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/tsE3nySukwrfUjouz8vzvKTcXNC.jpg",
+      "title": "Oscar Shaw",
+      "tmdbId": 1601243,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/lYWEXbQgRTR4ZQleSXAgRbxAjvq.jpg",
+      "title": "Marty Supreme",
+      "tmdbId": 1317288,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/pHpq9yNUIo6aDoCXEBzjSolywgz.jpg",
+      "title": "Predator: Badlands",
+      "tmdbId": 1242898,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/tzCsmggqZc7fOmkAXZXXvsdxOsq.jpg",
+      "title": "Avatar: Fire and Ash",
+      "tmdbId": 83533,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/3DBmBItPdy0A2ol59jgHhS54Lua.jpg",
+      "title": "Murder at the Embassy",
+      "tmdbId": 1310568,
+      "year": "2025"
+    }
+  ]
+}

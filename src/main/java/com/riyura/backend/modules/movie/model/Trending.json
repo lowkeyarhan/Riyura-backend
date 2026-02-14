@@ -1,0 +1,88 @@
+{
+  "results": [
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/57cyAMc9c8iveudogTRuDOQjujn.jpg",
+      "title": "Primate",
+      "tmdbId": 1315303,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/lYWEXbQgRTR4ZQleSXAgRbxAjvq.jpg",
+      "title": "Marty Supreme",
+      "tmdbId": 1317288,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/jfwHKRHRE2X4NTexdzblaioHH51.jpg",
+      "title": "Love Me Love Me",
+      "tmdbId": 1317672,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/mJGFduBPAzTKzOeCeTjBBOxnalB.jpg",
+      "title": "The Housemaid",
+      "tmdbId": 1368166,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/v5YCcj97kknZNtfe6gLRYLGCZgY.jpg",
+      "title": "Joe's College Road Trip",
+      "tmdbId": 1243460,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/pHpq9yNUIo6aDoCXEBzjSolywgz.jpg",
+      "title": "Predator: Badlands",
+      "tmdbId": 1242898,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/ywRO5dyE8RyyXJd6cvd69jLZeic.jpg",
+      "title": "â€œWuthering Heightsâ€",
+      "tmdbId": 1316092,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/vbeyOZm2bvBXcbgPD3v6o94epPX.jpg",
+      "title": "Hamnet",
+      "tmdbId": 858024,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/fqAGFN2K2kDL0EHxvJaXzaMUkkt.jpg",
+      "title": "Return to Silent Hill",
+      "tmdbId": 680493,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/oJ7g2CifqpStmoYQyaLQgEU32qO.jpg",
+      "title": "Zootopia 2",
+      "tmdbId": 1084242,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/oD3Eey4e4Z259XLm3eD3WGcoJAh.jpg",
+      "title": "Now You See Me: Now You Don't",
+      "tmdbId": 425274,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/3Eaqedg8MAlnP51GYY8MCSIdTnV.jpg",
+      "title": "State of Fear",
+      "tmdbId": 1426964,
+      "year": "2026"
+    }
+  ]
+}

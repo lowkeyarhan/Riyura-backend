@@ -1,0 +1,58 @@
+package com.riyura.backend.modules.movie.controller;
+
+import com.riyura.backend.common.dto.MediaGridItemDTO;
+import com.riyura.backend.modules.movie.service.MovieService;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/movies")
+@RequiredArgsConstructor
+@CrossOrigin(origins = "http://localhost:3000")
+public class MovieController {
+
+    @Autowired
+    private final MovieService movieService;
+
+    // Get Now Playing Movies with a limit (e.g., top 10)
+    @GetMapping("/now-playing")
+    public ResponseEntity<Map<String, List<MediaGridItemDTO>>> getNowPlaying(
+            @RequestParam(defaultValue = "12") int limit) {
+        return wrapResponse(movieService.getNowPlayingMovies(limit));
+    }
+
+    // Get Trending Movies with a limit (e.g., top 10)
+    @GetMapping("/trending")
+    public ResponseEntity<Map<String, List<MediaGridItemDTO>>> getTrending(
+            @RequestParam(defaultValue = "12") int limit) {
+        return wrapResponse(movieService.getTrendingMovies(limit));
+    }
+
+    // Get Popular Movies with a limit (e.g., top 10)
+    @GetMapping("/popular")
+    public ResponseEntity<Map<String, List<MediaGridItemDTO>>> getPopular(
+            @RequestParam(defaultValue = "12") int limit) {
+        return wrapResponse(movieService.getPopularMovies(limit));
+    }
+
+    // Get Upcoming Movies with a limit (e.g., top 10)
+    @GetMapping("/upcoming")
+    public ResponseEntity<Map<String, List<MediaGridItemDTO>>> getUpcoming(
+            @RequestParam(defaultValue = "12") int limit) {
+        return wrapResponse(movieService.getUpcomingMovies(limit));
+    }
+
+    // Helper method to wrap the list in a response map
+    private ResponseEntity<Map<String, List<MediaGridItemDTO>>> wrapResponse(List<MediaGridItemDTO> list) {
+        Map<String, List<MediaGridItemDTO>> response = new HashMap<>();
+        response.put("results", list);
+        return ResponseEntity.ok(response);
+    }
+}

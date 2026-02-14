@@ -1,0 +1,88 @@
+{
+  "results": [
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/57cyAMc9c8iveudogTRuDOQjujn.jpg",
+      "title": "Primate",
+      "tmdbId": 1315303,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/lYWEXbQgRTR4ZQleSXAgRbxAjvq.jpg",
+      "title": "Marty Supreme",
+      "tmdbId": 1317288,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/ywRO5dyE8RyyXJd6cvd69jLZeic.jpg",
+      "title": "â€œWuthering Heightsâ€",
+      "tmdbId": 1316092,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/vbeyOZm2bvBXcbgPD3v6o94epPX.jpg",
+      "title": "Hamnet",
+      "tmdbId": 858024,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/bESlrLOrsQ9gKzaGQGHXKOyIUtX.jpg",
+      "title": "David",
+      "tmdbId": 1167307,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/vobigFZFvbYPf6ElYJu07P9rH8C.jpg",
+      "title": "Dust Bunny",
+      "tmdbId": 1043197,
+      "year": "2025"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/xZqo0yPARmyF8TACVNyaOACkYWG.jpg",
+      "title": "We Bury the Dead",
+      "tmdbId": 1198984,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/903mfuYcAEC20o52mxOMAkCCS3M.jpg",
+      "title": "Shelter",
+      "tmdbId": 1290821,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/2HoR2x23bqKpopluoBD1FH3tBi7.jpg",
+      "title": "Crime 101",
+      "tmdbId": 1171145,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/wfuqMlaExcoYiUEvKfVpUTt1v4u.jpg",
+      "title": "GOAT",
+      "tmdbId": 1297842,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/fqAGFN2K2kDL0EHxvJaXzaMUkkt.jpg",
+      "title": "Return to Silent Hill",
+      "tmdbId": 680493,
+      "year": "2026"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/sIwakdbMGS1krtgendTWpxTY9Hw.jpg",
+      "title": "Iron Lung",
+      "tmdbId": 1116201,
+      "year": "2026"
+    }
+  ]
+}
