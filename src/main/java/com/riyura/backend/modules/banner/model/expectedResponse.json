@@ -1,0 +1,93 @@
+{
+  "items": [
+    {
+      "adult": false,
+      "backdrop_path": "https://image.tmdb.org/t/p/9uakM2woks0JV8HKIc4oatIVS88.jpg",
+      "contentType": "movie",
+      "genres": ["Horror", "Thriller"],
+      "id": 1315303,
+      "maturityRating": "U/A",
+      "overview": "Lucy, a college student, along with her friends, spend their vacation at her family's home in Hawaii, which includes her pet chimpanzee, Ben. However, when Ben contracts rabies after being bitten by a rabid animal, the group must fight for their lives in order to avoid the now-violent chimp.",
+      "poster_path": "https://image.tmdb.org/t/p/57cyAMc9c8iveudogTRuDOQjujn.jpg",
+      "title": "Primate",
+      "tmdbId": 1315303,
+      "vote_average": 6.558,
+      "year": "2026"
+    },
+    {
+      "adult": false,
+      "backdrop_path": "https://image.tmdb.org/t/p/rBOnrVlck7BIlGeWVlzYiZeg4l2.jpg",
+      "contentType": "tv",
+      "genres": [
+        "Animation",
+        "Action & Adventure",
+        "Drama",
+        "Sci-Fi & Fantasy"
+      ],
+      "id": 209867,
+      "maturityRating": "U/A",
+      "overview": "Decades after her party defeated the Demon King, an old friend's funeral launches the elf wizard Frieren on a journey of self-discovery.",
+      "poster_path": "https://image.tmdb.org/t/p/dqZENchTd7lp5zht7BdlqM7RBhD.jpg",
+      "title": "Frieren: Beyond Journey's End",
+      "tmdbId": 209867,
+      "vote_average": 8.768,
+      "year": "2023"
+    },
+    {
+      "adult": false,
+      "backdrop_path": "https://image.tmdb.org/t/p/qy8gJEwspR7L5WZn4e8ItwK8m23.jpg",
+      "contentType": "tv",
+      "genres": ["Crime", "Mystery", "Drama"],
+      "id": 273977,
+      "maturityRating": "U/A",
+      "overview": "A body found in the middle of town. A luxe label on the rise. A detective tests every stitch of a woman's story that keeps changing. What really happened?",
+      "poster_path": "https://image.tmdb.org/t/p/nP2PRGSmLdbZtQtoXPPppcDAsNw.jpg",
+      "title": "The Art of Sarah",
+      "tmdbId": 273977,
+      "vote_average": 9.0,
+      "year": "2026"
+    },
+    {
+      "adult": false,
+      "backdrop_path": "https://image.tmdb.org/t/p/o0jRpVznKXuLvoXQX9UTKVtGjxK.jpg",
+      "contentType": "movie",
+      "genres": ["Romance", "Drama"],
+      "id": 1317672,
+      "maturityRating": "U/A",
+      "overview": "After her brother's death, June moves to Milan for a fresh start, finding comfort in Will, the perfect honor student at her new international school. But when his troubled best friend James-hiding a dangerous life in clandestine MMA fights-sparks a rivalry that quickly turns into irresistible attraction, June must choose between safety and a love that upends everything she thought she wanted.",
+      "poster_path": "https://image.tmdb.org/t/p/jfwHKRHRE2X4NTexdzblaioHH51.jpg",
+      "title": "Love Me Love Me",
+      "tmdbId": 1317672,
+      "vote_average": 6.976,
+      "year": "2026"
+    },
+    {
+      "adult": false,
+      "backdrop_path": "https://image.tmdb.org/t/p/bHtlDAORBQiYKCJMwDP9WBgcQHM.jpg",
+      "contentType": "movie",
+      "genres": ["Drama"],
+      "id": 1317288,
+      "maturityRating": "U/A",
+      "overview": "Marty Mauser, a young man with a dream no one respects, goes to hell and back in pursuit of greatness.",
+      "poster_path": "https://image.tmdb.org/t/p/lYWEXbQgRTR4ZQleSXAgRbxAjvq.jpg",
+      "title": "Marty Supreme",
+      "tmdbId": 1317288,
+      "vote_average": 7.6,
+      "year": "2025"
+    },
+    {
+      "adult": false,
+      "backdrop_path": "https://image.tmdb.org/t/p/coaPCIqQBPUZsOnJcWZxhaORcDT.jpg",
+      "contentType": "tv",
+      "genres": ["Action & Adventure", "Sci-Fi & Fantasy"],
+      "id": 106379,
+      "maturityRating": "U/A",
+      "overview": "The story of haves and have-nots in a world in which there's almost nothing left to have. 200 years after the apocalypse, the gentle denizens of luxury fallout shelters are forced to return to the irradiated hellscape their ancestors left behind â€” and are shocked to discover an incredibly complex, gleefully weird, and highly violent universe waiting for them.",
+      "poster_path": "https://image.tmdb.org/t/p/c15BtJxCXMrISLVmysdsnZUPQft.jpg",
+      "title": "Fallout",
+      "tmdbId": 106379,
+      "vote_average": 8.138,
+      "year": "2024"
+    }
+  ]
+}

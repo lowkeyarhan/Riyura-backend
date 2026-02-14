@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: Riyura
+
+  # Supabase DataSource Configuration
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+    # HikariCP Settings
+    hikari:
+      maximum-pool-size: 15
+      minimum-idle: 2
+      idle-timeout: 30000
+      max-lifetime: 1800000
+
+  # JPA Settings
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+# TMDB Configuration
+tmdb:
+  api-key: ${TMDB_API_KEY}
+  base-url: ${TMDB_API_BASE_URL}
+  image-base-url: ${TMDB_IMAGE_BASE_URL}
