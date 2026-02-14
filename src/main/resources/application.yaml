@@ -29,5 +29,9 @@ spring:
 # TMDB Configuration
 tmdb:
   api-key: ${TMDB_API_KEY}
-  base-url: ${TMDB_API_BASE_URL}
+  base-url: ${TMDB_BASE_URL:${TMDB_API_BASE_URL}}
   image-base-url: ${TMDB_IMAGE_BASE_URL}
+
+# Supabase Security Configuration
+supabase:
+  jwt-secret: ${SUPABASE_JWT_SECRET}

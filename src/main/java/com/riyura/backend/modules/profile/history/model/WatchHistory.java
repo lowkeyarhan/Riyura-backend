@@ -1,0 +1,59 @@
+package com.riyura.backend.modules.profile.history.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
+@Data
+@Entity
+@Table(name = "watch_history")
+public class WatchHistory {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
+    @Column(name = "tmdb_id", nullable = false)
+    private Long tmdbId;
+
+    @Column(nullable = false)
+    private String title;
+
+    @Column(name = "media_type", nullable = false)
+    private String mediaType;
+
+    @Column(name = "stream_id", nullable = false)
+    private String streamId;
+
+    @Column(name = "poster_path")
+    private String posterPath;
+
+    @Column(name = "backdrop_path")
+    private String backdropPath;
+
+    @Column(name = "release_date")
+    private LocalDate releaseDate;
+
+    @Column(name = "duration_sec")
+    private Integer durationSec;
+
+    @Column(name = "season_number")
+    private Integer seasonNumber;
+
+    @Column(name = "episode_number")
+    private Integer episodeNumber;
+
+    @Column(name = "episode_name")
+    private String episodeName;
+
+    @Column(name = "episode_length")
+    private Integer episodeLength;
+
+    @Column(name = "watched_at", insertable = false, updatable = false)
+    private OffsetDateTime watchedAt;
+}
