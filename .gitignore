@@ -39,4 +39,5 @@ build/
 .DS_Store
 .env
 
-./response/supabase
+# Response files with sensitive data
+response/supabase/Session.json
