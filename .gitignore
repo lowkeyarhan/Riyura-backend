@@ -38,3 +38,5 @@ build/
 ### MacOS ###
 .DS_Store
 .env
+
+./response/supabase
