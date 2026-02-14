@@ -1,4 +1,4 @@
-package com.riyura.backend.modules.banner.dto;
+package com.riyura.backend.common.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;

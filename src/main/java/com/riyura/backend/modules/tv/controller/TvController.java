@@ -1,6 +1,6 @@
 package com.riyura.backend.modules.tv.controller;
 
-import com.riyura.backend.common.dto.MediaGridItemDTO;
+import com.riyura.backend.common.dto.MediaGridResponse;
 import com.riyura.backend.modules.tv.service.TvService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,35 +20,35 @@ public class TvController {
 
     // Get Airing Today TV Shows (Now Playing) with a limit (e.g., top 10)
     @GetMapping("/now-playing")
-    public ResponseEntity<Map<String, List<MediaGridItemDTO>>> getNowPlaying(
+    public ResponseEntity<Map<String, List<MediaGridResponse>>> getNowPlaying(
             @RequestParam(defaultValue = "12") int limit) {
         return wrapResponse(tvService.getAiringToday(limit));
     }
 
     // Get Trending TV Shows with a limit (e.g., top 10)
     @GetMapping("/trending")
-    public ResponseEntity<Map<String, List<MediaGridItemDTO>>> getTrending(
+    public ResponseEntity<Map<String, List<MediaGridResponse>>> getTrending(
             @RequestParam(defaultValue = "12") int limit) {
         return wrapResponse(tvService.getTrendingTv(limit));
     }
 
     // Get Popular TV Shows with a limit (e.g., top 10)
     @GetMapping("/popular")
-    public ResponseEntity<Map<String, List<MediaGridItemDTO>>> getPopular(
+    public ResponseEntity<Map<String, List<MediaGridResponse>>> getPopular(
             @RequestParam(defaultValue = "12") int limit) {
         return wrapResponse(tvService.getPopularTv(limit));
     }
 
     // Get releasing soon TV Shows with a limit (e.g., top 10)
     @GetMapping("/upcoming")
-    public ResponseEntity<Map<String, List<MediaGridItemDTO>>> getUpcoming(
+    public ResponseEntity<Map<String, List<MediaGridResponse>>> getUpcoming(
             @RequestParam(defaultValue = "12") int limit) {
         return wrapResponse(tvService.getOnTheAir(limit));
     }
 
     // Helper method to wrap the list in a response map
-    private ResponseEntity<Map<String, List<MediaGridItemDTO>>> wrapResponse(List<MediaGridItemDTO> list) {
-        Map<String, List<MediaGridItemDTO>> response = new HashMap<>();
+    private ResponseEntity<Map<String, List<MediaGridResponse>>> wrapResponse(List<MediaGridResponse> list) {
+        Map<String, List<MediaGridResponse>> response = new HashMap<>();
         response.put("results", list);
         return ResponseEntity.ok(response);
     }

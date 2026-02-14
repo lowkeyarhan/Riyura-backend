@@ -1,8 +1,9 @@
 package com.riyura.backend.modules.tv.service;
 
-import com.riyura.backend.common.dto.MediaGridItemDTO;
-import com.riyura.backend.modules.banner.dto.TmdbTrendingDTO;
-import com.riyura.backend.modules.movie.model.MediaType;
+import com.riyura.backend.common.dto.MediaGridResponse;
+import com.riyura.backend.common.dto.TmdbTrendingDTO;
+import com.riyura.backend.common.model.MediaType;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -30,31 +31,31 @@ public class TvService {
     private String imageBaseUrl;
 
     // Get Airing Today TV Shows with a limit (e.g., top 10)
-    public List<MediaGridItemDTO> getAiringToday(int limit) {
+    public List<MediaGridResponse> getAiringToday(int limit) {
         String url = String.format("%s/tv/airing_today?api_key=%s&language=en-US&page=1", baseUrl, apiKey);
         return fetchAndMap(url, limit);
     }
 
     // Get Trending TV Shows with a limit (e.g., top 10)
-    public List<MediaGridItemDTO> getTrendingTv(int limit) {
+    public List<MediaGridResponse> getTrendingTv(int limit) {
         String url = String.format("%s/trending/tv/week?api_key=%s&language=en-US", baseUrl, apiKey);
         return fetchAndMap(url, limit);
     }
 
     // Get Popular TV Shows with a limit (e.g., top 10)
-    public List<MediaGridItemDTO> getPopularTv(int limit) {
+    public List<MediaGridResponse> getPopularTv(int limit) {
         String url = String.format("%s/tv/popular?api_key=%s&language=en-US&page=1", baseUrl, apiKey);
         return fetchAndMap(url, limit);
     }
 
     // Get releasing soon TV Shows with a limit (e.g., top 10)
-    public List<MediaGridItemDTO> getOnTheAir(int limit) {
+    public List<MediaGridResponse> getOnTheAir(int limit) {
         String url = String.format("%s/tv/on_the_air?api_key=%s&language=en-US&page=1", baseUrl, apiKey);
         return fetchAndMap(url, limit);
     }
 
     // Helper method to fetch data from TMDB and map it to our DTO
-    private List<MediaGridItemDTO> fetchAndMap(String url, int limit) {
+    private List<MediaGridResponse> fetchAndMap(String url, int limit) {
         try {
             // Reusing TmdbTrendingDTO
             TmdbTrendingDTO response = restTemplate.getForObject(url, TmdbTrendingDTO.class);
@@ -78,8 +79,8 @@ public class TvService {
     }
 
     // Map TMDB item to our MediaGridItemDTO
-    private MediaGridItemDTO mapToDTO(TmdbTrendingDTO.TmdbItem item) {
-        MediaGridItemDTO dto = new MediaGridItemDTO();
+    private MediaGridResponse mapToDTO(TmdbTrendingDTO.TmdbItem item) {
+        MediaGridResponse dto = new MediaGridResponse();
 
         dto.setTmdbId(item.getId());
 

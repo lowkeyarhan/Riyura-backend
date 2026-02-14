@@ -1,6 +1,7 @@
 package com.riyura.backend.modules.banner.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.riyura.backend.common.model.MediaType;
 import lombok.Data;
 import java.util.List;
 
@@ -25,7 +26,7 @@ public class BannerResponse {
     private Double rating;
 
     @JsonProperty("contentType")
-    private String mediaType;
+    private MediaType mediaType;
 
     @JsonProperty("genres")
     private List<String> genres;

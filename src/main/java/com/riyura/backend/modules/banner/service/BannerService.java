@@ -1,8 +1,8 @@
 package com.riyura.backend.modules.banner.service;
 
+import com.riyura.backend.common.dto.TmdbTrendingDTO;
+import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.modules.banner.dto.BannerResponse;
-import com.riyura.backend.modules.banner.dto.TmdbTrendingDTO;
-import com.riyura.backend.modules.banner.model.UIMediaType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -85,17 +85,17 @@ public class BannerService {
     // Fetch top 3 trending movies and map to BannerResponse
     private List<BannerResponse> fetchTopMovies() {
         String url = String.format("%s/trending/movie/week?api_key=%s", baseUrl, apiKey);
-        return fetchAndMap(url, UIMediaType.movie);
+        return fetchAndMap(url, MediaType.Movie);
     }
 
     // Fetch top 3 trending TV shows and map to BannerResponse
     private List<BannerResponse> fetchTopTV() {
         String url = String.format("%s/trending/tv/week?api_key=%s", baseUrl, apiKey);
-        return fetchAndMap(url, UIMediaType.tv);
+        return fetchAndMap(url, MediaType.TV);
     }
 
     // Common method to fetch data from TMDB and map to BannerResponse
-    private List<BannerResponse> fetchAndMap(String url, UIMediaType type) {
+    private List<BannerResponse> fetchAndMap(String url, MediaType type) {
         try {
             TmdbTrendingDTO response = restTemplate.getForObject(url, TmdbTrendingDTO.class);
             if (response == null || response.getResults() == null) {
@@ -112,13 +112,13 @@ public class BannerService {
     }
 
     // Map a TMDB item to our BannerResponse model
-    private BannerResponse mapItemToBanner(TmdbTrendingDTO.TmdbItem item, UIMediaType type) {
+    private BannerResponse mapItemToBanner(TmdbTrendingDTO.TmdbItem item, MediaType type) {
         BannerResponse model = new BannerResponse();
 
         model.setId(item.getId());
         model.setTmdbId(item.getId());
 
-        if (type == UIMediaType.movie) {
+        if (type == MediaType.Movie) {
             model.setTitle(item.getTitle());
             model.setYear(extractYear(item.getReleaseDate()));
         } else {
@@ -128,7 +128,7 @@ public class BannerService {
 
         model.setOverview(item.getOverview() != null ? item.getOverview() : "");
         model.setRating(item.getVoteAverage() != null ? item.getVoteAverage() : 0.0);
-        model.setMediaType(type.name());
+        model.setMediaType(type);
 
         if (item.getBackdropPath() != null)
             model.setBackdropUrl(imageBaseUrl + item.getBackdropPath());

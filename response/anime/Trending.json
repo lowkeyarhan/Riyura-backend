@@ -1,0 +1,88 @@
+{
+  "results": [
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/dqZENchTd7lp5zht7BdlqM7RBhD.jpg",
+      "title": "Frieren: Beyond Journey's End",
+      "tmdbId": 209867,
+      "year": "2023"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/amemXW39lMbNBJFRMJ5W7q9mLP2.jpg",
+      "title": "PokÃ©mon Horizons",
+      "tmdbId": 220150,
+      "year": "2023"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/5ZFUEOULaVml7pQuXxhpR2SmVUw.jpg",
+      "title": "Fullmetal Alchemist: Brotherhood",
+      "tmdbId": 31911,
+      "year": "2009"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/i2EEr2uBvRlAwJ8d8zTG2Y19mIa.jpg",
+      "title": "Hunter x Hunter",
+      "tmdbId": 46298,
+      "year": "2011"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/geCRueV3ElhRTr0xtJuEWJt6dJ1.jpg",
+      "title": "Solo Leveling",
+      "tmdbId": 127532,
+      "year": "2024"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/qb1R5iLZcjIgdDIfXFQXmJadQPI.jpg",
+      "title": "Ranma Â½",
+      "tmdbId": 57706,
+      "year": "1989"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/fHpKWq9ayzSk8nSwqRuaAUemRKh.jpg",
+      "title": "JUJUTSU KAISEN",
+      "tmdbId": 95479,
+      "year": "2020"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg",
+      "title": "Spirited Away",
+      "tmdbId": 129,
+      "year": "2001"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/7NAvPYPAu7MeHwP8E9sn81PqsRh.jpg",
+      "title": "SPY x FAMILY",
+      "tmdbId": 120089,
+      "year": "2022"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/q719jXXEzOoYaps6babgKnONONX.jpg",
+      "title": "Your Name.",
+      "tmdbId": 372058,
+      "year": "2016"
+    },
+    {
+      "media_type": "TV",
+      "poster_path": "https://image.tmdb.org/t/p/dhtiYYbob8saEUFWle3aWgVY28M.jpg",
+      "title": "Saint Seiya",
+      "tmdbId": 42444,
+      "year": "1986"
+    },
+    {
+      "media_type": "Movie",
+      "poster_path": "https://image.tmdb.org/t/p/13kOl2v0nD2OLbVSHnHk8GUFEhO.jpg",
+      "title": "Howl's Moving Castle",
+      "tmdbId": 4935,
+      "year": "2004"
+    }
+  ]
+}

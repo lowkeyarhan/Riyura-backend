@@ -1,8 +1,9 @@
 package com.riyura.backend.modules.movie.service;
 
-import com.riyura.backend.common.dto.MediaGridItemDTO;
-import com.riyura.backend.modules.banner.dto.TmdbTrendingDTO;
-import com.riyura.backend.modules.movie.model.MediaType;
+import com.riyura.backend.common.dto.MediaGridResponse;
+import com.riyura.backend.common.dto.TmdbTrendingDTO;
+import com.riyura.backend.common.model.MediaType;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -30,31 +31,31 @@ public class MovieService {
     private String imageBaseUrl;
 
     // Get Now Playing Movies with a limit (e.g., top 10)
-    public List<MediaGridItemDTO> getNowPlayingMovies(int limit) {
+    public List<MediaGridResponse> getNowPlayingMovies(int limit) {
         String url = String.format("%s/movie/now_playing?api_key=%s&language=en-US&page=1", baseUrl, apiKey);
         return fetchAndMap(url, limit);
     }
 
     // Get Trending Movies with a limit (e.g., top 10)
-    public List<MediaGridItemDTO> getTrendingMovies(int limit) {
+    public List<MediaGridResponse> getTrendingMovies(int limit) {
         String url = String.format("%s/trending/movie/week?api_key=%s&language=en-US", baseUrl, apiKey);
         return fetchAndMap(url, limit);
     }
 
     // Get Popular Movies with a limit (e.g., top 10)
-    public List<MediaGridItemDTO> getPopularMovies(int limit) {
+    public List<MediaGridResponse> getPopularMovies(int limit) {
         String url = String.format("%s/movie/popular?api_key=%s&language=en-US&page=1", baseUrl, apiKey);
         return fetchAndMap(url, limit);
     }
 
     // Get Upcoming Movies with a limit (e.g., top 10)
-    public List<MediaGridItemDTO> getUpcomingMovies(int limit) {
+    public List<MediaGridResponse> getUpcomingMovies(int limit) {
         String url = String.format("%s/movie/upcoming?api_key=%s&language=en-US&page=1", baseUrl, apiKey);
         return fetchAndMap(url, limit);
     }
 
     // Helper method to fetch data from TMDB and map it to our DTO
-    private List<MediaGridItemDTO> fetchAndMap(String url, int limit) {
+    private List<MediaGridResponse> fetchAndMap(String url, int limit) {
         try {
             // Reusing the DTO we created for the Banner module to read TMDB response
             TmdbTrendingDTO response = restTemplate.getForObject(url, TmdbTrendingDTO.class);
@@ -79,8 +80,8 @@ public class MovieService {
     }
 
     // Map TMDB item to our MediaGridItemDTO
-    private MediaGridItemDTO mapToDTO(TmdbTrendingDTO.TmdbItem item) {
-        MediaGridItemDTO dto = new MediaGridItemDTO();
+    private MediaGridResponse mapToDTO(TmdbTrendingDTO.TmdbItem item) {
+        MediaGridResponse dto = new MediaGridResponse();
 
         dto.setTmdbId(item.getId());
         dto.setTitle(item.getTitle());
