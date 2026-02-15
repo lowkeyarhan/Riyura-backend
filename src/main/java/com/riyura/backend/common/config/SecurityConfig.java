@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -14,6 +13,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -81,13 +81,19 @@ public class SecurityConfig {
                                 .macAlgorithm(MacAlgorithm.HS256)
                                 .build();
 
-                // 4. Don't validate issuer/audience - Supabase handles this
-                // Only validate the signature and timestamps
-                OAuth2TokenValidator<Jwt> validator = JwtValidators.createDefault();
+                // 4. For Supabase, only validate signature and timestamps, skip issuer
+                // validation
+                OAuth2TokenValidator<Jwt> validator = JwtValidators
+                                .createDefaultWithIssuer("https://jlfcixnfwvyyltasemke.supabase.co/auth/v1");
                 decoder.setJwtValidator(validator);
 
                 System.out.println("JWT Decoder configured with secret length: " + keyBytes.length + " bytes");
 
                 return decoder;
+        }
+
+        @Bean
+        public RestTemplate restTemplate() {
+                return new RestTemplate();
         }
 }

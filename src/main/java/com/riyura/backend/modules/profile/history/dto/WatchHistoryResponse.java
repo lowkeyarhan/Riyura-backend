@@ -1,6 +1,7 @@
 package com.riyura.backend.modules.profile.history.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.riyura.backend.common.model.MediaType;
 import lombok.Data;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -9,7 +10,7 @@ import java.util.UUID;
 // This represents the data we send back to the frontend for each watch history item, mapped from
 
 @Data
-public class WatchHistoryDTO {
+public class WatchHistoryResponse {
 
     private Long id;
 
@@ -22,7 +23,7 @@ public class WatchHistoryDTO {
     private String title;
 
     @JsonProperty("media_type")
-    private String mediaType;
+    private MediaType mediaType;
 
     @JsonProperty("stream_id")
     private String streamId;

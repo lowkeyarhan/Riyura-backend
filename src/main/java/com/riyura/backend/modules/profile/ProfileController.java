@@ -1,7 +1,10 @@
 package com.riyura.backend.modules.profile;
 
-import com.riyura.backend.modules.profile.history.dto.WatchHistoryDTO;
+import com.riyura.backend.modules.profile.history.dto.DeleteWatchHistoryRequest;
+import com.riyura.backend.modules.profile.history.dto.WatchHistoryRequest;
+import com.riyura.backend.modules.profile.history.dto.WatchHistoryResponse;
 import com.riyura.backend.modules.profile.history.service.HistoryService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.ResponseEntity;
@@ -16,6 +19,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
 @RequestMapping("/api/profile")
@@ -32,7 +38,7 @@ public class ProfileController {
         UUID userId = UUID.fromString(userIdString);
         System.out.println("Fetching watch history for user ID: " + userId);
 
-        List<WatchHistoryDTO> history = historyService.getUserWatchHistory(userId);
+        List<WatchHistoryResponse> history = historyService.getUserWatchHistory(userId);
 
         // Wrap in "data" object to generic API responses often used
         Map<String, Object> response = new HashMap<>();
@@ -41,4 +47,29 @@ public class ProfileController {
 
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/history")
+    public ResponseEntity<Map<String, Object>> addOrUpdateHistory(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody WatchHistoryRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        UUID userId = UUID.fromString(jwt.getSubject());
+        WatchHistoryResponse data = historyService.addOrUpdateHistory(userId, request);
+        response.put("success", true);
+        response.put("data", data);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/history")
+    public ResponseEntity<Map<String, Object>> deleteWatchHistory(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody DeleteWatchHistoryRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        UUID userId = UUID.fromString(jwt.getSubject());
+        historyService.deleteWatchHistory(userId, request);
+        response.put("success", true);
+        response.put("message", "History deleted successfully");
+        return ResponseEntity.ok(response);
+    }
+
 }

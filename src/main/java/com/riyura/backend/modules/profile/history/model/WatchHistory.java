@@ -2,6 +2,7 @@ package com.riyura.backend.modules.profile.history.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import com.riyura.backend.common.model.MediaType;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -25,7 +26,8 @@ public class WatchHistory {
     private String title;
 
     @Column(name = "media_type", nullable = false)
-    private String mediaType;
+    @Enumerated(EnumType.STRING)
+    private MediaType mediaType;
 
     @Column(name = "stream_id", nullable = false)
     private String streamId;
@@ -54,6 +56,6 @@ public class WatchHistory {
     @Column(name = "episode_length")
     private Integer episodeLength;
 
-    @Column(name = "watched_at", insertable = false, updatable = false)
+    @Column(name = "watched_at")
     private OffsetDateTime watchedAt;
 }
