@@ -2,7 +2,7 @@ package com.riyura.backend.modules.profile;
 
 import com.riyura.backend.modules.profile.history.dto.DeleteWatchHistoryRequest;
 import com.riyura.backend.modules.profile.history.dto.WatchHistoryRequest;
-import com.riyura.backend.modules.profile.history.dto.WatchHistoryResponse;
+import com.riyura.backend.modules.profile.history.model.WatchHistory;
 import com.riyura.backend.modules.profile.history.service.HistoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +38,7 @@ public class ProfileController {
         UUID userId = UUID.fromString(userIdString);
         System.out.println("Fetching watch history for user ID: " + userId);
 
-        List<WatchHistoryResponse> history = historyService.getUserWatchHistory(userId);
+        List<WatchHistory> history = historyService.getUserWatchHistory(userId);
 
         // Wrap in "data" object to generic API responses often used
         Map<String, Object> response = new HashMap<>();
@@ -54,7 +54,7 @@ public class ProfileController {
             @Valid @RequestBody WatchHistoryRequest request) {
         Map<String, Object> response = new HashMap<>();
         UUID userId = UUID.fromString(jwt.getSubject());
-        WatchHistoryResponse data = historyService.addOrUpdateHistory(userId, request);
+        WatchHistory data = historyService.addOrUpdateHistory(userId, request);
         response.put("success", true);
         response.put("data", data);
         return ResponseEntity.ok(response);
