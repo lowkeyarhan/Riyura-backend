@@ -35,3 +35,32 @@ tmdb:
 # Supabase Security Configuration
 supabase:
   jwt-secret: ${SUPABASE_JWT_SECRET}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    groups-order: ASC
+    operations-sorter: method
+    tags-sorter: alpha
+    disable-swagger-default-url: true
+  group-configs:
+    - group: all
+      paths-to-match:
+        - /api/**
+    - group: profile
+      paths-to-match:
+        - /api/profile/**
+    - group: banner
+      paths-to-match:
+        - /api/banner/**
+    - group: movies
+      paths-to-match:
+        - /api/movies/**
+    - group: tv
+      paths-to-match:
+        - /api/tv/**
+    - group: anime
+      paths-to-match:
+        - /api/anime/**
