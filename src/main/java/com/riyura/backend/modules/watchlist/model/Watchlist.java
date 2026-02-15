@@ -1,25 +1,26 @@
-package com.riyura.backend.modules.profile.history.model;
+package com.riyura.backend.modules.watchlist.model;
 
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import com.riyura.backend.common.model.MediaType;
 import jakarta.persistence.*;
 import lombok.Data;
-import com.riyura.backend.common.model.MediaType;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Data
 @Entity
-@Table(name = "watch_history")
+@Table(name = "watchlist")
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-public class WatchHistory {
+public class Watchlist {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id")
     private UUID userId;
 
     @Column(name = "tmdb_id", nullable = false)
@@ -32,33 +33,21 @@ public class WatchHistory {
     @Enumerated(EnumType.STRING)
     private MediaType mediaType;
 
-    @Column(name = "stream_id", nullable = false)
-    private String streamId;
-
     @Column(name = "poster_path")
     private String posterPath;
-
-    @Column(name = "backdrop_path")
-    private String backdropPath;
 
     @Column(name = "release_date")
     private LocalDate releaseDate;
 
-    @Column(name = "duration_sec")
-    private Integer durationSec;
+    @Column(name = "vote")
+    private BigDecimal vote;
 
-    @Column(name = "season_number")
-    private Integer seasonNumber;
+    @Column(name = "added_at")
+    private OffsetDateTime addedAt;
 
-    @Column(name = "episode_number")
-    private Integer episodeNumber;
+    @Column(name = "number_of_seasons")
+    private Integer numberOfSeasons;
 
-    @Column(name = "episode_name")
-    private String episodeName;
-
-    @Column(name = "episode_length")
-    private Integer episodeLength;
-
-    @Column(name = "watched_at")
-    private OffsetDateTime watchedAt;
+    @Column(name = "number_of_episodes")
+    private Integer numberOfEpisodes;
 }

@@ -13,7 +13,6 @@ import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.modules.profile.history.dto.DeleteWatchHistoryRequest;
 import com.riyura.backend.modules.profile.history.dto.TmdbMetadataDTO;
 import com.riyura.backend.modules.profile.history.dto.WatchHistoryRequest;
-import com.riyura.backend.modules.profile.history.dto.WatchHistoryResponse;
 import com.riyura.backend.modules.profile.history.model.WatchHistory;
 import com.riyura.backend.modules.profile.history.repository.WatchHistoryRepository;
 
@@ -23,7 +22,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -39,16 +37,13 @@ public class HistoryService {
     private String baseUrl;
 
     // Fetches the user's watch history, ordered by most recent first
-    public List<WatchHistoryResponse> getUserWatchHistory(UUID userId) {
-        return watchHistoryRepository.findByUserIdOrderByWatchedAtDesc(userId)
-                .stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
+    public List<WatchHistory> getUserWatchHistory(UUID userId) {
+        return watchHistoryRepository.findByUserIdOrderByWatchedAtDesc(userId);
     }
 
     // Adds a new watch history entry or updates an existing one
     @Transactional
-    public WatchHistoryResponse addOrUpdateHistory(UUID userId, WatchHistoryRequest request) {
+    public WatchHistory addOrUpdateHistory(UUID userId, WatchHistoryRequest request) {
         try {
             // Check if there's an existing history entry for the same TMDB ID and type
             Optional<WatchHistory> existing = watchHistoryRepository.findByUserIdAndTmdbIdAndMediaType(
@@ -86,8 +81,7 @@ public class HistoryService {
             history.setDurationSec(finalDuration);
             history.setWatchedAt(OffsetDateTime.now());
 
-            // Save the history entry and return the response DTO
-            return mapToDTO(watchHistoryRepository.save(history));
+            return watchHistoryRepository.save(history);
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
@@ -211,32 +205,6 @@ public class HistoryService {
             return null;
         }
         return LocalDate.parse(value);
-    }
-
-    // Maps a WatchHistory entity to a WatchHistoryResponse DTO
-    private WatchHistoryResponse mapToDTO(WatchHistory entity) {
-        WatchHistoryResponse dto = new WatchHistoryResponse();
-        dto.setId(entity.getId());
-        dto.setUserId(entity.getUserId());
-        dto.setTmdbId(entity.getTmdbId());
-        dto.setTitle(entity.getTitle());
-        dto.setMediaType(entity.getMediaType());
-        dto.setStreamId(entity.getStreamId());
-        dto.setPosterPath(entity.getPosterPath());
-        dto.setBackdropPath(entity.getBackdropPath());
-
-        if (entity.getReleaseDate() != null) {
-            dto.setReleaseDate(entity.getReleaseDate().toString());
-        }
-
-        dto.setDurationSec(entity.getDurationSec());
-        dto.setSeasonNumber(entity.getSeasonNumber());
-        dto.setEpisodeNumber(entity.getEpisodeNumber());
-        dto.setEpisodeName(entity.getEpisodeName());
-        dto.setEpisodeLength(entity.getEpisodeLength());
-        dto.setWatchedAt(entity.getWatchedAt());
-
-        return dto;
     }
 
 }
