@@ -1,6 +1,9 @@
 package com.riyura.backend.modules.movie.controller;
 
 import com.riyura.backend.common.dto.MediaGridResponse;
+import com.riyura.backend.common.dto.StreamUrlResponse;
+import com.riyura.backend.common.model.MediaType;
+import com.riyura.backend.common.service.StreamUrlService;
 import com.riyura.backend.modules.movie.dto.MovieDetail;
 import com.riyura.backend.modules.movie.service.MovieDetailService;
 import com.riyura.backend.modules.movie.service.MovieService;
@@ -25,6 +28,9 @@ public class MovieController {
 
     @Autowired
     private final MovieDetailService movieDetailsService;
+
+    @Autowired
+    private final StreamUrlService streamUrlService;
 
     // Get Now Playing Movies with a limit (e.g., top 10)
     @GetMapping("/now-playing")
@@ -68,6 +74,12 @@ public class MovieController {
     @GetMapping("details/{id}/similar")
     public ResponseEntity<Map<String, List<MediaGridResponse>>> getSimilarMovies(@PathVariable String id) {
         return wrapResponse(movieDetailsService.getSimilarMovies(id));
+    }
+
+    // Test endpoint: fetch active stream URLs for Movie media type
+    @GetMapping("/stream-urls")
+    public ResponseEntity<List<StreamUrlResponse>> getMovieStreamUrls() {
+        return ResponseEntity.ok(streamUrlService.fetchStreamUrls(MediaType.Movie));
     }
 
     // Helper method to wrap the list in a response map
