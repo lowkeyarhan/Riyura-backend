@@ -1,7 +1,7 @@
 package com.riyura.backend.modules.tv.service;
 
 import com.riyura.backend.common.dto.MediaGridResponse;
-import com.riyura.backend.common.dto.TmdbTrendingDTO;
+import com.riyura.backend.common.dto.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 
 import lombok.RequiredArgsConstructor;
@@ -58,7 +58,7 @@ public class TvService {
     private List<MediaGridResponse> fetchAndMap(String url, int limit) {
         try {
             // Reusing TmdbTrendingDTO
-            TmdbTrendingDTO response = restTemplate.getForObject(url, TmdbTrendingDTO.class);
+            TmdbTrendingResponse response = restTemplate.getForObject(url, TmdbTrendingResponse.class);
 
             // Handle null response or null results
             if (response == null || response.getResults() == null) {
@@ -79,7 +79,7 @@ public class TvService {
     }
 
     // Map TMDB item to our MediaGridItemDTO
-    private MediaGridResponse mapToDTO(TmdbTrendingDTO.TmdbItem item) {
+    private MediaGridResponse mapToDTO(TmdbTrendingResponse.TmdbItem item) {
         MediaGridResponse dto = new MediaGridResponse();
 
         dto.setTmdbId(item.getId());

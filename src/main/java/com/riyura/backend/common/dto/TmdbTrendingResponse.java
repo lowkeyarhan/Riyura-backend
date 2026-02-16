@@ -11,7 +11,7 @@ import java.util.List;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class TmdbTrendingDTO {
+public class TmdbTrendingResponse {
 
     private int page;
     private List<TmdbItem> results;

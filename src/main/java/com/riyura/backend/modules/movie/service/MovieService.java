@@ -1,7 +1,7 @@
 package com.riyura.backend.modules.movie.service;
 
 import com.riyura.backend.common.dto.MediaGridResponse;
-import com.riyura.backend.common.dto.TmdbTrendingDTO;
+import com.riyura.backend.common.dto.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 
 import lombok.RequiredArgsConstructor;
@@ -58,7 +58,7 @@ public class MovieService {
     private List<MediaGridResponse> fetchAndMap(String url, int limit) {
         try {
             // Reusing the DTO we created for the Banner module to read TMDB response
-            TmdbTrendingDTO response = restTemplate.getForObject(url, TmdbTrendingDTO.class);
+            TmdbTrendingResponse response = restTemplate.getForObject(url, TmdbTrendingResponse.class);
 
             // Check if response or results are null to avoid NullPointerException
             if (response == null || response.getResults() == null) {
@@ -80,7 +80,7 @@ public class MovieService {
     }
 
     // Map TMDB item to our MediaGridItemDTO
-    private MediaGridResponse mapToDTO(TmdbTrendingDTO.TmdbItem item) {
+    private MediaGridResponse mapToDTO(TmdbTrendingResponse.TmdbItem item) {
         MediaGridResponse dto = new MediaGridResponse();
 
         dto.setTmdbId(item.getId());
