@@ -8,6 +8,8 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Collections;
@@ -18,7 +20,10 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class MovieDetailService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private static final int TMDB_MAX_RETRIES = 3;
+    private static final long RETRY_BACKOFF_MS = 150L;
+
+    private final RestTemplate restTemplate;
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -34,10 +39,16 @@ public class MovieDetailService {
         try {
             // Fetch details
             CompletableFuture<MovieDetail> detailsTask = CompletableFuture
-                    .supplyAsync(() -> restTemplate.getForObject(detailsUrl, MovieDetail.class));
+                    .supplyAsync(() -> fetchWithRetry(detailsUrl, MovieDetail.class));
             // Fetch casts
             CompletableFuture<CreditsResponse> creditsTask = CompletableFuture
-                    .supplyAsync(() -> restTemplate.getForObject(creditsUrl, CreditsResponse.class));
+                    .supplyAsync(() -> {
+                        try {
+                            return fetchWithRetry(creditsUrl, CreditsResponse.class);
+                        } catch (Exception e) {
+                            return null;
+                        }
+                    });
 
             // Join results
             MovieDetail details = detailsTask.join();
@@ -51,9 +62,45 @@ public class MovieDetailService {
 
             return details;
         } catch (Exception e) {
-            System.err.println("Error fetching movie details for ID " + id + ": " + e.getMessage());
+            System.err.println("Error fetching movie details for ID " + id + ": " + rootMessage(e));
             return null;
         }
+    }
+
+    private <T> T fetchWithRetry(String url, Class<T> type) {
+        ResourceAccessException lastResourceException = null;
+
+        for (int attempt = 1; attempt <= TMDB_MAX_RETRIES; attempt++) {
+            try {
+                return restTemplate.getForObject(url, type);
+            } catch (ResourceAccessException e) {
+                lastResourceException = e;
+                if (attempt == TMDB_MAX_RETRIES) {
+                    throw e;
+                }
+                sleepBeforeRetry();
+            } catch (RestClientException e) {
+                throw e;
+            }
+        }
+
+        throw lastResourceException;
+    }
+
+    private void sleepBeforeRetry() {
+        try {
+            Thread.sleep(RETRY_BACKOFF_MS);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
+        return current.getMessage();
     }
 
     // Inner class to map credits response
