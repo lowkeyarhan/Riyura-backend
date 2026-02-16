@@ -1,6 +1,9 @@
 package com.riyura.backend.modules.tv.controller;
 
 import com.riyura.backend.common.dto.MediaGridResponse;
+import com.riyura.backend.common.dto.StreamUrlResponse;
+import com.riyura.backend.common.model.MediaType;
+import com.riyura.backend.common.service.StreamUrlService;
 import com.riyura.backend.modules.tv.dto.TvShowDetails;
 import com.riyura.backend.modules.tv.service.TvDetailsService;
 import com.riyura.backend.modules.tv.service.TvService;
@@ -20,6 +23,7 @@ public class TvController {
 
     private final TvService tvService;
     private final TvDetailsService tvDetailsService;
+    private final StreamUrlService streamUrlService;
 
     // Get Airing Today TV Shows (Now Playing) with a limit (e.g., top 10)
     @GetMapping("/now-playing")
@@ -63,6 +67,12 @@ public class TvController {
     @GetMapping("details/{id}/similar")
     public ResponseEntity<Map<String, List<MediaGridResponse>>> getSimilarTvShows(@PathVariable String id) {
         return wrapResponse(tvDetailsService.getSimilarTvShows(id));
+    }
+
+    // Test endpoint: fetch active stream URLs for TV media type
+    @GetMapping("/stream-urls")
+    public ResponseEntity<List<StreamUrlResponse>> getTvStreamUrls() {
+        return ResponseEntity.ok(streamUrlService.fetchStreamUrls(MediaType.TV));
     }
 
     // Helper method to wrap the list in a response map
