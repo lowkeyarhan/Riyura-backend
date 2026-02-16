@@ -1,6 +1,9 @@
 package com.riyura.backend.modules.tv.service;
 
 import com.riyura.backend.common.dto.CastDetailsResponse;
+import com.riyura.backend.common.dto.MediaGridResponse;
+import com.riyura.backend.common.dto.TmdbTrendingResponse;
+import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.modules.tv.dto.TvShowDetails;
 
 import lombok.Data;
@@ -11,9 +14,13 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +28,7 @@ public class TvDetailsService {
 
     private static final int TMDB_MAX_RETRIES = 3;
     private static final long RETRY_BACKOFF_MS = 150L;
+    private static final int SIMILAR_LIMIT = 6;
 
     private final RestTemplate restTemplate;
 
@@ -29,6 +37,9 @@ public class TvDetailsService {
 
     @Value("${tmdb.base-url}")
     private String baseUrl;
+
+    @Value("${tmdb.image-base-url}")
+    private String imageBaseUrl;
 
     // Get TV Show Details by ID
     public TvShowDetails getTvDetails(String id) {
@@ -65,6 +76,60 @@ public class TvDetailsService {
         }
     }
 
+    // Get similar TV shows by ID
+    public List<MediaGridResponse> getSimilarTvShows(String id) {
+        String similarUrl = String.format("%s/tv/%s/similar?api_key=%s&language=en-US&page=1", baseUrl, id, apiKey);
+
+        try {
+            // Fetch similar TV shows
+            TmdbTrendingResponse response = fetchWithRetry(similarUrl, TmdbTrendingResponse.class);
+            if (response == null || response.getResults() == null) {
+                return Collections.emptyList();
+            }
+
+            // Sort by vote average (descending) and limit to SIMILAR_LIMIT
+            return response.getResults().stream()
+                    .sorted(Comparator.comparing(
+                            TmdbTrendingResponse.TmdbItem::getVoteAverage,
+                            Comparator.nullsLast(Comparator.reverseOrder())))
+                    .limit(SIMILAR_LIMIT)
+                    .map(this::mapSimilarTvToDTO)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            System.err.println("Error fetching similar TV shows for ID " + id + ": " + rootMessage(e));
+            return Collections.emptyList();
+        }
+    }
+
+    // Helper method to map TMDB item to MediaGridResponse DTO
+    private MediaGridResponse mapSimilarTvToDTO(TmdbTrendingResponse.TmdbItem item) {
+        MediaGridResponse dto = new MediaGridResponse();
+        dto.setTmdbId(item.getId());
+        dto.setTitle(item.getName());
+        dto.setYear(extractYear(item.getFirstAirDate()));
+        dto.setMediaType(MediaType.TV);
+
+        if (item.getPosterPath() != null && !item.getPosterPath().isEmpty()) {
+            dto.setPosterUrl(imageBaseUrl + item.getPosterPath());
+        }
+
+        return dto;
+    }
+
+    // Helper method to extract year from date string
+    private String extractYear(String dateString) {
+        if (dateString == null || dateString.isEmpty()) {
+            return null;
+        }
+
+        try {
+            return String.valueOf(LocalDate.parse(dateString).getYear());
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    // Helper method to fetch data with retry logic for ResourceAccessException
     private <T> T fetchWithRetry(String url, Class<T> type) {
         ResourceAccessException lastResourceException = null;
 
@@ -85,6 +150,7 @@ public class TvDetailsService {
         throw lastResourceException;
     }
 
+    // Helper method to sleep before retrying
     private void sleepBeforeRetry() {
         try {
             Thread.sleep(RETRY_BACKOFF_MS);
@@ -93,6 +159,7 @@ public class TvDetailsService {
         }
     }
 
+    // Helper method to get root cause message from exception
     private String rootMessage(Throwable throwable) {
         Throwable current = throwable;
         while (current.getCause() != null) {
