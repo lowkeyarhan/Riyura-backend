@@ -64,6 +64,12 @@ public class MovieController {
         return ResponseEntity.ok(details);
     }
 
+    // Get Similar Movies by Movie ID (top 6 by vote average)
+    @GetMapping("details/{id}/similar")
+    public ResponseEntity<Map<String, List<MediaGridResponse>>> getSimilarMovies(@PathVariable String id) {
+        return wrapResponse(movieDetailsService.getSimilarMovies(id));
+    }
+
     // Helper method to wrap the list in a response map
     private ResponseEntity<Map<String, List<MediaGridResponse>>> wrapResponse(List<MediaGridResponse> list) {
         Map<String, List<MediaGridResponse>> response = new HashMap<>();

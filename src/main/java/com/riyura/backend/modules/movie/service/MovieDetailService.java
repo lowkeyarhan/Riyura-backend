@@ -2,6 +2,9 @@
 package com.riyura.backend.modules.movie.service;
 
 import com.riyura.backend.common.dto.CastDetailsResponse;
+import com.riyura.backend.common.dto.MediaGridResponse;
+import com.riyura.backend.common.dto.TmdbTrendingResponse;
+import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.modules.movie.dto.MovieDetail;
 
 import lombok.Data;
@@ -12,9 +15,13 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +29,7 @@ public class MovieDetailService {
 
     private static final int TMDB_MAX_RETRIES = 3;
     private static final long RETRY_BACKOFF_MS = 150L;
+    private static final int SIMILAR_LIMIT = 6;
 
     private final RestTemplate restTemplate;
 
@@ -30,6 +38,9 @@ public class MovieDetailService {
 
     @Value("${tmdb.base-url}")
     private String baseUrl;
+
+    @Value("${tmdb.image-base-url}")
+    private String imageBaseUrl;
 
     // Get Movie Details by ID
     public MovieDetail getMovieDetails(String id) {
@@ -67,6 +78,60 @@ public class MovieDetailService {
         }
     }
 
+    // Get similar movies by ID
+    public List<MediaGridResponse> getSimilarMovies(String id) {
+        String similarUrl = String.format("%s/movie/%s/similar?api_key=%s&language=en-US&page=1", baseUrl, id, apiKey);
+
+        try {
+            // Fetch similar movies
+            TmdbTrendingResponse response = fetchWithRetry(similarUrl, TmdbTrendingResponse.class);
+            if (response == null || response.getResults() == null) {
+                return Collections.emptyList();
+            }
+
+            // Sort by vote average (descending) and limit to SIMILAR_LIMIT
+            return response.getResults().stream()
+                    .sorted(Comparator.comparing(
+                            TmdbTrendingResponse.TmdbItem::getVoteAverage,
+                            Comparator.nullsLast(Comparator.reverseOrder())))
+                    .limit(SIMILAR_LIMIT)
+                    .map(this::mapSimilarMovieToDTO)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            System.err.println("Error fetching similar movies for ID " + id + ": " + rootMessage(e));
+            return Collections.emptyList();
+        }
+    }
+
+    // Helper method to map TMDB item to MediaGridResponse DTO
+    private MediaGridResponse mapSimilarMovieToDTO(TmdbTrendingResponse.TmdbItem item) {
+        MediaGridResponse dto = new MediaGridResponse();
+        dto.setTmdbId(item.getId());
+        dto.setTitle(item.getTitle());
+        dto.setYear(extractYear(item.getReleaseDate()));
+        dto.setMediaType(MediaType.Movie);
+
+        if (item.getPosterPath() != null && !item.getPosterPath().isEmpty()) {
+            dto.setPosterUrl(imageBaseUrl + item.getPosterPath());
+        }
+
+        return dto;
+    }
+
+    // Helper method to extract year from date string
+    private String extractYear(String dateString) {
+        if (dateString == null || dateString.isEmpty()) {
+            return null;
+        }
+
+        try {
+            return String.valueOf(LocalDate.parse(dateString).getYear());
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    // Helper method to fetch data with retry logic for ResourceAccessException
     private <T> T fetchWithRetry(String url, Class<T> type) {
         ResourceAccessException lastResourceException = null;
 
@@ -87,6 +152,7 @@ public class MovieDetailService {
         throw lastResourceException;
     }
 
+    // Helper method to sleep before retrying
     private void sleepBeforeRetry() {
         try {
             Thread.sleep(RETRY_BACKOFF_MS);
@@ -95,6 +161,7 @@ public class MovieDetailService {
         }
     }
 
+    // Helper method to get root cause message from exception
     private String rootMessage(Throwable throwable) {
         Throwable current = throwable;
         while (current.getCause() != null) {
