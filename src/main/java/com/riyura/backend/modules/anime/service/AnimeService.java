@@ -1,7 +1,7 @@
 package com.riyura.backend.modules.anime.service;
 
 import com.riyura.backend.common.dto.MediaGridResponse;
-import com.riyura.backend.common.dto.TmdbTrendingDTO;
+import com.riyura.backend.common.dto.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -76,7 +76,7 @@ public class AnimeService {
     // Common method to fetch data from TMDB and wrap in AnimeHelper
     private List<AnimeHelper> fetchAndWrap(String url, MediaType type) {
         try {
-            TmdbTrendingDTO response = restTemplate.getForObject(url, TmdbTrendingDTO.class);
+            TmdbTrendingResponse response = restTemplate.getForObject(url, TmdbTrendingResponse.class);
             if (response == null || response.getResults() == null) {
                 return Collections.emptyList();
             }
@@ -94,7 +94,7 @@ public class AnimeService {
 
     // Map AnimeHelper to MediaGridResponse DTO
     private MediaGridResponse mapToDTO(AnimeHelper helper) {
-        TmdbTrendingDTO.TmdbItem item = helper.tmdbItem;
+        TmdbTrendingResponse.TmdbItem item = helper.tmdbItem;
         MediaGridResponse dto = new MediaGridResponse();
 
         dto.setTmdbId(item.getId());
@@ -128,6 +128,6 @@ public class AnimeService {
     }
 
     // Helper record to keep track of MediaType before merging lists
-    private record AnimeHelper(TmdbTrendingDTO.TmdbItem tmdbItem, MediaType type) {
+    private record AnimeHelper(TmdbTrendingResponse.TmdbItem tmdbItem, MediaType type) {
     }
 }

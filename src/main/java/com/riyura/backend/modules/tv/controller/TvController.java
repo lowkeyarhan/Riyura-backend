@@ -1,6 +1,8 @@
 package com.riyura.backend.modules.tv.controller;
 
 import com.riyura.backend.common.dto.MediaGridResponse;
+import com.riyura.backend.modules.tv.dto.TvShowDetails;
+import com.riyura.backend.modules.tv.service.TvDetailsService;
 import com.riyura.backend.modules.tv.service.TvService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,7 @@ import java.util.Map;
 public class TvController {
 
     private final TvService tvService;
+    private final TvDetailsService tvDetailsService;
 
     // Get Airing Today TV Shows (Now Playing) with a limit (e.g., top 10)
     @GetMapping("/now-playing")
@@ -44,6 +47,16 @@ public class TvController {
     public ResponseEntity<Map<String, List<MediaGridResponse>>> getUpcoming(
             @RequestParam(defaultValue = "12") int limit) {
         return wrapResponse(tvService.getOnTheAir(limit));
+    }
+
+    // Get TV Show Details by ID
+    @GetMapping("details/{id}")
+    public ResponseEntity<TvShowDetails> getTvById(@PathVariable String id) {
+        TvShowDetails details = tvDetailsService.getTvDetails(id);
+        if (details == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(details);
     }
 
     // Helper method to wrap the list in a response map

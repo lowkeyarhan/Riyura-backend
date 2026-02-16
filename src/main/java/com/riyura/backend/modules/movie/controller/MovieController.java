@@ -1,6 +1,8 @@
 package com.riyura.backend.modules.movie.controller;
 
 import com.riyura.backend.common.dto.MediaGridResponse;
+import com.riyura.backend.modules.movie.dto.MovieDetail;
+import com.riyura.backend.modules.movie.service.MovieDetailService;
 import com.riyura.backend.modules.movie.service.MovieService;
 import lombok.RequiredArgsConstructor;
 
@@ -20,6 +22,9 @@ public class MovieController {
 
     @Autowired
     private final MovieService movieService;
+
+    @Autowired
+    private final MovieDetailService movieDetailsService;
 
     // Get Now Playing Movies with a limit (e.g., top 10)
     @GetMapping("/now-playing")
@@ -47,6 +52,16 @@ public class MovieController {
     public ResponseEntity<Map<String, List<MediaGridResponse>>> getUpcoming(
             @RequestParam(defaultValue = "12") int limit) {
         return wrapResponse(movieService.getUpcomingMovies(limit));
+    }
+
+    // Get Movie Details by ID
+    @GetMapping("details/{id}")
+    public ResponseEntity<MovieDetail> getMovieById(@PathVariable String id) {
+        MovieDetail details = movieDetailsService.getMovieDetails(id);
+        if (details == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(details);
     }
 
     // Helper method to wrap the list in a response map

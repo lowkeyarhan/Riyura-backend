@@ -1,6 +1,6 @@
 package com.riyura.backend.modules.banner.service;
 
-import com.riyura.backend.common.dto.TmdbTrendingDTO;
+import com.riyura.backend.common.dto.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.modules.banner.dto.BannerResponse;
 import lombok.RequiredArgsConstructor;
@@ -97,7 +97,7 @@ public class BannerService {
     // Common method to fetch data from TMDB and map to BannerResponse
     private List<BannerResponse> fetchAndMap(String url, MediaType type) {
         try {
-            TmdbTrendingDTO response = restTemplate.getForObject(url, TmdbTrendingDTO.class);
+            TmdbTrendingResponse response = restTemplate.getForObject(url, TmdbTrendingResponse.class);
             if (response == null || response.getResults() == null) {
                 return Collections.emptyList();
             }
@@ -112,7 +112,7 @@ public class BannerService {
     }
 
     // Map a TMDB item to our BannerResponse model
-    private BannerResponse mapItemToBanner(TmdbTrendingDTO.TmdbItem item, MediaType type) {
+    private BannerResponse mapItemToBanner(TmdbTrendingResponse.TmdbItem item, MediaType type) {
         BannerResponse model = new BannerResponse();
 
         model.setId(item.getId());
