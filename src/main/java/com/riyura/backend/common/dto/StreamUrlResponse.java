@@ -1,13 +1,13 @@
 package com.riyura.backend.common.dto;
 
-import java.time.OffsetDateTime;
-
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.riyura.backend.common.model.MediaType;
 
 import lombok.Data;
 
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class StreamUrlResponse {
 
     private String id;
@@ -26,9 +26,4 @@ public class StreamUrlResponse {
 
     private Integer priority;
 
-    @JsonProperty("created_at")
-    private OffsetDateTime createdAt;
-
-    @JsonProperty("updated_at")
-    private OffsetDateTime updatedAt;
 }
