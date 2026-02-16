@@ -4,8 +4,10 @@ import com.riyura.backend.common.dto.MediaGridResponse;
 import com.riyura.backend.common.dto.StreamUrlResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.StreamUrlService;
+import com.riyura.backend.modules.tv.dto.TvPlayerResponse;
 import com.riyura.backend.modules.tv.dto.TvShowDetails;
 import com.riyura.backend.modules.tv.service.TvDetailsService;
+import com.riyura.backend.modules.tv.service.TvPlayerService;
 import com.riyura.backend.modules.tv.service.TvService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,7 @@ public class TvController {
 
     private final TvService tvService;
     private final TvDetailsService tvDetailsService;
+    private final TvPlayerService tvPlayerService;
     private final StreamUrlService streamUrlService;
 
     // Get Airing Today TV Shows (Now Playing) with a limit (e.g., top 10)
@@ -67,6 +70,15 @@ public class TvController {
     @GetMapping("details/{id}/similar")
     public ResponseEntity<Map<String, List<MediaGridResponse>>> getSimilarTvShows(@PathVariable String id) {
         return wrapResponse(tvDetailsService.getSimilarTvShows(id));
+    }
+
+    @GetMapping("/player/{id}")
+    public ResponseEntity<TvPlayerResponse> getTvPlayer(@PathVariable String id) {
+        TvPlayerResponse playerResponse = tvPlayerService.getTvPlayer(id);
+        if (playerResponse == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(playerResponse);
     }
 
     // Test endpoint: fetch active stream URLs for TV media type

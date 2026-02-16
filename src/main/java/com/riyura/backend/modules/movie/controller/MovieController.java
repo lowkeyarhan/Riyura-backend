@@ -5,7 +5,9 @@ import com.riyura.backend.common.dto.StreamUrlResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.StreamUrlService;
 import com.riyura.backend.modules.movie.dto.MovieDetail;
+import com.riyura.backend.modules.movie.dto.MoviePlayerResponse;
 import com.riyura.backend.modules.movie.service.MovieDetailService;
+import com.riyura.backend.modules.movie.service.MoviePlayerService;
 import com.riyura.backend.modules.movie.service.MovieService;
 import lombok.RequiredArgsConstructor;
 
@@ -28,6 +30,9 @@ public class MovieController {
 
     @Autowired
     private final MovieDetailService movieDetailsService;
+
+    @Autowired
+    private final MoviePlayerService moviePlayerService;
 
     @Autowired
     private final StreamUrlService streamUrlService;
@@ -74,6 +79,16 @@ public class MovieController {
     @GetMapping("details/{id}/similar")
     public ResponseEntity<Map<String, List<MediaGridResponse>>> getSimilarMovies(@PathVariable String id) {
         return wrapResponse(movieDetailsService.getSimilarMovies(id));
+    }
+
+    // Get Movie Player Info by ID
+    @GetMapping("/player/{id}")
+    public ResponseEntity<MoviePlayerResponse> getMoviePlayer(@PathVariable String id) {
+        MoviePlayerResponse playerResponse = moviePlayerService.getMoviePlayer(id);
+        if (playerResponse == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(playerResponse);
     }
 
     // Test endpoint: fetch active stream URLs for Movie media type

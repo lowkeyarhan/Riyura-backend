@@ -46,8 +46,6 @@ public class StreamUrlService {
                         response.setQuality(rs.getString("quality"));
                         response.setIsActive(rs.getObject("is_active", Boolean.class));
                         response.setPriority(rs.getObject("priority", Integer.class));
-                        response.setCreatedAt(readOffsetDateTime(rs.getObject("created_at")));
-                        response.setUpdatedAt(readOffsetDateTime(rs.getObject("updated_at")));
                         return response;
                     },
                     mediaType.name());
@@ -74,6 +72,8 @@ public class StreamUrlService {
                 "Unsupported media_type in stream_urls: " + value);
     }
 
+    // Helper method to read OffsetDateTime from ResultSet, handling both
+    // OffsetDateTime and Timestamp types
     private OffsetDateTime readOffsetDateTime(Object value) {
         if (value == null) {
             return null;
