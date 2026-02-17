@@ -42,6 +42,7 @@ public class SecurityConfig {
                                                                 "/api/banner/**",
                                                                 "/api/movies/**",
                                                                 "/api/tv/**",
+                                                                "/api/search/**",
                                                                 "/api/anime/**")
                                                 .permitAll()
 
