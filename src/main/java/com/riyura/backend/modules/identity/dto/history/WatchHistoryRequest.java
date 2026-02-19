@@ -31,6 +31,9 @@ public class WatchHistoryRequest {
     @JsonProperty("episode_number")
     private Integer episodeNumber;
 
+    @JsonProperty("is_anime")
+    private Boolean isAnime;
+
     @JsonIgnore
     @AssertTrue(message = "season_number and episode_number are required for TV history")
     public boolean isTvEpisodeValid() {

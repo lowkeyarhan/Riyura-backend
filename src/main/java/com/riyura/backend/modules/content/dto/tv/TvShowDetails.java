@@ -42,6 +42,9 @@ public class TvShowDetails {
     @JsonProperty("origin_country")
     private List<String> originCountry;
 
+    @JsonProperty("original_language")
+    private String originalLanguage;
+
     private Long revenue;
     private Integer runtime;
     private String status;
@@ -61,6 +64,9 @@ public class TvShowDetails {
         }
         this.runtime = episodeRunTime.get(0);
     }
+
+    @JsonProperty("is_anime")
+    private boolean anime;
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)

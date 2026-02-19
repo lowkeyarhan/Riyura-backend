@@ -29,6 +29,11 @@ public class TmdbMetadataDTO {
     @JsonProperty("first_air_date")
     private String firstAirDate;
 
+    @JsonProperty("original_language")
+    private String originalLanguage;
+
+    private List<Genre> genres;
+
     @JsonProperty("runtime")
     private Integer runtime;
 
@@ -54,5 +59,12 @@ public class TmdbMetadataDTO {
             return episodeRunTime.get(0);
         }
         return null;
+    }
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class Genre {
+        private Long id;
+        private String name;
     }
 }

@@ -19,6 +19,7 @@ import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -67,6 +68,7 @@ public class TvDetailsService {
             if (details != null) {
                 details.setCasts(
                         credits != null && credits.getCast() != null ? credits.getCast() : Collections.emptyList());
+                details.setAnime(isAnime(details));
             }
 
             return details;
@@ -166,6 +168,24 @@ public class TvDetailsService {
             current = current.getCause();
         }
         return current.getMessage();
+    }
+
+    private boolean isAnime(TvShowDetails details) {
+        return isJapaneseLanguage(details.getOriginalLanguage()) && hasAnimationGenre(details.getGenres());
+    }
+
+    private boolean isJapaneseLanguage(String originalLanguage) {
+        return "ja".equalsIgnoreCase(originalLanguage);
+    }
+
+    private boolean hasAnimationGenre(List<TvShowDetails.Genre> genres) {
+        if (genres == null || genres.isEmpty()) {
+            return false;
+        }
+        return genres.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(genre -> "Animation".equals(genre.getName())
+                        || (genre.getId() != null && genre.getId() == 16));
     }
 
     // Inner class to map credits response
