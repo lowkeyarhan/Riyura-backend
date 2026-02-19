@@ -34,24 +34,19 @@ public class MoviePlayerService {
     @Value("${tmdb.base-url}")
     private String baseUrl;
 
-    // Get Movie Player Info by ID
     public MoviePlayerResponse getMoviePlayer(String id) {
         String detailsUrl = String.format("%s/movie/%s?api_key=%s&language=en-US", baseUrl, id, apiKey);
 
         try {
-            // Fetch details
             CompletableFuture<MovieDetail> detailsTask = CompletableFuture
                     .supplyAsync(() -> fetchWithRetry(detailsUrl, MovieDetail.class));
 
-            // Fetch stream URLs
             CompletableFuture<List<StreamUrlResponse>> streamUrlsTask = CompletableFuture
                     .supplyAsync(() -> streamUrlService.fetchStreamUrls(MediaType.Movie));
 
-            // Wait for both tasks to complete
             MovieDetail details = detailsTask.join();
             List<StreamUrlResponse> streamUrls = streamUrlsTask.join();
 
-            // If details is null, return null (e.g., movie not found)
             if (details == null) {
                 return null;
             }
@@ -63,7 +58,6 @@ public class MoviePlayerService {
         }
     }
 
-    // Helper method to extract the root cause message from an exception
     private MoviePlayerResponse mapToPlayerResponse(MovieDetail details, List<StreamUrlResponse> streamUrls) {
         MoviePlayerResponse response = new MoviePlayerResponse();
         response.setTmdbId(details.getTmdbId());
@@ -78,10 +72,29 @@ public class MoviePlayerService {
                         .toList();
         response.setGenres(genreNames);
 
+        response.setAnime(isAnime(details));
+
         return response;
     }
 
-    // Helper method to fetch data with retry logic for ResourceAccessException
+    private boolean isAnime(MovieDetail details) {
+        return isJapaneseLanguage(details.getOriginalLanguage()) && hasAnimationGenre(details.getGenres());
+    }
+
+    private boolean isJapaneseLanguage(String originalLanguage) {
+        return "ja".equalsIgnoreCase(originalLanguage);
+    }
+
+    private boolean hasAnimationGenre(List<MovieDetail.Genre> genres) {
+        if (genres == null || genres.isEmpty()) {
+            return false;
+        }
+        return genres.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(genre -> "Animation".equals(genre.getName())
+                        || (genre.getId() != null && genre.getId() == 16));
+    }
+
     private <T> T fetchWithRetry(String url, Class<T> type) {
         ResourceAccessException lastResourceException = null;
 
@@ -102,7 +115,6 @@ public class MoviePlayerService {
         throw lastResourceException;
     }
 
-    // Helper method to sleep before retrying
     private void sleepBeforeRetry() {
         try {
             Thread.sleep(RETRY_BACKOFF_MS);
@@ -111,7 +123,6 @@ public class MoviePlayerService {
         }
     }
 
-    // Helper method to extract the root cause message from an exception
     private String rootMessage(Throwable throwable) {
         Throwable current = throwable;
         while (current.getCause() != null) {

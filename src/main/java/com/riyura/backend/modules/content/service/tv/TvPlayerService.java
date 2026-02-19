@@ -34,24 +34,19 @@ public class TvPlayerService {
     @Value("${tmdb.base-url}")
     private String baseUrl;
 
-    // Get TV Player Info by ID
     public TvPlayerResponse getTvPlayer(String id) {
         String detailsUrl = String.format("%s/tv/%s?api_key=%s&language=en-US", baseUrl, id, apiKey);
 
         try {
-            // Fetch details
             CompletableFuture<TvShowDetails> detailsTask = CompletableFuture
                     .supplyAsync(() -> fetchWithRetry(detailsUrl, TvShowDetails.class));
 
-            // Fetch stream URLs
             CompletableFuture<List<StreamUrlResponse>> streamUrlsTask = CompletableFuture
                     .supplyAsync(() -> streamUrlService.fetchStreamUrls(MediaType.TV));
 
-            // Wait for both tasks to complete
             TvShowDetails details = detailsTask.join();
             List<StreamUrlResponse> streamUrls = streamUrlsTask.join();
 
-            // If details is null, return null (e.g., TV show not found)
             if (details == null) {
                 return null;
             }
@@ -63,7 +58,6 @@ public class TvPlayerService {
         }
     }
 
-    // Helper method to fetch data with retry logic for ResourceAccessException
     private TvPlayerResponse mapToPlayerResponse(TvShowDetails details, List<StreamUrlResponse> streamUrls) {
         TvPlayerResponse response = new TvPlayerResponse();
         response.setTmdbId(details.getTmdbId());
@@ -71,7 +65,6 @@ public class TvPlayerService {
         response.setOverview(details.getOverview());
         response.setStreamUrls(streamUrls == null ? List.of() : streamUrls);
 
-        // Extract genre names, filtering out nulls
         List<String> genreNames = details.getGenres() == null ? List.of()
                 : details.getGenres().stream()
                         .map(TvShowDetails.Genre::getName)
@@ -79,7 +72,6 @@ public class TvPlayerService {
                         .toList();
         response.setGenres(genreNames);
 
-        // Filter seasons to exclude nulls and season_number == 0 (specials)
         List<TvShowDetails.Season> filteredSeasons = details.getSeasons() == null ? List.of()
                 : details.getSeasons().stream()
                         .filter(Objects::nonNull)
@@ -87,10 +79,29 @@ public class TvPlayerService {
                         .toList();
         response.setSeasons(filteredSeasons);
 
+        response.setAnime(isAnime(details));
+
         return response;
     }
 
-    // Helper method to fetch data with retry logic for ResourceAccessException
+    private boolean isAnime(TvShowDetails details) {
+        return isJapaneseLanguage(details.getOriginalLanguage()) && hasAnimationGenre(details.getGenres());
+    }
+
+    private boolean isJapaneseLanguage(String originalLanguage) {
+        return "ja".equalsIgnoreCase(originalLanguage);
+    }
+
+    private boolean hasAnimationGenre(List<TvShowDetails.Genre> genres) {
+        if (genres == null || genres.isEmpty()) {
+            return false;
+        }
+        return genres.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(genre -> "Animation".equals(genre.getName())
+                        || (genre.getId() != null && genre.getId() == 16));
+    }
+
     private <T> T fetchWithRetry(String url, Class<T> type) {
         ResourceAccessException lastResourceException = null;
 
@@ -111,7 +122,6 @@ public class TvPlayerService {
         throw lastResourceException;
     }
 
-    // Helper method to sleep before retrying
     private void sleepBeforeRetry() {
         try {
             Thread.sleep(RETRY_BACKOFF_MS);
@@ -120,7 +130,6 @@ public class TvPlayerService {
         }
     }
 
-    // Helper method to extract the root cause message from an exception
     private String rootMessage(Throwable throwable) {
         Throwable current = throwable;
         while (current.getCause() != null) {

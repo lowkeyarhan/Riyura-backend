@@ -32,6 +32,9 @@ public class MovieDetail {
     @JsonProperty("release_date")
     private String releaseDate;
 
+    @JsonProperty("original_language")
+    private String originalLanguage;
+
     private Long revenue;
     private Integer runtime;
     private String status;
@@ -41,6 +44,9 @@ public class MovieDetail {
     private Double voteAverage;
 
     private List<CastDetailsResponse> casts;
+
+    @JsonProperty("is_anime")
+    private boolean anime;
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)

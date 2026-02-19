@@ -36,31 +36,25 @@ public class HistoryService {
     @Value("${tmdb.base-url}")
     private String baseUrl;
 
-    // Fetches the user's watch history, ordered by most recent first
     public List<WatchHistory> getUserWatchHistory(UUID userId) {
         return watchHistoryRepository.findByUserIdOrderByWatchedAtDesc(userId);
     }
 
-    // Adds a new watch history entry or updates an existing one
     @Transactional
     public WatchHistory addOrUpdateHistory(UUID userId, WatchHistoryRequest request) {
         try {
-            // Check if there's an existing history entry for the same TMDB ID and type
             Optional<WatchHistory> existing = watchHistoryRepository.findByUserIdAndTmdbIdAndMediaType(
                     userId, request.getTmdbId(), request.getMediaType());
 
-            // For TV shows, we consider it the same context if season and episode match
             WatchHistory history = existing.orElse(new WatchHistory());
             boolean sameContext = isSameContext(history, request, existing.isPresent());
             int requestedDuration = request.getDurationSec() != null ? request.getDurationSec() : 0;
             int finalDuration = requestedDuration;
 
-            // If it's the same context, we can accumulate the duration
             if (existing.isPresent() && sameContext) {
                 finalDuration += history.getDurationSec() != null ? history.getDurationSec() : 0;
             }
 
-            // If it's a different context, we should fetch metadata again
             if (existing.isEmpty()) {
                 history.setUserId(userId);
                 history.setTmdbId(request.getTmdbId());
@@ -68,7 +62,6 @@ public class HistoryService {
                 sameContext = false;
             }
 
-            // For new entries or context changes, fetch metadata from TMDB
             TmdbMetadataDTO metadata = null;
             if (existing.isEmpty() || (request.getMediaType() == MediaType.TV && !sameContext)) {
                 metadata = fetchMetadataFromTmdb(request.getTmdbId(), request.getMediaType(),
@@ -76,10 +69,15 @@ public class HistoryService {
                 applyMetadata(history, request, metadata);
             }
 
-            // Update stream and duration for both new and existing entries
             history.setStreamId(request.getStreamId());
             history.setDurationSec(finalDuration);
             history.setWatchedAt(OffsetDateTime.now());
+
+            if (metadata != null) {
+                history.setIsAnime(isAnime(metadata));
+            } else if (history.getIsAnime() == null) {
+                history.setIsAnime(false);
+            }
 
             return watchHistoryRepository.save(history);
         } catch (ResponseStatusException e) {
@@ -89,19 +87,14 @@ public class HistoryService {
         }
     }
 
-    // Deletes a watch history entry based on the provided TMDB ID and context
     @Transactional
     public void deleteWatchHistory(UUID userId, DeleteWatchHistoryRequest request) {
         try {
-            // Find the existing history entry for the given TMDB ID, media type, and user
             Optional<WatchHistory> existing = watchHistoryRepository.findByUserIdAndTmdbIdAndMediaType(
                     userId, request.getTmdbId(), request.getMediaType());
 
-            // For TV shows, we need to ensure we match the correct season and episode
             WatchHistory history = existing.orElseThrow(
                     () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Watch history entry not found"));
-            // For TV shows, we should only delete if the season and episode match the
-            // request context
             watchHistoryRepository.delete(history);
         } catch (ResponseStatusException e) {
             throw e;
@@ -110,7 +103,6 @@ public class HistoryService {
         }
     }
 
-    // Helper method to fetch metadata from TMDB based on media type and context
     private TmdbMetadataDTO fetchMetadataFromTmdb(Long id, MediaType type, Integer seasonNumber,
             Integer episodeNumber) {
         try {
@@ -123,27 +115,23 @@ public class HistoryService {
                             "season_number and episode_number are required for TV history");
                 }
 
-                // First fetch the show metadata to get the title and poster, then fetch the
-                // episode metadata for specific details
                 String showUrl = String.format("%s/tv/%d?api_key=%s", baseUrl, id, apiKey);
                 TmdbMetadataDTO showData = restTemplate.getForObject(showUrl, TmdbMetadataDTO.class);
 
-                // Then fetch episode details
                 String episodeUrl = String.format("%s/tv/%d/season/%d/episode/%d?api_key=%s",
                         baseUrl, id, seasonNumber, episodeNumber, apiKey);
                 TmdbMetadataDTO episodeData = restTemplate.getForObject(episodeUrl, TmdbMetadataDTO.class);
 
-                // If we can't fetch either the show or episode data, we should throw an error
                 if (showData == null || episodeData == null) {
                     throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to fetch TV metadata from TMDB");
                 }
 
-                // Populate episodeData with show-level metadata for title and poster if not
-                // present
                 episodeData.setTitle(showData.getName());
                 episodeData.setPosterPath(showData.getPosterPath());
                 episodeData.setBackdropPath(showData.getBackdropPath());
                 episodeData.setReleaseDate(showData.getFirstAirDate());
+                episodeData.setOriginalLanguage(showData.getOriginalLanguage());
+                episodeData.setGenres(showData.getGenres());
                 episodeData.setShowId(id);
                 episodeData.setEpisodeName(episodeData.getName());
                 if (episodeData.getRuntime() == null) {
@@ -158,8 +146,6 @@ public class HistoryService {
         }
     }
 
-    // Determines if the existing history entry is for the same context (same movie
-    // or same TV episode)
     private boolean isSameContext(WatchHistory history, WatchHistoryRequest request, boolean existing) {
         if (!existing) {
             return false;
@@ -171,8 +157,6 @@ public class HistoryService {
                 && Objects.equals(history.getEpisodeNumber(), request.getEpisodeNumber());
     }
 
-    // Applies metadata from TMDB to the WatchHistory entity based on the media type
-    // and context
     private void applyMetadata(WatchHistory history, WatchHistoryRequest request, TmdbMetadataDTO metadata) {
         if (metadata == null) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to fetch metadata from TMDB");
@@ -199,7 +183,6 @@ public class HistoryService {
         history.setEpisodeLength(runtimeMinutes != null ? runtimeMinutes * 60 : null);
     }
 
-    // Parses a date string in ISO format
     private LocalDate parseDate(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -207,4 +190,21 @@ public class HistoryService {
         return LocalDate.parse(value);
     }
 
+    private boolean isAnime(TmdbMetadataDTO metadata) {
+        return isJapaneseLanguage(metadata.getOriginalLanguage()) && hasAnimationGenre(metadata.getGenres());
+    }
+
+    private boolean isJapaneseLanguage(String originalLanguage) {
+        return "ja".equalsIgnoreCase(originalLanguage);
+    }
+
+    private boolean hasAnimationGenre(List<TmdbMetadataDTO.Genre> genres) {
+        if (genres == null || genres.isEmpty()) {
+            return false;
+        }
+        return genres.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(genre -> "Animation".equals(genre.getName())
+                        || (genre.getId() != null && genre.getId() == 16));
+    }
 }

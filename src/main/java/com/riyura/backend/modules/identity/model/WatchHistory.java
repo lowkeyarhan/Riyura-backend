@@ -61,4 +61,7 @@ public class WatchHistory {
 
     @Column(name = "watched_at")
     private OffsetDateTime watchedAt;
+
+    @Column(name = "is_anime")
+    private Boolean isAnime;
 }
