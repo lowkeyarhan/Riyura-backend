@@ -18,9 +18,9 @@ public class WatchHistoryRequest {
     @JsonProperty("media_type")
     private MediaType mediaType;
 
-    @NotBlank(message = "stream_id is required")
-    @JsonProperty("stream_id")
-    private String streamId;
+    @NotBlank(message = "provider_id is required")
+    @JsonProperty("provider_id")
+    private String providerId;
 
     @JsonProperty("duration_sec")
     private Integer durationSec;

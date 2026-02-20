@@ -69,7 +69,7 @@ public class HistoryService {
                 applyMetadata(history, request, metadata);
             }
 
-            history.setStreamId(request.getStreamId());
+            history.setProviderId(request.getProviderId());
             history.setDurationSec(finalDuration);
             history.setWatchedAt(OffsetDateTime.now());
 

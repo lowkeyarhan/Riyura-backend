@@ -2,7 +2,6 @@ package com.riyura.backend.modules.content.service.tv;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -10,9 +9,6 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import com.riyura.backend.common.dto.StreamUrlResponse;
-import com.riyura.backend.common.model.MediaType;
-import com.riyura.backend.common.service.StreamUrlService;
 import com.riyura.backend.modules.content.dto.tv.TvPlayerResponse;
 import com.riyura.backend.modules.content.dto.tv.TvShowDetails;
 
@@ -26,7 +22,6 @@ public class TvPlayerService {
     private static final long RETRY_BACKOFF_MS = 150L;
 
     private final RestTemplate restTemplate;
-    private final StreamUrlService streamUrlService;
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -38,32 +33,24 @@ public class TvPlayerService {
         String detailsUrl = String.format("%s/tv/%s?api_key=%s&language=en-US", baseUrl, id, apiKey);
 
         try {
-            CompletableFuture<TvShowDetails> detailsTask = CompletableFuture
-                    .supplyAsync(() -> fetchWithRetry(detailsUrl, TvShowDetails.class));
-
-            CompletableFuture<List<StreamUrlResponse>> streamUrlsTask = CompletableFuture
-                    .supplyAsync(() -> streamUrlService.fetchStreamUrls(MediaType.TV));
-
-            TvShowDetails details = detailsTask.join();
-            List<StreamUrlResponse> streamUrls = streamUrlsTask.join();
+            TvShowDetails details = fetchWithRetry(detailsUrl, TvShowDetails.class);
 
             if (details == null) {
                 return null;
             }
 
-            return mapToPlayerResponse(details, streamUrls);
+            return mapToPlayerResponse(details);
         } catch (Exception e) {
             System.err.println("Error fetching TV player payload for ID " + id + ": " + rootMessage(e));
             return null;
         }
     }
 
-    private TvPlayerResponse mapToPlayerResponse(TvShowDetails details, List<StreamUrlResponse> streamUrls) {
+    private TvPlayerResponse mapToPlayerResponse(TvShowDetails details) {
         TvPlayerResponse response = new TvPlayerResponse();
         response.setTmdbId(details.getTmdbId());
         response.setTitle(details.getTitle());
         response.setOverview(details.getOverview());
-        response.setStreamUrls(streamUrls == null ? List.of() : streamUrls);
 
         List<String> genreNames = details.getGenres() == null ? List.of()
                 : details.getGenres().stream()
