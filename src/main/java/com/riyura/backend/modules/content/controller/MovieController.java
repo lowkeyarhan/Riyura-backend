@@ -1,6 +1,7 @@
 package com.riyura.backend.modules.content.controller;
 
 import com.riyura.backend.common.dto.MediaGridResponse;
+import com.riyura.backend.common.dto.StreamProviderRequest;
 import com.riyura.backend.common.dto.StreamUrlResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.StreamUrlService;
@@ -92,10 +93,11 @@ public class MovieController {
         return ResponseEntity.ok(playerResponse);
     }
 
-    // Test endpoint: fetch active stream URLs for Movie media type
-    @GetMapping("/stream-urls")
-    public ResponseEntity<List<StreamUrlResponse>> getMovieStreamUrls() {
-        return ResponseEntity.ok(streamUrlService.fetchStreamUrls(MediaType.Movie));
+
+    // Build fully-constructed stream URLs for a specific movie
+    @PostMapping("/stream")
+    public ResponseEntity<List<StreamUrlResponse>> getMovieStream(@RequestBody StreamProviderRequest request) {
+        return ResponseEntity.ok(streamUrlService.buildStreamUrls(request, MediaType.Movie));
     }
 
     // Helper method to wrap the list in a response map
