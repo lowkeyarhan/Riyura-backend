@@ -1,6 +1,6 @@
 package com.riyura.backend.modules.content.service.banner;
 
-import com.riyura.backend.common.dto.TmdbTrendingResponse;
+import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.banner.BannerResponse;

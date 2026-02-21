@@ -1,4 +1,4 @@
-package com.riyura.backend.common.dto;
+package com.riyura.backend.common.dto.tmdb;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;

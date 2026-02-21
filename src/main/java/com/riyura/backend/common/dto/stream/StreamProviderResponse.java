@@ -1,4 +1,4 @@
-package com.riyura.backend.common.dto;
+package com.riyura.backend.common.dto.stream;
 
 import jakarta.persistence.*;
 import lombok.Data;

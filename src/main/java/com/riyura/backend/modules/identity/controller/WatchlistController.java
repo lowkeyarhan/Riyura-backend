@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.riyura.backend.common.dto.MediaGridResponse;
+import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.modules.identity.dto.watchlist.WatchlistRequest;
 import com.riyura.backend.modules.identity.model.Watchlist;
 import com.riyura.backend.modules.identity.service.WatchlistService;
