@@ -2,7 +2,9 @@ package com.riyura.backend.modules.content.dto.tv;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.riyura.backend.common.dto.CastDetailsResponse;
+import com.riyura.backend.common.dto.CastResponse;
+import com.riyura.backend.common.util.GenreLike;
+import com.riyura.backend.modules.content.model.Season;
 
 import lombok.Data;
 
@@ -24,6 +26,7 @@ public class TvShowDetails {
     private String backdropPath;
 
     private Long budget;
+
     private boolean adult;
 
     private List<Genre> genres;
@@ -54,7 +57,7 @@ public class TvShowDetails {
     @JsonProperty("vote_average")
     private Double voteAverage;
 
-    private List<CastDetailsResponse> casts;
+    private List<CastResponse> casts;
 
     @JsonProperty("episode_run_time")
     public void setEpisodeRunTime(List<Integer> episodeRunTime) {
@@ -70,7 +73,7 @@ public class TvShowDetails {
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Genre {
+    public static class Genre implements GenreLike {
         private Long id;
         private String name;
     }
@@ -91,24 +94,5 @@ public class TvShowDetails {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ProductionCompany {
         private String name;
-    }
-
-    @Data
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Season {
-        @JsonProperty("air_date")
-        private String airDate;
-
-        @JsonProperty("episode_count")
-        private Integer episodeCount;
-
-        private String name;
-        private String overview;
-
-        @JsonProperty("poster_path")
-        private String posterPath;
-
-        @JsonProperty("season_number")
-        private Integer seasonNumber;
     }
 }

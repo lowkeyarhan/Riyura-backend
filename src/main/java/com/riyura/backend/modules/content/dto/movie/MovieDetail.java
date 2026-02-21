@@ -2,7 +2,8 @@ package com.riyura.backend.modules.content.dto.movie;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.riyura.backend.common.dto.CastDetailsResponse;
+import com.riyura.backend.common.dto.CastResponse;
+import com.riyura.backend.common.util.GenreLike;
 
 import lombok.Data;
 
@@ -43,14 +44,14 @@ public class MovieDetail {
     @JsonProperty("vote_average")
     private Double voteAverage;
 
-    private List<CastDetailsResponse> casts;
+    private List<CastResponse> casts;
 
     @JsonProperty("is_anime")
     private boolean anime;
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Genre {
+    public static class Genre implements GenreLike {
         private Long id;
         private String name;
     }

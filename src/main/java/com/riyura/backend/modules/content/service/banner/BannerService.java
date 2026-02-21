@@ -2,6 +2,7 @@ package com.riyura.backend.modules.content.service.banner;
 
 import com.riyura.backend.common.dto.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
+import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.banner.BannerResponse;
 
 import lombok.RequiredArgsConstructor;
@@ -9,17 +10,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class BannerService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -30,10 +28,9 @@ public class BannerService {
     @Value("${tmdb.image-base-url}")
     private String imageBaseUrl;
 
-    // Static Map of TMDB Genre IDs to Names
+    // Static map to convert TMDb genre IDs to names
     private static final Map<Integer, String> GENRE_MAP = new HashMap<>();
     static {
-        // --- Movie Genres ---
         GENRE_MAP.put(28, "Action");
         GENRE_MAP.put(12, "Adventure");
         GENRE_MAP.put(16, "Animation");
@@ -53,9 +50,6 @@ public class BannerService {
         GENRE_MAP.put(53, "Thriller");
         GENRE_MAP.put(10752, "War");
         GENRE_MAP.put(37, "Western");
-
-        // --- TV Genres ---
-        // (Note: Some IDs like 16, 35, etc. overlap with movies, which is fine)
         GENRE_MAP.put(10759, "Action & Adventure");
         GENRE_MAP.put(10762, "Kids");
         GENRE_MAP.put(10763, "News");
@@ -66,65 +60,57 @@ public class BannerService {
         GENRE_MAP.put(10768, "War & Politics");
     }
 
-    // Get the banner data for both movies and tv
+    // Fetches banner data for both movies and TV shows, combines and shuffles the
+    // results
     public List<BannerResponse> getBannerData() {
         CompletableFuture<List<BannerResponse>> moviesTask = CompletableFuture.supplyAsync(this::fetchTopMovies);
         CompletableFuture<List<BannerResponse>> tvTask = CompletableFuture.supplyAsync(this::fetchTopTV);
 
-        List<BannerResponse> movies = moviesTask.join();
-        List<BannerResponse> tvShows = tvTask.join();
-
-        List<BannerResponse> allItems = new ArrayList<>();
-        allItems.addAll(movies);
-        allItems.addAll(tvShows);
-
+        List<BannerResponse> allItems = new ArrayList<>(moviesTask.join());
+        allItems.addAll(tvTask.join());
         Collections.shuffle(allItems);
-
         return allItems;
     }
 
-    // Fetch top 3 trending movies and map to BannerResponse
+    // Fetches top trending movies from TMDb and maps them to BannerResponse DTOs
     private List<BannerResponse> fetchTopMovies() {
-        String url = String.format("%s/trending/movie/week?api_key=%s", baseUrl, apiKey);
-        return fetchAndMap(url, MediaType.Movie);
+        return fetchAndMap(String.format("%s/trending/movie/week?api_key=%s", baseUrl, apiKey), MediaType.Movie);
     }
 
-    // Fetch top 3 trending TV shows and map to BannerResponse
+    // Fetches top trending TV shows from TMDb and maps them to BannerResponse DTOs
     private List<BannerResponse> fetchTopTV() {
-        String url = String.format("%s/trending/tv/week?api_key=%s", baseUrl, apiKey);
-        return fetchAndMap(url, MediaType.TV);
+        return fetchAndMap(String.format("%s/trending/tv/week?api_key=%s", baseUrl, apiKey), MediaType.TV);
     }
 
-    // Common method to fetch data from TMDB and map to BannerResponse
+    // Helper method to fetch data from TMDb and map it to BannerResponse DTOs based
+    // on media type
     private List<BannerResponse> fetchAndMap(String url, MediaType type) {
         try {
             TmdbTrendingResponse response = restTemplate.getForObject(url, TmdbTrendingResponse.class);
-            if (response == null || response.getResults() == null) {
+            if (response == null || response.getResults() == null)
                 return Collections.emptyList();
-            }
             return response.getResults().stream()
                     .limit(3)
                     .map(item -> mapItemToBanner(item, type))
-                    .collect(Collectors.toList());
+                    .toList();
         } catch (Exception e) {
             System.err.println("Error fetching banner data: " + e.getMessage());
             return Collections.emptyList();
         }
     }
 
-    // Map a TMDB item to our BannerResponse model
+    // Maps a TMDb item to a BannerResponse DTO, handling both movies and TV shows
     private BannerResponse mapItemToBanner(TmdbTrendingResponse.TmdbItem item, MediaType type) {
         BannerResponse model = new BannerResponse();
-
         model.setId(item.getId());
         model.setTmdbId(item.getId());
 
         if (type == MediaType.Movie) {
             model.setTitle(item.getTitle());
-            model.setYear(extractYear(item.getReleaseDate()));
+            model.setYear(TmdbUtils.extractYear(item.getReleaseDate()));
         } else {
             model.setTitle(item.getName());
-            model.setYear(extractYear(item.getFirstAirDate()));
+            model.setYear(TmdbUtils.extractYear(item.getFirstAirDate()));
         }
 
         model.setOverview(item.getOverview() != null ? item.getOverview() : "");
@@ -136,32 +122,16 @@ public class BannerService {
         if (item.getPosterPath() != null)
             model.setPosterUrl(imageBaseUrl + item.getPosterPath());
 
-        // Get IDs only for mapping purposes
-        List<Integer> ids = item.getGenreIds() != null ? item.getGenreIds() : new ArrayList<>();
-
-        // Map IDs to Names
+        List<Integer> ids = item.getGenreIds() != null ? item.getGenreIds() : Collections.emptyList();
         List<String> genreNames = ids.stream()
                 .map(GENRE_MAP::get)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-
+                .toList();
         model.setGenres(genreNames);
 
         boolean isAdult = Boolean.TRUE.equals(item.getAdult());
         model.setAdult(isAdult);
         model.setMaturityRating(isAdult ? "A" : "U/A");
-
         return model;
-    }
-
-    // Helper method to extract year from date string (format: "YYYY-MM-DD")
-    private String extractYear(String dateString) {
-        if (dateString == null || dateString.isEmpty())
-            return null;
-        try {
-            return String.valueOf(LocalDate.parse(dateString).getYear());
-        } catch (DateTimeParseException e) {
-            return null;
-        }
     }
 }

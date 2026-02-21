@@ -10,6 +10,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.riyura.backend.common.model.MediaType;
+import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.identity.dto.history.DeleteWatchHistoryRequest;
 import com.riyura.backend.modules.identity.dto.history.TmdbMetadataDTO;
 import com.riyura.backend.modules.identity.dto.history.WatchHistoryRequest;
@@ -191,20 +192,6 @@ public class HistoryService {
     }
 
     private boolean isAnime(TmdbMetadataDTO metadata) {
-        return isJapaneseLanguage(metadata.getOriginalLanguage()) && hasAnimationGenre(metadata.getGenres());
-    }
-
-    private boolean isJapaneseLanguage(String originalLanguage) {
-        return "ja".equalsIgnoreCase(originalLanguage);
-    }
-
-    private boolean hasAnimationGenre(List<TmdbMetadataDTO.Genre> genres) {
-        if (genres == null || genres.isEmpty()) {
-            return false;
-        }
-        return genres.stream()
-                .filter(Objects::nonNull)
-                .anyMatch(genre -> "Animation".equals(genre.getName())
-                        || (genre.getId() != null && genre.getId() == 16));
+        return TmdbUtils.isAnime(metadata.getOriginalLanguage(), metadata.getGenres());
     }
 }

@@ -22,13 +22,8 @@ public class SearchController {
     @GetMapping
     public ResponseEntity<Map<String, List<SearchResponse>>> search(@RequestParam("q") String query) {
         List<SearchResponse> results = searchService.search(query);
-
-        // Wrap the results in a map to match the expected JSON structure for the
-        // frontend
         Map<String, List<SearchResponse>> response = new HashMap<>();
         response.put("results", results);
-
-        // Return the search results as a JSON response
         return ResponseEntity.ok(response);
     }
 }
