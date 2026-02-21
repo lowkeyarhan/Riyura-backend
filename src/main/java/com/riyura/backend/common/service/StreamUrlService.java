@@ -2,9 +2,9 @@ package com.riyura.backend.common.service;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.riyura.backend.common.dto.StreamProviderRequest;
-import com.riyura.backend.common.dto.StreamProviderResponse;
-import com.riyura.backend.common.dto.StreamUrlResponse;
+import com.riyura.backend.common.dto.stream.StreamProviderRequest;
+import com.riyura.backend.common.dto.stream.StreamProviderResponse;
+import com.riyura.backend.common.dto.stream.StreamUrlResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.repository.StreamProviderRepository;
 import com.riyura.backend.common.util.GenreLike;

@@ -1,4 +1,4 @@
-package com.riyura.backend.common.dto;
+package com.riyura.backend.common.dto.media;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.riyura.backend.common.model.MediaType;

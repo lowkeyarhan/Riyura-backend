@@ -1,5 +1,5 @@
 /* */
-package com.riyura.backend.common.dto;
+package com.riyura.backend.common.dto.cast;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;

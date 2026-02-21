@@ -1,6 +1,6 @@
 package com.riyura.backend.modules.content.controller;
 
-import com.riyura.backend.common.dto.MediaGridResponse;
+import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.modules.content.service.anime.AnimeService;
 
 import lombok.RequiredArgsConstructor;

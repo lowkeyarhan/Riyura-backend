@@ -1,6 +1,6 @@
 package com.riyura.backend.modules.identity.service;
 
-import com.riyura.backend.common.dto.MediaGridResponse;
+import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.modules.identity.dto.watchlist.WatchlistRequest;
 import com.riyura.backend.modules.identity.model.Watchlist;

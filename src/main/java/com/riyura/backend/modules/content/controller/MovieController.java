@@ -1,8 +1,8 @@
 package com.riyura.backend.modules.content.controller;
 
-import com.riyura.backend.common.dto.MediaGridResponse;
-import com.riyura.backend.common.dto.StreamProviderRequest;
-import com.riyura.backend.common.dto.StreamUrlResponse;
+import com.riyura.backend.common.dto.media.MediaGridResponse;
+import com.riyura.backend.common.dto.stream.StreamProviderRequest;
+import com.riyura.backend.common.dto.stream.StreamUrlResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.StreamUrlService;
 import com.riyura.backend.modules.content.dto.movie.MovieDetail;

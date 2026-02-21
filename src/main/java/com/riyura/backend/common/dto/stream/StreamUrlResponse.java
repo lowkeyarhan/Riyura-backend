@@ -1,4 +1,4 @@
-package com.riyura.backend.common.dto;
+package com.riyura.backend.common.dto.stream;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 

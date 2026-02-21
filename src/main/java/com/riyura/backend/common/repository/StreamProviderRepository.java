@@ -1,8 +1,9 @@
 package com.riyura.backend.common.repository;
 
-import com.riyura.backend.common.dto.StreamProviderResponse;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import com.riyura.backend.common.dto.stream.StreamProviderResponse;
 
 import java.util.List;
 

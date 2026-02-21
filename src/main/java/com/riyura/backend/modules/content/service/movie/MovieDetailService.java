@@ -1,8 +1,8 @@
 package com.riyura.backend.modules.content.service.movie;
 
-import com.riyura.backend.common.dto.CastResponse;
-import com.riyura.backend.common.dto.MediaGridResponse;
-import com.riyura.backend.common.dto.TmdbTrendingResponse;
+import com.riyura.backend.common.dto.cast.CastResponse;
+import com.riyura.backend.common.dto.media.MediaGridResponse;
+import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.common.util.TmdbUtils;

@@ -1,7 +1,7 @@
 package com.riyura.backend.modules.content.service.anime;
 
-import com.riyura.backend.common.dto.MediaGridResponse;
-import com.riyura.backend.common.dto.TmdbTrendingResponse;
+import com.riyura.backend.common.dto.media.MediaGridResponse;
+import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.util.TmdbUtils;
 
