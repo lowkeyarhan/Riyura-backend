@@ -1,0 +1,153 @@
+{
+  "adult": false,
+  "backdrop_path": "/lNYympQM5O6QSInusbyG9eJDIe4.jpg",
+  "budget": 20000000,
+  "casts": [
+    {
+      "character": "Tanjiro Kamado (voice)",
+      "original_name": "花江夏樹",
+      "profile_path": "/alTb0DlcPIbcwM08WSmxFai58sd.jpg"
+    },
+    {
+      "character": "Giyu Tomioka (voice)",
+      "original_name": "櫻井孝宏",
+      "profile_path": "/8s8owcKmpRAuhzEGjSdRpztthUg.jpg"
+    },
+    {
+      "character": "Akaza (voice)",
+      "original_name": "石田彰",
+      "profile_path": "/jnW2Gn2NlR2uwOCeyOuzypnTmkH.jpg"
+    },
+    {
+      "character": "Zenitsu Agatsuma (voice)",
+      "original_name": "下野紘",
+      "profile_path": "/yrSDcgFefHtWkFmLnTrcw2t0MV.jpg"
+    },
+    {
+      "character": "Kaigaku (voice)",
+      "original_name": "細谷佳正",
+      "profile_path": "/lUR5oN1LrqGgp25IOcI1qOH1Ud5.jpg"
+    },
+    {
+      "character": "Shinobu Kocho (voice)",
+      "original_name": "早見沙織",
+      "profile_path": "/gLv9lO7dlUbIsmyJUvgegqAAXki.jpg"
+    },
+    {
+      "character": "Doma (voice)",
+      "original_name": "宮野真守",
+      "profile_path": "/nuok8ueG7k9hPZ09Tpr8e7Qn0ah.jpg"
+    },
+    {
+      "character": "Kanao Tsuyuri (voice)",
+      "original_name": "上田麗奈",
+      "profile_path": "/cddK6dQtVCg6ToQRpETbRYRJK4G.jpg"
+    },
+    {
+      "character": "Keizo (voice)",
+      "original_name": "中村悠一",
+      "profile_path": "/wb8behVKjBHX9XXrEydvNINCYwH.jpg"
+    },
+    {
+      "character": "Koyuki (voice)",
+      "original_name": "Lynn",
+      "profile_path": "/eJ2NqgzpnzNbT6Nt9EpDfzqNeZM.jpg"
+    },
+    {
+      "character": "Muzan Kibutsuji (voice)",
+      "original_name": "関俊彦",
+      "profile_path": "/7jUPvx4hxWZWZJgyiCwd8KxWuvI.jpg"
+    },
+    {
+      "character": "Gyomei Himejima (voice)",
+      "original_name": "杉田智和",
+      "profile_path": "/cv5zuPZySNsHXu24pjKLYCRzJ2J.jpg"
+    },
+    {
+      "character": "Muichiro Tokito (voice)",
+      "original_name": "河西健吾",
+      "profile_path": "/s0CxrO6LixJBgqiHEUjKelAh8ei.jpg"
+    },
+    {
+      "character": "Mitsuri Kanroji (voice)",
+      "original_name": "花澤香菜",
+      "profile_path": "/5bK9ttcRydQBWmyZp7gXDmJYOPF.jpg"
+    },
+    {
+      "character": "Obanai Iguro (voice)",
+      "original_name": "鈴村健一",
+      "profile_path": "/vFqjmIjxfgBkh3ZmUin7QETV0sy.jpg"
+    },
+    {
+      "character": "Genya Shinazugawa (voice)",
+      "original_name": "岡本信彦",
+      "profile_path": "/7s1K2yQVF5iIWILaOfG7QrMZkXA.jpg"
+    },
+    {
+      "character": "Tengen Uzui (voice)",
+      "original_name": "小西克幸",
+      "profile_path": "/nYM5cH6U7cp4x9dIzW0enmEKmeV.jpg"
+    },
+    {
+      "character": "Nezuko Kamado (voice)",
+      "original_name": "鬼頭明里",
+      "profile_path": "/AoRQOZRC0yINB0WeKnM569rV1wF.jpg"
+    },
+    {
+      "character": "Sakonji Urokodaki (voice)",
+      "original_name": "大塚芳忠",
+      "profile_path": "/3RHQcrsWnAFK6AifSis1lMq08cR.jpg"
+    },
+    {
+      "character": "Inosuke Hashibira (voice)",
+      "original_name": "松岡禎丞",
+      "profile_path": "/ugDwdWEXnmv43jcbnfAi4XwiQ8C.jpg"
+    },
+    {
+      "character": "Yushiro (voice)",
+      "original_name": "山下大輝",
+      "profile_path": "/rQNdJdZewk7VGP16ZNbpfJ9ZeMd.jpg"
+    },
+    {
+      "character": "Kokushibo (voice)",
+      "original_name": "置鮎龍太郎",
+      "profile_path": "/qbj3cFQqWwZ6x7S1jEpOJa57sEZ.jpg"
+    },
+    {
+      "character": "Kagaya Ubuyashiki (voice)",
+      "original_name": "森川智之",
+      "profile_path": "/hrzGBe4nokgkBNFekNo5hlXB2Bv.jpg"
+    },
+    {
+      "character": "Tanjuro Kamado (voice)",
+      "original_name": "三木眞一郎",
+      "profile_path": "/yL9Tx2HZgK7t5AssYl6oGE9bjdj.jpg"
+    },
+    {
+      "character": "Jigoro Kuwajima (voice)",
+      "original_name": "千葉繁",
+      "profile_path": "/mF5YJxApTYKBVFJDrEC9IrJ5ooV.jpg"
+    }
+  ],
+  "genres": [
+    { "id": 16, "name": "Animation" },
+    { "id": 28, "name": "Action" },
+    { "id": 14, "name": "Fantasy" }
+  ],
+  "id": 1311031,
+  "is_anime": true,
+  "original_language": "ja",
+  "overview": "The Demon Slayer Corps are drawn into the Infinity Castle, where Tanjiro, Nezuko, and the Hashira face terrifying Upper Rank demons in a desperate fight as the final battle against Muzan Kibutsuji begins.",
+  "production_companies": [
+    { "id": 5887, "name": "ufotable" },
+    { "id": 2883, "name": "Aniplex" },
+    { "id": 2918, "name": "Shueisha" }
+  ],
+  "release_date": "2025-07-18",
+  "revenue": 724279886,
+  "runtime": 156,
+  "status": "Released",
+  "tagline": "It's time to have some fun.",
+  "title": "Demon Slayer: Kimetsu no Yaiba Infinity Castle",
+  "vote_average": 7.679
+}

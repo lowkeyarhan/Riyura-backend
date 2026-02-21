@@ -2,6 +2,7 @@ package com.riyura.backend.modules.identity.dto.history;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.riyura.backend.common.util.GenreLike;
 import lombok.Data;
 import java.util.List;
 
@@ -63,7 +64,7 @@ public class TmdbMetadataDTO {
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class Genre {
+    public static class Genre implements GenreLike {
         private Long id;
         private String name;
     }

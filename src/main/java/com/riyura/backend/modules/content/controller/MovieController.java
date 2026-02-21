@@ -13,7 +13,6 @@ import com.riyura.backend.modules.content.service.movie.MovieService;
 
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,16 +26,9 @@ import java.util.Map;
 @CrossOrigin(origins = "http://localhost:3000")
 public class MovieController {
 
-    @Autowired
     private final MovieService movieService;
-
-    @Autowired
     private final MovieDetailService movieDetailsService;
-
-    @Autowired
     private final MoviePlayerService moviePlayerService;
-
-    @Autowired
     private final StreamUrlService streamUrlService;
 
     // Get Now Playing Movies with a limit (e.g., top 10)
@@ -92,7 +84,6 @@ public class MovieController {
         }
         return ResponseEntity.ok(playerResponse);
     }
-
 
     // Build fully-constructed stream URLs for a specific movie
     @PostMapping("/stream")
