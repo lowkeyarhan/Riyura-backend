@@ -2,6 +2,7 @@ package com.riyura.backend.modules.content.service.banner;
 
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
+import com.riyura.backend.common.util.GenreMapper;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.banner.BannerResponse;
 
@@ -28,40 +29,7 @@ public class BannerService {
     @Value("${tmdb.image-base-url}")
     private String imageBaseUrl;
 
-    // Static map to convert TMDb genre IDs to names
-    private static final Map<Integer, String> GENRE_MAP = new HashMap<>();
-    static {
-        GENRE_MAP.put(28, "Action");
-        GENRE_MAP.put(12, "Adventure");
-        GENRE_MAP.put(16, "Animation");
-        GENRE_MAP.put(35, "Comedy");
-        GENRE_MAP.put(80, "Crime");
-        GENRE_MAP.put(99, "Documentary");
-        GENRE_MAP.put(18, "Drama");
-        GENRE_MAP.put(10751, "Family");
-        GENRE_MAP.put(14, "Fantasy");
-        GENRE_MAP.put(36, "History");
-        GENRE_MAP.put(27, "Horror");
-        GENRE_MAP.put(10402, "Music");
-        GENRE_MAP.put(9648, "Mystery");
-        GENRE_MAP.put(10749, "Romance");
-        GENRE_MAP.put(878, "Science Fiction");
-        GENRE_MAP.put(10770, "TV Movie");
-        GENRE_MAP.put(53, "Thriller");
-        GENRE_MAP.put(10752, "War");
-        GENRE_MAP.put(37, "Western");
-        GENRE_MAP.put(10759, "Action & Adventure");
-        GENRE_MAP.put(10762, "Kids");
-        GENRE_MAP.put(10763, "News");
-        GENRE_MAP.put(10764, "Reality");
-        GENRE_MAP.put(10765, "Sci-Fi & Fantasy");
-        GENRE_MAP.put(10766, "Soap");
-        GENRE_MAP.put(10767, "Talk");
-        GENRE_MAP.put(10768, "War & Politics");
-    }
-
-    // Fetches banner data for both movies and TV shows, combines and shuffles the
-    // results
+    // Fetches banner data for both movies and TV shows
     public List<BannerResponse> getBannerData() {
         CompletableFuture<List<BannerResponse>> moviesTask = CompletableFuture.supplyAsync(this::fetchTopMovies);
         CompletableFuture<List<BannerResponse>> tvTask = CompletableFuture.supplyAsync(this::fetchTopTV);
@@ -82,8 +50,7 @@ public class BannerService {
         return fetchAndMap(String.format("%s/trending/tv/week?api_key=%s", baseUrl, apiKey), MediaType.TV);
     }
 
-    // Helper method to fetch data from TMDb and map it to BannerResponse DTOs based
-    // on media type
+    // Helper method to fetch data from TMDb and map it to BannerResponse DTOs
     private List<BannerResponse> fetchAndMap(String url, MediaType type) {
         try {
             TmdbTrendingResponse response = restTemplate.getForObject(url, TmdbTrendingResponse.class);
@@ -124,7 +91,7 @@ public class BannerService {
 
         List<Integer> ids = item.getGenreIds() != null ? item.getGenreIds() : Collections.emptyList();
         List<String> genreNames = ids.stream()
-                .map(GENRE_MAP::get)
+                .map(GenreMapper::getGenreName)
                 .filter(Objects::nonNull)
                 .toList();
         model.setGenres(genreNames);
