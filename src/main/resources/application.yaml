@@ -49,6 +49,9 @@ springdoc:
     - group: all
       paths-to-match:
         - /api/**
+    - group: explore
+      paths-to-match:
+        - /api/explore/**
     - group: watchlist
       paths-to-match:
         - /api/watchlist/**

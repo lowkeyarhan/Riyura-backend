@@ -43,7 +43,8 @@ public class SecurityConfig {
                                                                 "/api/movies/**",
                                                                 "/api/tv/**",
                                                                 "/api/search/**",
-                                                                "/api/anime/**")
+                                                                "/api/anime/**",
+                                                                "/api/explore/**")
                                                 .permitAll()
 
                                                 // Protected Endpoints
