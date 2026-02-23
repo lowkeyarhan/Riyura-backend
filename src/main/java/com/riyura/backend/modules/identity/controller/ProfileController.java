@@ -12,7 +12,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.riyura.backend.modules.identity.dto.history.DeleteWatchHistoryRequest;
-import com.riyura.backend.modules.identity.dto.history.WatchHistoryRequest;
+import com.riyura.backend.modules.identity.dto.history.HistoryResponse;
+import com.riyura.backend.modules.identity.dto.history.HistoryRequest;
 import com.riyura.backend.modules.identity.model.WatchHistory;
 import com.riyura.backend.modules.identity.service.HistoryService;
 
@@ -39,7 +40,7 @@ public class ProfileController {
         UUID userId = UUID.fromString(userIdString);
         System.out.println("Fetching watch history for user ID: " + userId);
 
-        List<WatchHistory> history = historyService.getUserWatchHistory(userId);
+        List<HistoryResponse> history = historyService.getUserWatchHistory(userId);
 
         // Wrap in "data" object to generic API responses often used
         Map<String, Object> response = new HashMap<>();
@@ -52,7 +53,7 @@ public class ProfileController {
     @PostMapping("/history")
     public ResponseEntity<Map<String, Object>> addOrUpdateHistory(
             @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody WatchHistoryRequest request) {
+            @Valid @RequestBody HistoryRequest request) {
         Map<String, Object> response = new HashMap<>();
         UUID userId = UUID.fromString(jwt.getSubject());
         WatchHistory data = historyService.addOrUpdateHistory(userId, request);

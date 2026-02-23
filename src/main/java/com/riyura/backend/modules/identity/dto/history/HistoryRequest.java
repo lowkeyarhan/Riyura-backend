@@ -9,7 +9,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
-public class WatchHistoryRequest {
+public class HistoryRequest {
     @NotNull(message = "tmdb_id is required")
     @JsonProperty("tmdb_id")
     private Long tmdbId;
@@ -17,6 +17,9 @@ public class WatchHistoryRequest {
     @NotNull(message = "media_type is required")
     @JsonProperty("media_type")
     private MediaType mediaType;
+
+    @JsonProperty("stream_id")
+    private String streamId;
 
     @NotBlank(message = "provider_id is required")
     @JsonProperty("provider_id")
@@ -30,9 +33,6 @@ public class WatchHistoryRequest {
 
     @JsonProperty("episode_number")
     private Integer episodeNumber;
-
-    @JsonProperty("is_anime")
-    private Boolean isAnime;
 
     @JsonIgnore
     @AssertTrue(message = "season_number and episode_number are required for TV history")

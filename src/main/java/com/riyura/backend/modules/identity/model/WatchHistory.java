@@ -32,6 +32,9 @@ public class WatchHistory {
     @Enumerated(EnumType.STRING)
     private MediaType mediaType;
 
+    @Column(name = "stream_id")
+    private String streamId;
+
     @Column(name = "provider_id")
     private String providerId;
 

@@ -1,5 +1,6 @@
 package com.riyura.backend.modules.content.dto.banner;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.riyura.backend.common.model.MediaType;
 import lombok.Data;
@@ -11,7 +12,6 @@ import java.util.List;
 @Data
 public class BannerResponse {
 
-    private Long id;
     private Long tmdbId;
     private String title;
     private String overview;
@@ -19,19 +19,13 @@ public class BannerResponse {
     @JsonProperty("backdrop_path")
     private String backdropUrl;
 
-    @JsonProperty("poster_path")
-    private String posterUrl;
-
-    @JsonProperty("vote_average")
-    private Double rating;
-
     @JsonProperty("contentType")
     private MediaType mediaType;
 
     @JsonProperty("genres")
     private List<String> genres;
 
-    @JsonProperty("adult")
+    @JsonIgnore
     private boolean adult;
 
     private String maturityRating;

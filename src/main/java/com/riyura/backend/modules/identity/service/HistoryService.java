@@ -12,8 +12,9 @@ import org.springframework.web.server.ResponseStatusException;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.identity.dto.history.DeleteWatchHistoryRequest;
+import com.riyura.backend.modules.identity.dto.history.HistoryResponse;
 import com.riyura.backend.modules.identity.dto.history.TmdbMetadataDTO;
-import com.riyura.backend.modules.identity.dto.history.WatchHistoryRequest;
+import com.riyura.backend.modules.identity.dto.history.HistoryRequest;
 import com.riyura.backend.modules.identity.model.WatchHistory;
 import com.riyura.backend.modules.identity.repository.WatchHistoryRepository;
 
@@ -37,24 +38,21 @@ public class HistoryService {
     @Value("${tmdb.base-url}")
     private String baseUrl;
 
-    public List<WatchHistory> getUserWatchHistory(UUID userId) {
-        return watchHistoryRepository.findByUserIdOrderByWatchedAtDesc(userId);
+    public List<HistoryResponse> getUserWatchHistory(UUID userId) {
+        return watchHistoryRepository.findByUserIdOrderByWatchedAtDesc(userId)
+                .stream()
+                .map(this::toHistoryResponse)
+                .toList();
     }
 
     @Transactional
-    public WatchHistory addOrUpdateHistory(UUID userId, WatchHistoryRequest request) {
+    public WatchHistory addOrUpdateHistory(UUID userId, HistoryRequest request) {
         try {
             Optional<WatchHistory> existing = watchHistoryRepository.findByUserIdAndTmdbIdAndMediaType(
                     userId, request.getTmdbId(), request.getMediaType());
 
             WatchHistory history = existing.orElse(new WatchHistory());
             boolean sameContext = isSameContext(history, request, existing.isPresent());
-            int requestedDuration = request.getDurationSec() != null ? request.getDurationSec() : 0;
-            int finalDuration = requestedDuration;
-
-            if (existing.isPresent() && sameContext) {
-                finalDuration += history.getDurationSec() != null ? history.getDurationSec() : 0;
-            }
 
             if (existing.isEmpty()) {
                 history.setUserId(userId);
@@ -70,8 +68,9 @@ public class HistoryService {
                 applyMetadata(history, request, metadata);
             }
 
+            history.setStreamId(request.getStreamId());
             history.setProviderId(request.getProviderId());
-            history.setDurationSec(finalDuration);
+            history.setDurationSec(request.getDurationSec());
             history.setWatchedAt(OffsetDateTime.now());
 
             if (metadata != null) {
@@ -147,7 +146,7 @@ public class HistoryService {
         }
     }
 
-    private boolean isSameContext(WatchHistory history, WatchHistoryRequest request, boolean existing) {
+    private boolean isSameContext(WatchHistory history, HistoryRequest request, boolean existing) {
         if (!existing) {
             return false;
         }
@@ -158,7 +157,7 @@ public class HistoryService {
                 && Objects.equals(history.getEpisodeNumber(), request.getEpisodeNumber());
     }
 
-    private void applyMetadata(WatchHistory history, WatchHistoryRequest request, TmdbMetadataDTO metadata) {
+    private void applyMetadata(WatchHistory history, HistoryRequest request, TmdbMetadataDTO metadata) {
         if (metadata == null) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to fetch metadata from TMDB");
         }
@@ -189,6 +188,23 @@ public class HistoryService {
             return null;
         }
         return LocalDate.parse(value);
+    }
+
+    private HistoryResponse toHistoryResponse(WatchHistory history) {
+        HistoryResponse dto = new HistoryResponse();
+        dto.setTmdbId(history.getTmdbId());
+        dto.setTitle(history.getTitle());
+        dto.setBackdropPath(history.getBackdropPath());
+        dto.setMediaType(history.getMediaType());
+        dto.setProviderId(history.getProviderId());
+        dto.setDurationSec(history.getDurationSec());
+        dto.setEpisodeLength(history.getEpisodeLength());
+        dto.setEpisodeName(history.getEpisodeName());
+        dto.setEpisodeNumber(history.getEpisodeNumber());
+        dto.setSeasonNumber(history.getSeasonNumber());
+        dto.setIsAnime(history.getIsAnime());
+        dto.setReleaseYear(history.getReleaseDate() != null ? history.getReleaseDate().getYear() : null);
+        return dto;
     }
 
     private boolean isAnime(TmdbMetadataDTO metadata) {

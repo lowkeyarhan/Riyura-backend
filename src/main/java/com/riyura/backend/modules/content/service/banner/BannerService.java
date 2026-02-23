@@ -4,12 +4,12 @@ import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.util.GenreMapper;
 import com.riyura.backend.common.util.TmdbUtils;
+import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.modules.content.dto.banner.BannerResponse;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -18,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class BannerService {
 
-    private final RestTemplate restTemplate;
+    private final TmdbClient tmdbClient;
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -53,7 +53,7 @@ public class BannerService {
     // Helper method to fetch data from TMDb and map it to BannerResponse DTOs
     private List<BannerResponse> fetchAndMap(String url, MediaType type) {
         try {
-            TmdbTrendingResponse response = restTemplate.getForObject(url, TmdbTrendingResponse.class);
+            TmdbTrendingResponse response = tmdbClient.fetchWithRetry(url, TmdbTrendingResponse.class);
             if (response == null || response.getResults() == null)
                 return Collections.emptyList();
             return response.getResults().stream()
@@ -69,7 +69,6 @@ public class BannerService {
     // Maps a TMDb item to a BannerResponse DTO, handling both movies and TV shows
     private BannerResponse mapItemToBanner(TmdbTrendingResponse.TmdbItem item, MediaType type) {
         BannerResponse model = new BannerResponse();
-        model.setId(item.getId());
         model.setTmdbId(item.getId());
 
         if (type == MediaType.Movie) {
@@ -81,13 +80,10 @@ public class BannerService {
         }
 
         model.setOverview(item.getOverview() != null ? item.getOverview() : "");
-        model.setRating(item.getVoteAverage() != null ? item.getVoteAverage() : 0.0);
         model.setMediaType(type);
 
         if (item.getBackdropPath() != null)
             model.setBackdropUrl(imageBaseUrl + item.getBackdropPath());
-        if (item.getPosterPath() != null)
-            model.setPosterUrl(imageBaseUrl + item.getPosterPath());
 
         List<Integer> ids = item.getGenreIds() != null ? item.getGenreIds() : Collections.emptyList();
         List<String> genreNames = ids.stream()
