@@ -1,6 +1,18 @@
+# Managed Redis — starts redis-server alongside the app in dev.
+# Set REDIS_MANAGED=false in production to use an external Redis instance.
+redis:
+  managed: ${REDIS_MANAGED:true}
+
 spring:
   application:
     name: Riyura
+
+  # Redis Configuration (Watch Party ephemeral state)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
 
   # Supabase DataSource Configuration
   datasource:
@@ -70,3 +82,6 @@ springdoc:
     - group: anime
       paths-to-match:
         - /api/anime/**
+    - group: party
+      paths-to-match:
+        - /api/party/**

@@ -99,6 +99,18 @@
 			<scope>test</scope>
 		</dependency>
 
+		<!-- Spring WebSocket (STOMP) dependencies -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
+
+		<!-- Spring Data Redis (Lettuce) dependencies -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
+
 		<!-- Spring OAuth2 Resource Server dependencies-->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

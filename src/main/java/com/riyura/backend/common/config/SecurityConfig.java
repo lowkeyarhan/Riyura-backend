@@ -44,13 +44,17 @@ public class SecurityConfig {
                                                                 "/api/tv/**",
                                                                 "/api/search/**",
                                                                 "/api/anime/**",
-                                                                "/api/explore/**")
+                                                                "/api/explore/**",
+                                                                // WebSocket SockJS handshake — auth is handled at the
+                                                                // STOMP CONNECT layer
+                                                                "/ws/**")
                                                 .permitAll()
 
                                                 // Protected Endpoints
                                                 .requestMatchers(
                                                                 "/api/profile/**",
-                                                                "/api/watch-history/**")
+                                                                "/api/watch-history/**",
+                                                                "/api/party/**")
                                                 .authenticated()
 
                                                 .anyRequest().authenticated())
@@ -64,7 +68,7 @@ public class SecurityConfig {
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration configuration = new CorsConfiguration();
                 configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:8080"));
-                configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
                 configuration.setAllowedHeaders(Arrays.asList("*"));
                 configuration.setAllowCredentials(true);
 
