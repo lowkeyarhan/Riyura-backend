@@ -5,10 +5,8 @@ import lombok.Data;
 
 import java.util.List;
 
-/**
- * REST response for GET /api/party/{id}/state.
- * Includes serverTime so late joiners can compute the current playback offset.
- */
+// This is the response that is sent to the client when the party state is requested
+
 @Data
 public class PartyStateResponse {
 

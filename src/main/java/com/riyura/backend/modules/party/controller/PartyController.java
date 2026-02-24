@@ -13,13 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/**
- * REST endpoints for Watch Party lifecycle management.
- *
- * POST /api/party/create → create a party, returns partyId
- * GET /api/party/{id}/state → fetch current state (for late joiners)
- * POST /api/party/{id}/heartbeat → extend TTL, update last-seen timestamp
- */
 @RestController
 @RequestMapping("/api/party")
 @RequiredArgsConstructor
@@ -28,10 +21,7 @@ public class PartyController {
 
     private final PartyService partyService;
 
-    /**
-     * Creates a new Watch Party.
-     * The authenticated user becomes the host.
-     */
+    // Create a new party. The creator becomes the host.
     @PostMapping("/create")
     public ResponseEntity<Map<String, Object>> createParty(
             @AuthenticationPrincipal Jwt jwt,
@@ -45,12 +35,7 @@ public class PartyController {
                 "partyId", state.getPartyId()));
     }
 
-    /**
-     * Fetches the current party state.
-     * Late joiners use the returned {@code serverTime} + {@code partyStartedAt} +
-     * {@code startAt}
-     * to compute the current playback position before rendering the player.
-     */
+    // Get the current details of a party
     @GetMapping("/{partyId}/state")
     public ResponseEntity<Map<String, Object>> getPartyState(
             @AuthenticationPrincipal Jwt jwt,
@@ -62,10 +47,7 @@ public class PartyController {
                 "data", state));
     }
 
-    /**
-     * Heartbeat endpoint — the frontend should call this every 15 seconds.
-     * Extends the Redis TTL to prevent zombie-party expiry.
-     */
+    // Record a heartbeat from a party member to keep the party alive
     @PostMapping("/{partyId}/heartbeat")
     public ResponseEntity<Map<String, Object>> heartbeat(
             @AuthenticationPrincipal Jwt jwt,

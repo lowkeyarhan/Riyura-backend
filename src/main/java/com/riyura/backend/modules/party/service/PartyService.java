@@ -23,19 +23,11 @@ public class PartyService {
 
     private static final String KEY_PREFIX = "party:";
     private static final int MAX_CHAT_HISTORY = 50;
-    /**
-     * Heartbeats are expected every 15 s; 3 misses = 45 s grace period before
-     * eviction.
-     */
     private static final long HEARTBEAT_TIMEOUT_MS = 45_000L;
 
     private final RedisTemplate<String, Object> redisTemplate;
 
-    // ─── REST operations ──────────────────────────────────────────────────────
-
-    /**
-     * Creates a new party, stores it in Redis with a TTL, and returns the party ID.
-     */
+    // This is the method that is used to create a new party
     public PartyState createParty(String hostId, PartyCreateRequest request) {
         String partyId = generatePartyId();
 
@@ -58,21 +50,13 @@ public class PartyService {
         return state;
     }
 
-    /**
-     * Returns the current party state for a given party ID.
-     */
+    // This is the method that is used to get the state of a party
     public PartyStateResponse getState(String partyId) {
         PartyState state = load(partyId);
         return PartyStateResponse.from(state);
     }
 
-    // ─── Participant management ───────────────────────────────────────────────
-
-    /**
-     * Adds a participant to the party if not already present.
-     *
-     * @return the updated state
-     */
+    // This is the method that is used to add a participant to a party
     public PartyState addParticipant(String partyId, String userId) {
         PartyState state = load(partyId);
         if (!state.getParticipantIds().contains(userId)) {
@@ -84,12 +68,7 @@ public class PartyService {
         return state;
     }
 
-    /**
-     * Removes a participant. Handles host migration if the host disconnects.
-     * Deletes the party from Redis entirely when the last participant leaves.
-     *
-     * @return the updated state, or null if the party was deleted
-     */
+    // This is the method that is used to remove a participant from a party
     public PartyState handleDisconnect(String partyId, String userId) {
         PartyState state = loadOrNull(partyId);
         if (state == null)
@@ -118,11 +97,7 @@ public class PartyService {
         return state;
     }
 
-    // ─── Heartbeat / zombie detection ────────────────────────────────────────
-
-    /**
-     * Records a heartbeat for the participant and extends the party TTL.
-     */
+    // This is the method that is used to record a heartbeat for a participant
     public void recordHeartbeat(String partyId, String userId) {
         PartyState state = loadOrNull(partyId);
         if (state == null)
@@ -131,14 +106,8 @@ public class PartyService {
         save(state);
     }
 
-    /**
-     * Evicts any participant whose last heartbeat is older than
-     * HEARTBEAT_TIMEOUT_MS.
-     * Should be called periodically (e.g. from the heartbeat handler or a
-     * scheduler).
-     *
-     * @return updated state, or null if the party was destroyed
-     */
+    // This is the method that is used to evict any participant whose last heartbeat
+    // is older than HEARTBEAT_TIMEOUT_MS
     public PartyState evictZombies(String partyId) {
         PartyState state = loadOrNull(partyId);
         if (state == null)
@@ -159,12 +128,7 @@ public class PartyService {
         return state;
     }
 
-    // ─── Sync ────────────────────────────────────────────────────────────────
-
-    /**
-     * Updates the party's startAt and partyStartedAt based on a host SEEK command.
-     * Applies latency compensation: adjustedStartAt = startAt + latencySeconds.
-     */
+    // This is the method that is used to apply a seek command to a party
     public PartyState applySeek(String partyId, String hostId, int startAt, long clientTime) {
         PartyState state = load(partyId);
 
@@ -182,12 +146,7 @@ public class PartyService {
         return state;
     }
 
-    // ─── Chat ─────────────────────────────────────────────────────────────────
-
-    /**
-     * Appends a chat message to the rolling history (max 50) and returns the
-     * updated state.
-     */
+    // This is the method that is used to append a chat message to a party
     public PartyState appendChat(String partyId, ChatMessage message) {
         PartyState state = load(partyId);
         var chat = state.getRecentChat();
@@ -199,13 +158,7 @@ public class PartyService {
         return state;
     }
 
-    // ─── Strict-sync / buffering ──────────────────────────────────────────────
-
-    /**
-     * Marks a participant as buffering. Returns true if FORCE_PAUSE should be
-     * broadcast
-     * (strictSync is enabled and this is the first bufferingParticipant).
-     */
+    // This is the method that is used to mark a participant as buffering
     public boolean markBuffering(String partyId, String userId) {
         PartyState state = load(partyId);
         if (!state.getBufferingParticipants().contains(userId)) {
@@ -215,11 +168,7 @@ public class PartyService {
         return state.isStrictSync();
     }
 
-    /**
-     * Clears a participant's buffering status. Returns true if RESUME should be
-     * broadcast
-     * (strictSync enabled and all buffering is resolved).
-     */
+    // This is the method that is used to clear a participant's buffering status
     public boolean markBufferingComplete(String partyId, String userId) {
         PartyState state = load(partyId);
         state.getBufferingParticipants().remove(userId);
@@ -227,11 +176,7 @@ public class PartyService {
         return state.isStrictSync() && state.getBufferingParticipants().isEmpty();
     }
 
-    /**
-     * Toggles strict-sync mode. Only the host may call this.
-     *
-     * @return new strictSync value
-     */
+    // This is the method that is used to toggle strict-sync mode
     public boolean toggleStrictSync(String partyId, String hostId) {
         PartyState state = load(partyId);
         if (!hostId.equals(state.getHostId())) {
@@ -242,8 +187,7 @@ public class PartyService {
         return state.isStrictSync();
     }
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
-
+    // Helper method to load a party state from the database
     private PartyState load(String partyId) {
         PartyState state = loadOrNull(partyId);
         if (state == null) {
@@ -252,6 +196,8 @@ public class PartyService {
         return state;
     }
 
+    // Helper method to load a party state from the database or return null if the
+    // party is not found
     private PartyState loadOrNull(String partyId) {
         Object raw = redisTemplate.opsForValue().get(KEY_PREFIX + partyId);
         if (raw instanceof PartyState ps)
@@ -259,19 +205,18 @@ public class PartyService {
         return null;
     }
 
+    // Helper method to save a party state to the database
     private void save(PartyState state) {
         redisTemplate.opsForValue().set(KEY_PREFIX + state.getPartyId(), state,
                 RedisConfig.PARTY_TTL_SECONDS, TimeUnit.SECONDS);
     }
 
+    // Helper method to delete a party state from the database
     private void delete(String partyId) {
         redisTemplate.delete(KEY_PREFIX + partyId);
     }
 
-    /**
-     * Generates a 10-character URL-safe party ID using UUID entropy.
-     * Uses base-36 encoding of the first 64 bits of a random UUID.
-     */
+    // Helper method to generate a party ID
     private String generatePartyId() {
         long high = UUID.randomUUID().getMostSignificantBits() & Long.MAX_VALUE;
         return Long.toString(high, 36).toUpperCase();

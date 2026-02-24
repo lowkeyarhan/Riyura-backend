@@ -19,19 +19,6 @@ import org.springframework.stereotype.Controller;
 import java.time.Instant;
 import java.util.Map;
 
-/**
- * Handles all STOMP @MessageMapping destinations for the Watch Party.
- *
- * <pre>
- * /app/party/{id}/join               → USER_JOINED broadcast
- * /app/party/{id}/sync               → SYNC broadcast (host only)
- * /app/party/{id}/chat               → CHAT broadcast
- * /app/party/{id}/buffering          → FORCE_PAUSE if strictSync
- * /app/party/{id}/buffering-complete → RESUME if strictSync & none buffering
- * /app/party/{id}/toggle-strict-sync → STRICT_SYNC_TOGGLED (host only)
- * /app/party/{id}/heartbeat-ws       → HEARTBEAT_ACK (zombie eviction side-effect)
- * </pre>
- */
 @Slf4j
 @Controller
 @RequiredArgsConstructor
@@ -40,8 +27,7 @@ public class PartyWebSocketController {
     private final PartyService partyService;
     private final SimpMessagingTemplate messaging;
 
-    // ─── Join ────────────────────────────────────────────────────────────────
-
+    // Join a party and broadcast the updated participant list to all members
     @MessageMapping("/party/{partyId}/join")
     public void join(@DestinationVariable String partyId,
             SimpMessageHeaderAccessor headerAccessor) {
@@ -49,12 +35,12 @@ public class PartyWebSocketController {
         String userId = resolveUserId(headerAccessor);
         PartyState state = partyService.addParticipant(partyId, userId);
 
-        // Store partyId in session so the disconnect listener knows which party the
-        // user was in
+        // Store partyId in WebSocket session attributes for later use
         Map<String, Object> attrs = headerAccessor.getSessionAttributes();
         if (attrs != null)
             attrs.put("partyId", partyId);
 
+        // Broadcast the updated participant list to all members
         broadcast(partyId, new PartyMessage(
                 PartyEvent.USER_JOINED,
                 Map.of("userId", userId, "participantIds", state.getParticipantIds()),
@@ -62,8 +48,7 @@ public class PartyWebSocketController {
                 now()));
     }
 
-    // ─── Sync (host only) ─────────────────────────────────────────────────────
-
+    // Sync command from a client to update the party's playback position
     @MessageMapping("/party/{partyId}/sync")
     public void sync(@DestinationVariable String partyId,
             @Payload SyncCommand command,
@@ -72,6 +57,8 @@ public class PartyWebSocketController {
         String userId = resolveUserId(headerAccessor);
         PartyState state = partyService.applySeek(partyId, userId, command.getStartAt(), command.getClientTime());
 
+        // Broadcast the new sync position to all members, along with the server time
+        // for latency compensation
         broadcast(partyId, new PartyMessage(
                 PartyEvent.SYNC,
                 Map.of(
@@ -81,8 +68,8 @@ public class PartyWebSocketController {
                 now()));
     }
 
-    // ─── Chat ─────────────────────────────────────────────────────────────────
-
+    // Chat message from a client to be appended to the party's chat history and
+    // broadcast to all members
     @MessageMapping("/party/{partyId}/chat")
     public void chat(@DestinationVariable String partyId,
             @Payload ChatMessage incomingMessage,
@@ -101,8 +88,8 @@ public class PartyWebSocketController {
                 now()));
     }
 
-    // ─── Buffering ────────────────────────────────────────────────────────────
-
+    // Mark a participant as buffering; if enough participants are buffering, the
+    // party will be forced to pause
     @MessageMapping("/party/{partyId}/buffering")
     public void buffering(@DestinationVariable String partyId,
             SimpMessageHeaderAccessor headerAccessor) {
@@ -116,6 +103,8 @@ public class PartyWebSocketController {
         }
     }
 
+    // Mark a participant as having resolved their buffering; if all participants
+    // are ready, the party can resume
     @MessageMapping("/party/{partyId}/buffering-complete")
     public void bufferingComplete(@DestinationVariable String partyId,
             SimpMessageHeaderAccessor headerAccessor) {
@@ -129,8 +118,8 @@ public class PartyWebSocketController {
         }
     }
 
-    // ─── Strict-sync toggle (host only) ───────────────────────────────────────
-
+    // Toggle strict sync mode (only host can toggle) — when enabled, any new seek
+    // command from a participant will be overridden by the host's current position
     @MessageMapping("/party/{partyId}/toggle-strict-sync")
     public void toggleStrictSync(@DestinationVariable String partyId,
             SimpMessageHeaderAccessor headerAccessor) {
@@ -145,8 +134,7 @@ public class PartyWebSocketController {
                 now()));
     }
 
-    // ─── WebSocket heartbeat (alternative to REST heartbeat) ─────────────────
-
+    // Heartbeat from a client to keep the party alive and trigger zombie eviction
     @MessageMapping("/party/{partyId}/heartbeat-ws")
     public void heartbeatWs(@DestinationVariable String partyId,
             SimpMessageHeaderAccessor headerAccessor) {
@@ -156,22 +144,23 @@ public class PartyWebSocketController {
         // Also run zombie eviction on every heartbeat tick
         partyService.evictZombies(partyId);
 
-        // Reply only to the sender — use user-specific queue if needed; here we use a
-        // simple broadcast
+        // Send an ack back to the specific user to confirm the heartbeat was received
         messaging.convertAndSendToUser(userId, "/queue/heartbeat-ack",
                 new PartyMessage(PartyEvent.HEARTBEAT_ACK, Map.of("ack", now()), "system", now()));
     }
 
-    // ─── Helpers ──────────────────────────────────────────────────────────────
-
+    // Helper method to broadcast a message to all members of a party
     private void broadcast(String partyId, PartyMessage message) {
         messaging.convertAndSend("/topic/party/" + partyId, message);
     }
 
+    // Helper method to get the current server time in milliseconds
     private long now() {
         return Instant.now().toEpochMilli();
     }
 
+    // Helper method to resolve the user ID from the WebSocket session attributes or
+    // Spring Security principal
     private String resolveUserId(SimpMessageHeaderAccessor accessor) {
         Map<String, Object> attrs = accessor.getSessionAttributes();
         if (attrs != null && attrs.containsKey(WebSocketAuthInterceptor.SESSION_USER_ID)) {

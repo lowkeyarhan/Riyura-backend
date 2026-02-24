@@ -45,8 +45,6 @@ public class SecurityConfig {
                                                                 "/api/search/**",
                                                                 "/api/anime/**",
                                                                 "/api/explore/**",
-                                                                // WebSocket SockJS handshake — auth is handled at the
-                                                                // STOMP CONNECT layer
                                                                 "/ws/**")
                                                 .permitAll()
 

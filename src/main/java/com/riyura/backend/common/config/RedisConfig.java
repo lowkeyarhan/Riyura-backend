@@ -13,16 +13,16 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @Configuration
 public class RedisConfig {
 
-    /**
-     * Redis TTL for a party key — 1 hour in seconds. Extended on every heartbeat.
-     */
+    // Redis TTL for a party key — 1 hour in seconds. Extended on every heartbeat.
     public static final long PARTY_TTL_SECONDS = 3600L;
 
+    // This is the bean that is used to create a Redis template
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(factory);
 
+        // Create a new object mapper
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);

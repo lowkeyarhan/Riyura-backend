@@ -16,11 +16,6 @@ import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import java.time.Instant;
 import java.util.Map;
 
-/**
- * Listens for WebSocket session disconnect events.
- * Removes the participant from the party, handles host migration,
- * and destroys the party when the last participant leaves.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -29,18 +24,22 @@ public class WebSocketEventListener {
     private final PartyService partyService;
     private final SimpMessagingTemplate messagingTemplate;
 
+    // This is the event listener that is used to handle the disconnect event
     @EventListener
     public void handleDisconnect(SessionDisconnectEvent event) {
+
+        // Get the session attributes
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
         Map<String, Object> sessionAttributes = accessor.getSessionAttributes();
         if (sessionAttributes == null)
             return;
 
+        // Get the user id and party id from the session attributes
         String userId = (String) sessionAttributes.get(WebSocketAuthInterceptor.SESSION_USER_ID);
         String partyId = (String) sessionAttributes.get("partyId");
 
+        // If the user id or party id is null, return
         if (userId == null || partyId == null) {
-            // User disconnected before joining any party
             return;
         }
 
@@ -69,9 +68,7 @@ public class WebSocketEventListener {
 
         // If host migrated, notify with new host info
         if (!userId.equals(updated.getHostId())) {
-            // The host changed (migration already set by handleDisconnect)
         } else {
-            // Host didn't change — meaning the leaver was NOT the host, no migration needed
             return;
         }
 
