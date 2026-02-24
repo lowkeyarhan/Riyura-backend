@@ -40,4 +40,4 @@ build/
 .env
 
 # Response files with sensitive data
-response/supabase/Session.json
+response/supabase
