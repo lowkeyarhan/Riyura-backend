@@ -1,5 +1,6 @@
 package com.riyura.backend.modules.content.service.movie;
 
+import com.riyura.backend.common.cache.CacheStampedeGuard;
 import com.riyura.backend.common.dto.cast.CastResponse;
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
@@ -11,9 +12,9 @@ import com.riyura.backend.modules.content.dto.movie.MovieDetail;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -26,6 +27,7 @@ public class MovieDetailService {
     private static final int SIMILAR_LIMIT = 6;
 
     private final TmdbClient tmdbClient;
+    private final CacheStampedeGuard cacheStampedeGuard;
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -37,59 +39,66 @@ public class MovieDetailService {
     private String imageBaseUrl;
 
     // Fetches detailed information about a movie, including its cast and whether
-    // it's an anime
-    @Cacheable(value = "movieDetails", key = "#id", sync = true)
+    // it's an anime.
     public MovieDetail getMovieDetails(String id) {
-        String detailsUrl = String.format("%s/movie/%s?api_key=%s&language=en-US", baseUrl, id, apiKey);
-        String creditsUrl = String.format("%s/movie/%s/credits?api_key=%s&language=en-US", baseUrl, id, apiKey);
-
-        try {
-            CompletableFuture<MovieDetail> detailsTask = CompletableFuture
-                    .supplyAsync(() -> tmdbClient.fetchWithRetry(detailsUrl, MovieDetail.class));
-            CompletableFuture<CreditsResponse> creditsTask = CompletableFuture.supplyAsync(() -> {
-                try {
-                    return tmdbClient.fetchWithRetry(creditsUrl, CreditsResponse.class);
-                } catch (Exception e) {
-                    return null;
-                }
-            });
-
-            MovieDetail details = detailsTask.join();
-            CreditsResponse credits = creditsTask.join();
-
-            if (details != null) {
-                details.setCasts(
-                        credits != null && credits.getCast() != null ? credits.getCast() : Collections.emptyList());
-                details.setAnime(TmdbUtils.isAnime(details.getOriginalLanguage(), details.getGenres()));
-            }
-            return details;
-        } catch (Exception e) {
-            System.err.println("Error fetching movie details for ID " + id + ": " + TmdbClient.rootMessage(e));
-            return null;
-        }
+        return cacheStampedeGuard.xfetch(
+                "movieDetails:" + id, Duration.ofDays(7), 1.5,
+                () -> {
+                    String detailsUrl = String.format("%s/movie/%s?api_key=%s&language=en-US", baseUrl, id, apiKey);
+                    String creditsUrl = String.format("%s/movie/%s/credits?api_key=%s&language=en-US",
+                            baseUrl, id, apiKey);
+                    try {
+                        CompletableFuture<MovieDetail> detailsTask = CompletableFuture
+                                .supplyAsync(() -> tmdbClient.fetchWithRetry(detailsUrl, MovieDetail.class));
+                        CompletableFuture<CreditsResponse> creditsTask = CompletableFuture.supplyAsync(() -> {
+                            try {
+                                return tmdbClient.fetchWithRetry(creditsUrl, CreditsResponse.class);
+                            } catch (Exception e) {
+                                return null;
+                            }
+                        });
+                        MovieDetail details = detailsTask.join();
+                        CreditsResponse credits = creditsTask.join();
+                        if (details != null) {
+                            details.setCasts(credits != null && credits.getCast() != null
+                                    ? credits.getCast()
+                                    : Collections.emptyList());
+                            details.setAnime(TmdbUtils.isAnime(details.getOriginalLanguage(), details.getGenres()));
+                        }
+                        return details;
+                    } catch (Exception e) {
+                        System.err.println("Error fetching movie details for ID " + id
+                                + ": " + TmdbClient.rootMessage(e));
+                        return null;
+                    }
+                });
     }
 
     // Fetches similar movies based on a given movie ID, sorted by rating and
     // limited to a predefined number
-    @Cacheable(value = "movieSimilar", key = "#id", sync = true)
     public List<MediaGridResponse> getSimilarMovies(String id) {
-        String similarUrl = String.format("%s/movie/%s/similar?api_key=%s&language=en-US&page=1", baseUrl, id, apiKey);
-
-        try {
-            TmdbTrendingResponse response = tmdbClient.fetchWithRetry(similarUrl, TmdbTrendingResponse.class);
-            if (response == null || response.getResults() == null)
-                return Collections.emptyList();
-
-            return response.getResults().stream()
-                    .sorted(Comparator.comparing(TmdbTrendingResponse.TmdbItem::getVoteAverage,
-                            Comparator.nullsLast(Comparator.reverseOrder())))
-                    .limit(SIMILAR_LIMIT)
-                    .map(this::mapSimilarMovieToDTO)
-                    .toList();
-        } catch (Exception e) {
-            System.err.println("Error fetching similar movies for ID " + id + ": " + TmdbClient.rootMessage(e));
-            return Collections.emptyList();
-        }
+        return cacheStampedeGuard.xfetch(
+                "movieSimilar:" + id, Duration.ofDays(7), 1.0,
+                () -> {
+                    String similarUrl = String.format(
+                            "%s/movie/%s/similar?api_key=%s&language=en-US&page=1", baseUrl, id, apiKey);
+                    try {
+                        TmdbTrendingResponse response = tmdbClient.fetchWithRetry(similarUrl,
+                                TmdbTrendingResponse.class);
+                        if (response == null || response.getResults() == null)
+                            return Collections.emptyList();
+                        return response.getResults().stream()
+                                .sorted(Comparator.comparing(TmdbTrendingResponse.TmdbItem::getVoteAverage,
+                                        Comparator.nullsLast(Comparator.reverseOrder())))
+                                .limit(SIMILAR_LIMIT)
+                                .map(this::mapSimilarMovieToDTO)
+                                .toList();
+                    } catch (Exception e) {
+                        System.err.println("Error fetching similar movies for ID " + id
+                                + ": " + TmdbClient.rootMessage(e));
+                        return Collections.emptyList();
+                    }
+                });
     }
 
     // Maps a TMDb item to a MediaGridResponse DTO, specifically for similar movies

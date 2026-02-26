@@ -1,5 +1,6 @@
 package com.riyura.backend.modules.content.service.tv;
 
+import com.riyura.backend.common.cache.CacheStampedeGuard;
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
@@ -9,8 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.cache.annotation.Cacheable;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 
@@ -19,6 +20,7 @@ import java.util.List;
 public class TvService {
 
     private final RestTemplate restTemplate;
+    private final CacheStampedeGuard cacheStampedeGuard;
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -29,25 +31,36 @@ public class TvService {
     @Value("${tmdb.image-base-url}")
     private String imageBaseUrl;
 
-    @Cacheable(value = "tvAiringToday", key = "#limit", sync = true)
     public List<MediaGridResponse> getAiringToday(int limit) {
-        return fetchAndMap(String.format("%s/tv/airing_today?api_key=%s&language=en-US&page=1", baseUrl, apiKey),
-                limit);
+        return cacheStampedeGuard.xfetch(
+                "tvAiringToday:" + limit, Duration.ofDays(1), 1.0,
+                () -> fetchAndMap(
+                        String.format("%s/tv/airing_today?api_key=%s&language=en-US&page=1", baseUrl, apiKey),
+                        limit));
     }
 
-    @Cacheable(value = "tvTrending", key = "#limit", sync = true)
     public List<MediaGridResponse> getTrendingTv(int limit) {
-        return fetchAndMap(String.format("%s/trending/tv/week?api_key=%s&language=en-US", baseUrl, apiKey), limit);
+        return cacheStampedeGuard.xfetch(
+                "tvTrending:" + limit, Duration.ofDays(1), 1.0,
+                () -> fetchAndMap(
+                        String.format("%s/trending/tv/week?api_key=%s&language=en-US", baseUrl, apiKey),
+                        limit));
     }
 
-    @Cacheable(value = "tvPopular", key = "#limit", sync = true)
     public List<MediaGridResponse> getPopularTv(int limit) {
-        return fetchAndMap(String.format("%s/tv/popular?api_key=%s&language=en-US&page=1", baseUrl, apiKey), limit);
+        return cacheStampedeGuard.xfetch(
+                "tvPopular:" + limit, Duration.ofDays(1), 1.0,
+                () -> fetchAndMap(
+                        String.format("%s/tv/popular?api_key=%s&language=en-US&page=1", baseUrl, apiKey),
+                        limit));
     }
 
-    @Cacheable(value = "tvOnTheAir", key = "#limit", sync = true)
     public List<MediaGridResponse> getOnTheAir(int limit) {
-        return fetchAndMap(String.format("%s/tv/on_the_air?api_key=%s&language=en-US&page=1", baseUrl, apiKey), limit);
+        return cacheStampedeGuard.xfetch(
+                "tvOnTheAir:" + limit, Duration.ofDays(1), 1.0,
+                () -> fetchAndMap(
+                        String.format("%s/tv/on_the_air?api_key=%s&language=en-US&page=1", baseUrl, apiKey),
+                        limit));
     }
 
     private List<MediaGridResponse> fetchAndMap(String url, int limit) {

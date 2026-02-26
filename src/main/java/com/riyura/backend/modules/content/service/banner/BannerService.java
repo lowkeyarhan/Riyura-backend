@@ -1,5 +1,6 @@
 package com.riyura.backend.modules.content.service.banner;
 
+import com.riyura.backend.common.cache.CacheStampedeGuard;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.util.GenreMapper;
@@ -9,9 +10,9 @@ import com.riyura.backend.modules.content.dto.banner.BannerResponse;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -20,26 +21,32 @@ import java.util.concurrent.CompletableFuture;
 public class BannerService {
 
     private final TmdbClient tmdbClient;
+    private final CacheStampedeGuard cacheStampedeGuard;
 
     @Value("${tmdb.api-key}")
     private String apiKey;
 
     @Value("${tmdb.base-url}")
     private String baseUrl;
-    
+
     @Value("${tmdb.image-base-url}")
     private String imageBaseUrl;
 
-    // Fetches banner data for both movies and TV shows
-    @Cacheable(value = "banners", sync = true)
+    // Fetches banner data for both movies and TV shows.
     public List<BannerResponse> getBannerData() {
-        CompletableFuture<List<BannerResponse>> moviesTask = CompletableFuture.supplyAsync(this::fetchTopMovies);
-        CompletableFuture<List<BannerResponse>> tvTask = CompletableFuture.supplyAsync(this::fetchTopTV);
-
-        List<BannerResponse> allItems = new ArrayList<>(moviesTask.join());
-        allItems.addAll(tvTask.join());
-        Collections.shuffle(allItems);
-        return allItems;
+        return cacheStampedeGuard.staleWhileRevalidate(
+                "banners",
+                Duration.ofHours(8),
+                Duration.ofDays(1),
+                () -> {
+                    CompletableFuture<List<BannerResponse>> moviesTask = CompletableFuture
+                            .supplyAsync(this::fetchTopMovies);
+                    CompletableFuture<List<BannerResponse>> tvTask = CompletableFuture.supplyAsync(this::fetchTopTV);
+                    List<BannerResponse> allItems = new ArrayList<>(moviesTask.join());
+                    allItems.addAll(tvTask.join());
+                    Collections.shuffle(allItems);
+                    return allItems;
+                });
     }
 
     // Fetches top trending movies from TMDb and maps them to BannerResponse DTOs

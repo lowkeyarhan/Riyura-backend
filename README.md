@@ -51,17 +51,26 @@ Database connections are managed by HikariCP with a maximum pool size of **30**,
 
 ## Caching
 
-Riyura uses **Redis** as its distributed cache via Spring's `@Cacheable` / `@CacheEvict` abstraction, with a custom `RedisCacheManager` configured in `CacheConfig`.
+Riyura uses **Redis** as its distributed cache, combining Spring's `@Cacheable` / `@CacheEvict` abstraction with a custom **cache stampede guard** (`CacheStampedeGuard`) that implements four complementary protections against thundering-herd effects when popular keys expire.
+
+### Cache Stampede Prevention
+
+| Technique                                   | Implementation                                                                                                                                 | Where Applied                                                                              |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **Distributed mutex**                       | Redis `SETNX` lock — only one node recomputes at a time; others wait and retry                                                                 | XFetch, SWR, and **cold misses** (empty cache)                                             |
+| **Cold-miss wait loop**                     | If the cache is empty and multiple threads arrive, one wins the lock and computes; others `sleep(50)` and retry until the value appears        | Both `xfetch` and `staleWhileRevalidate`                                                   |
+| **XFetch** (Probabilistic Early Expiration) | Recomputes _before_ TTL expires when `beta × delta × -ln(rand) > remainingTTL` — expensive loaders refresh early while the cache is still warm | MovieService, TvService, AnimeService, MovieDetailService, TvDetailsService, SearchService |
+| **Stale-While-Revalidate**                  | Soft TTL (fresh window) + hard TTL; when stale, serve value instantly and refresh in background so users never see latency spikes              | BannerService, ExploreService                                                              |
+| **Proportional TTL jitter**                 | 10–20 % of base TTL added at write time — scales correctly for any TTL (5 min → 30–60 s spread; 7 days → 16–33 h spread)                       | All caches via `CacheStampedeGuard` and `CacheConfig`                                      |
+| **`@Cacheable(sync = true)`**               | Spring's per-JVM mutex for annotation-based caches — single-threaded recompute under concurrent load                                           | WatchlistService, HistoryService                                                           |
 
 ### Cache Strategy
 
 - **Serialization**: String keys with JSON values (`GenericJackson2JsonRedisSerializer`)
-- **Base TTL**: 1 day per cache entry
-- **TTL Jitter**: Each key receives a random additional TTL of **1–6 hours** computed at write time to prevent **cache stampede** — a scenario where mass simultaneous expiry of related keys would flood the origin API
-- **Null caching**: Disabled — absent values always fall through to the source
-- **Synchronized access**: All `@Cacheable` calls use `sync = true`, ensuring that under concurrent load only one thread fetches from the source while others wait on the cached result
+- **Null caching**: Disabled — absent values are never cached so transient errors don't poison the cache
+- **Background refresh pool**: Dedicated `cacheRefreshExecutor` (4–16 threads) for SWR background refreshes; `CallerRunsPolicy` provides back-pressure if the queue is full
 
-All content caches (`movies`, `tv`, `anime`, `banners`, `explore`, `search`, `streamUrls`) are keyed by their natural discriminator (e.g. `limit`, `contentId`, `query`) and expire by TTL. User-specific caches (`watchlist`, `history`) are keyed by `userId` and are explicitly evicted via `@CacheEvict` on any write operation, ensuring user data is never stale.
+Content caches use `CacheStampedeGuard` and are keyed by their natural discriminator (e.g. `limit`, `query`, `id`). User-specific caches (`watchlist`, `history`) use `@Cacheable` with `sync = true` and are evicted via `@CacheEvict` on writes.
 
 ### Redis Party State
 
@@ -200,4 +209,3 @@ http://localhost:8080/v3/api-docs
 - Redis instance
 - Content provider API key
 - Supabase project (for JWT secret)
-

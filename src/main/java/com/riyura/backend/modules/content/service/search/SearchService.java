@@ -1,6 +1,7 @@
 package com.riyura.backend.modules.content.service.search;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.riyura.backend.common.cache.CacheStampedeGuard;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
@@ -11,15 +12,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import org.springframework.cache.annotation.Cacheable;
 
 @Service
 @RequiredArgsConstructor
 public class SearchService {
 
     private final TmdbClient tmdbClient;
+    private final CacheStampedeGuard cacheStampedeGuard;
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -31,25 +33,30 @@ public class SearchService {
     private String imageBaseUrl;
 
     // Performs a search across movies, TV shows, and companies, combining results
-    // and sorting by rating
-    @Cacheable(value = "searchResults", key = "#query", sync = true)
+    // and sorting by rating.
     public List<SearchResponse> search(String query) {
         if (query == null || query.trim().isEmpty())
             return Collections.emptyList();
 
-        CompletableFuture<List<ScoredSearchResult>> multiTask = CompletableFuture.supplyAsync(() -> searchMulti(query));
-        CompletableFuture<List<ScoredSearchResult>> companyTask = CompletableFuture
-                .supplyAsync(() -> searchByCompany(query));
+        String normalizedQuery = query.trim().toLowerCase();
+        return cacheStampedeGuard.xfetch(
+                "searchResults:" + normalizedQuery, Duration.ofDays(1), 1.0,
+                () -> {
+                    CompletableFuture<List<ScoredSearchResult>> multiTask = CompletableFuture
+                            .supplyAsync(() -> searchMulti(query));
+                    CompletableFuture<List<ScoredSearchResult>> companyTask = CompletableFuture
+                            .supplyAsync(() -> searchByCompany(query));
 
-        Map<String, ScoredSearchResult> uniqueResults = new LinkedHashMap<>();
-        companyTask.join().forEach(item -> uniqueResults.put(genKey(item.getResponse()), item));
-        multiTask.join().forEach(item -> uniqueResults.putIfAbsent(genKey(item.getResponse()), item));
+                    Map<String, ScoredSearchResult> uniqueResults = new LinkedHashMap<>();
+                    companyTask.join().forEach(item -> uniqueResults.put(genKey(item.getResponse()), item));
+                    multiTask.join().forEach(item -> uniqueResults.putIfAbsent(genKey(item.getResponse()), item));
 
-        return uniqueResults.values().stream()
-                .sorted(Comparator.comparing(ScoredSearchResult::getRating,
-                        Comparator.nullsLast(Comparator.reverseOrder())))
-                .map(ScoredSearchResult::getResponse)
-                .toList();
+                    return uniqueResults.values().stream()
+                            .sorted(Comparator.comparing(ScoredSearchResult::getRating,
+                                    Comparator.nullsLast(Comparator.reverseOrder())))
+                            .map(ScoredSearchResult::getResponse)
+                            .toList();
+                });
     }
 
     // Performs a multi-search on TMDb and processes results to extract movies, TV

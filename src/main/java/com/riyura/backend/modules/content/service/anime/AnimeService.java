@@ -1,5 +1,6 @@
 package com.riyura.backend.modules.content.service.anime;
 
+import com.riyura.backend.common.cache.CacheStampedeGuard;
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
@@ -7,10 +8,10 @@ import com.riyura.backend.common.util.TmdbUtils;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -22,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 public class AnimeService {
 
     private final RestTemplate restTemplate;
+    private final CacheStampedeGuard cacheStampedeGuard;
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -33,20 +35,25 @@ public class AnimeService {
     private String imageBaseUrl;
 
     // Fetches trending anime and returns a list of MediaGridResponse DTOs
-    @Cacheable(value = "animeTrending", key = "#limit", sync = true)
     public List<MediaGridResponse> getTrendingAnime(int limit) {
-        CompletableFuture<List<AnimeHelper>> tvTask = CompletableFuture.supplyAsync(this::fetchAnimeTv);
-        CompletableFuture<List<AnimeHelper>> movieTask = CompletableFuture.supplyAsync(this::fetchAnimeMovies);
+        return cacheStampedeGuard.xfetch(
+                "animeTrending:" + limit, Duration.ofDays(1), 1.0,
+                () -> {
+                    CompletableFuture<List<AnimeHelper>> tvTask = CompletableFuture.supplyAsync(this::fetchAnimeTv);
+                    CompletableFuture<List<AnimeHelper>> movieTask = CompletableFuture
+                            .supplyAsync(this::fetchAnimeMovies);
 
-        List<AnimeHelper> allAnime = new ArrayList<>(tvTask.join());
-        allAnime.addAll(movieTask.join());
+                    List<AnimeHelper> allAnime = new ArrayList<>(tvTask.join());
+                    allAnime.addAll(movieTask.join());
 
-        return allAnime.stream()
-                .filter(item -> item.tmdbItem.getVoteAverage() != null)
-                .sorted(Comparator.comparingDouble((AnimeHelper h) -> h.tmdbItem.getVoteAverage()).reversed())
-                .limit(limit)
-                .map(this::mapToDTO)
-                .toList();
+                    return allAnime.stream()
+                            .filter(item -> item.tmdbItem().getVoteAverage() != null)
+                            .sorted(Comparator.comparingDouble(
+                                    (AnimeHelper h) -> h.tmdbItem().getVoteAverage()).reversed())
+                            .limit(limit)
+                            .map(this::mapToDTO)
+                            .toList();
+                });
     }
 
     // Fetches trending anime TV shows from TMDb

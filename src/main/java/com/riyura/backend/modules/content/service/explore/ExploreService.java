@@ -1,5 +1,6 @@
 package com.riyura.backend.modules.content.service.explore;
 
+import com.riyura.backend.common.cache.CacheStampedeGuard;
 import com.riyura.backend.common.dto.explore.ExploreDto;
 import com.riyura.backend.common.dto.tmdb.TmdbDiscoverResponse;
 import com.riyura.backend.common.model.MediaType;
@@ -11,11 +12,12 @@ import com.riyura.backend.common.util.TmdbUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.cache.annotation.Cacheable;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -25,6 +27,7 @@ public class ExploreService {
     private static final int ITEMS_PER_TYPE = 9;
 
     private final TmdbClient tmdbClient;
+    private final CacheStampedeGuard cacheStampedeGuard;
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -35,24 +38,34 @@ public class ExploreService {
     @Value("${tmdb.image-base-url}")
     private String imageBaseUrl;
 
-    // Fetch explore page with mixed movies and TV shows
-    @Cacheable(value = "explore", sync = true)
+    // Fetch explore page with mixed movies and TV shows.
     public List<ExploreDto> getExplorePage(int page, String genreNames, String language) {
-        String isoLanguage = LanguageMapper.toIsoCode(language);
-        String movieGenreIds = GenreMapper.toMovieGenreIds(genreNames);
-        String tvGenreIds = GenreMapper.toTvGenreIds(genreNames);
+        String cacheKey = String.format("explore:%d:%s:%s",
+                page,
+                Objects.toString(genreNames, ""),
+                Objects.toString(language, ""));
 
-        String movieUrl = buildUrl("movie", page, movieGenreIds, isoLanguage);
-        String tvUrl = buildUrl("tv", page, tvGenreIds, isoLanguage);
+        return cacheStampedeGuard.staleWhileRevalidate(
+                cacheKey,
+                Duration.ofHours(12), // fresh window
+                Duration.ofDays(1), // hard window
+                () -> {
+                    String isoLanguage = LanguageMapper.toIsoCode(language);
+                    String movieGenreIds = GenreMapper.toMovieGenreIds(genreNames);
+                    String tvGenreIds = GenreMapper.toTvGenreIds(genreNames);
 
-        CompletableFuture<List<ExploreDto>> moviesFuture = CompletableFuture
-                .supplyAsync(() -> fetchAndMap(movieUrl, MediaType.Movie));
-        CompletableFuture<List<ExploreDto>> tvFuture = CompletableFuture
-                .supplyAsync(() -> fetchAndMap(tvUrl, MediaType.TV));
+                    String movieUrl = buildUrl("movie", page, movieGenreIds, isoLanguage);
+                    String tvUrl = buildUrl("tv", page, tvGenreIds, isoLanguage);
 
-        List<ExploreDto> combined = new ArrayList<>(moviesFuture.join());
-        combined.addAll(tvFuture.join());
-        return combined;
+                    CompletableFuture<List<ExploreDto>> moviesFuture = CompletableFuture
+                            .supplyAsync(() -> fetchAndMap(movieUrl, MediaType.Movie));
+                    CompletableFuture<List<ExploreDto>> tvFuture = CompletableFuture
+                            .supplyAsync(() -> fetchAndMap(tvUrl, MediaType.TV));
+
+                    List<ExploreDto> combined = new ArrayList<>(moviesFuture.join());
+                    combined.addAll(tvFuture.join());
+                    return combined;
+                });
     }
 
     // Build URL for TMDB API
