@@ -129,6 +129,13 @@
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>${springdoc.version}</version>
 		</dependency>
+
+		<!-- Bucket4J distributed rate limiting via Lettuce/Redis -->
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-lettuce</artifactId>
+			<version>8.16.1</version>
+		</dependency>
 	</dependencies>
 
 	<build>

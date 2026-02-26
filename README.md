@@ -1,8 +1,25 @@
 # Riyura Backend
 
+## Contents
+
+- [Overview & About](#overview--about)
+- [System Architecture](#system-architecture)
+- [Tech Stack](#tech-stack)
+- [Database & Persistence](#database--persistence)
+- [Caching](#caching)
+- [Concurrency](#concurrency)
+- [WebSocket & Watch Parties](#websocket--watch-parties)
+- [Security & Authentication](#security--authentication)
+- [Rate Limiting](#rate-limiting)
+- [Key Workflows](#key-workflows)
+- [API Documentation](#api-documentation)
+- [Getting Started](#getting-started)
+
+---
+
 ## Overview & About
 
-This is a sophisticated backend service for Riyura that acts as the core orchestration layer for the modern media streaming platform. Built on **Spring Boot 4.x** with **Java 21**, it seamlessly serves rich media content, dynamic discovery features, personalized user experiences, and real-time collaborative watch parties. The system integrates with an external content API for media metadata, **Supabase** for identity/auth, **PostgreSQL** for persistent storage, and **Redis** for high-performance caching and ephemeral party state.
+This is a sophisticated backend service for Riyura that acts as the core orchestration layer for the modern media streaming platform. Built on **Spring Boot 4.x** with **Java 21**, it seamlessly serves rich media content, dynamic discovery features, personalized user experiences, and real-time collaborative watch parties. The system integrates with an external content API for media metadata, **Supabase** for identity/auth, **PostgreSQL** for persistent storage, and **Redis** for high-performance caching, ephemeral party state, and distributed rate limiting.
 
 From managing trending banners and multi-provider stream URL resolution to synchronized watch parties with real-time chat, Riyura powers every essential feature of a full-stack entertainment hub — all while leveraging JDK 21 virtual threads for high concurrency without the complexity of traditional thread pools.
 
@@ -29,6 +46,7 @@ The application follows a **Modular Monolith** architecture that emphasizes high
 | Database      | PostgreSQL with HikariCP connection pooling                    |
 | ORM           | Spring Data JPA / Hibernate                                    |
 | Caching       | Redis (Spring Cache abstraction + custom RedisTemplate)        |
+| Rate Limiting | Bucket4J + Redis (Lettuce) — distributed, fail-open, tiered    |
 | Real-time     | STOMP over WebSocket (SockJS fallback)                         |
 | Security      | Spring Security + OAuth2 Resource Server (Supabase JWT, HS256) |
 | Async         | JDK 21 virtual threads + CompletableFuture                     |
@@ -157,6 +175,97 @@ Riyura uses **Spring Security** configured as an **OAuth2 Resource Server** with
 - **CORS**: Configured for frontend origin (`FRONTEND_URL`, defaults to `http://localhost:3000`)
 
 Content discovery endpoints (`/api/movies/**`, `/api/tv/**`, `/api/anime/**`, `/api/search/**`, `/api/banner/**`, `/api/explore/**`) are fully public. User-specific endpoints (`/api/profile/**`, `/api/watchlist/**`, `/api/party/**`) require a valid Supabase-issued JWT in the `Authorization` header. The WebSocket endpoint (`/ws/**`) is publicly reachable at the HTTP level, but authentication is enforced at the STOMP CONNECT frame by `WebSocketAuthInterceptor`.
+
+---
+
+## Rate Limiting
+
+Riyura uses **Bucket4J** backed by **Redis (Lettuce)** for distributed, highly available rate limiting across all HTTP traffic. The implementation is production-ready, fail-open when Redis is unavailable, and compatible with JDK 21 virtual threads.
+
+### Architecture
+
+| Component                  | Responsibility                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `LettuceBasedProxyManager` | Distributed bucket store — fetches or creates per-key buckets in Redis via atomic CAS operations                    |
+| `ClientIdentifierProvider` | Resolves caller identity: authenticated user ID (JWT `sub`) or client IP; handles `X-Forwarded-For` for proxies/LBs |
+| `RateLimitTierService`     | Maps request URIs to rate-limit tiers with distinct bucket configurations                                           |
+| `RateLimitFilter`          | `OncePerRequestFilter` at order 1 — runs after Security so JWT context is available for per-user scoping            |
+
+### Rate Limit Tiers
+
+All limits use **greedy refill** (tokens replenish continuously over the window, not in a burst at reset), which smooths traffic and avoids thundering-herd spikes.
+
+| Tier        | Endpoints                                   | Limit                 |
+| ----------- | ------------------------------------------- | --------------------- |
+| **DEFAULT** | All other `/api/**` routes                  | 100 requests / minute |
+| **HEAVY**   | `/api/explore`, `/api/search`, `/api/anime` | 30 requests / minute  |
+| **PARTY**   | `/api/party`, `/ws/**`                      | 10 requests / minute  |
+
+Heavy endpoints proxy expensive external API calls (TMDB, etc.); party endpoints cover WebSocket handshakes and party creation — both are more resource-intensive and thus throttled more aggressively.
+
+### Redis Key Design
+
+Keys follow the format `rate_limit:{identity}:{tier}`:
+
+- **Authenticated** → `rate_limit:user:{supabase-uuid}:default`
+- **Anonymous** → `rate_limit:ip:{client-ip}:heavy`
+
+This isolates limits per user (or per IP for anonymous traffic) and per tier, so one client exhausting explore does not affect their movie or party quota.
+
+### Memory Leak Prevention
+
+`LettuceBasedProxyManager` is configured with an `ExpirationAfterWriteStrategy` that assigns a Redis TTL to each bucket key based on the refill period plus a buffer. Inactive buckets expire and are evicted automatically — no unbounded key growth in Redis.
+
+### Response Format
+
+**Allowed request**: The filter attaches `X-RateLimit-Remaining` to the response and proceeds. No JSON body is modified.
+
+**Blocked request (429 Too Many Requests)**:
+
+- HTTP status: `429`
+- `Retry-After` header: seconds until refill (derived from Bucket4J's `nanosToWaitForRefill`)
+- JSON body (strict format):
+
+```json
+{
+  "status": 429,
+  "error": "Too Many Requests",
+  "message": "You have been rate limited. Try again after 42 second(s)."
+}
+```
+
+The filter short-circuits the request; the controller is never reached.
+
+### Excluded Paths
+
+The following prefixes are **not** rate-limited (to avoid Swagger and health checks consuming quota or failing under load):
+
+- `/swagger-ui`
+- `/v3/api-docs`
+- `/actuator`
+- `/favicon.ico`
+
+### Fail-Open Behavior
+
+The Redis evaluation is strictly isolated in its own `try/catch` block. The result (allowed, blocked, or fail-open) is stored in local variables, and the `try` block is closed **before** `chain.doFilter()` is called. This two-phase design is intentional:
+
+- If Redis is unreachable or times out, the filter logs a `WARN`, sets a `failOpen` flag, and allows the request through without touching the response.
+- Because `chain.doFilter()` is outside the `try` block, any exception thrown by a controller propagates normally up the filter chain. It is never misidentified as a Redis failure and can never trigger a double execution on an already-committed response (which would crash Tomcat with `IllegalStateException: response already committed`).
+
+### Topology-Aware Redis Connection
+
+`RateLimitConfig` inspects the Lettuce native client with `instanceof` before opening the dedicated Bucket4J connection, rather than blindly casting to `RedisClient`:
+
+```
+RedisClusterClient  → used in AWS ElastiCache Cluster Mode, Redis Enterprise
+RedisClient         → used in standalone / Sentinel deployments
+```
+
+If neither matches (e.g. a future Lettuce client type), the application fails fast at startup with a clear `IllegalStateException` rather than throwing a cryptic `ClassCastException` at runtime under load. This makes the configuration safe to deploy to any Redis topology without code changes.
+
+### Virtual Thread Safety
+
+Bucket4J's Lettuce integration issues async Redis commands via Lettuce's non-blocking pipeline. The custom filter contains no `synchronized` blocks, so carrier threads are never pinned during Redis I/O — safe for high-concurrency virtual-thread workloads.
 
 ---
 
