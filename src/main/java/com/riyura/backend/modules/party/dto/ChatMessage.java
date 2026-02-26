@@ -1,7 +1,6 @@
 package com.riyura.backend.modules.party.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -19,8 +18,5 @@ public class ChatMessage implements Serializable {
     private String senderId;
     private String senderDisplayName;
     private String text;
-
-    // READ_ONLY = serialized to client, but ignored when deserializing from client
-    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private long serverTime;
 }

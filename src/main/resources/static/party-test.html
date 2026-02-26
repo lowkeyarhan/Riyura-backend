@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Watch Party Console</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+      :root {
+        --bg-color: #000000;
+        --surface-color: #121212;
+        --border-color: #333333;
+        --text-primary: #ffffff;
+        --text-secondary: #aaaaaa;
+        --accent-color: #ffffff;
+        --accent-text: #000000;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family:
+          "Inter",
+          -apple-system,
+          sans-serif;
+      }
+
+      body {
+        background-color: var(--bg-color);
+        color: var(--text-primary);
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .sidebar {
+        width: 400px;
+        background-color: var(--bg-color);
+        border-right: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        padding: 24px;
+        overflow-y: auto;
+      }
+
+      .sidebar::-webkit-scrollbar {
+        width: 4px;
+      }
+      .sidebar::-webkit-scrollbar-thumb {
+        background: #555;
+      }
+
+      .main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 24px;
+        background-color: #0a0a0a;
+      }
+
+      h2 {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 24px;
+        letter-spacing: -0.5px;
+      }
+
+      .section {
+        margin-bottom: 24px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      .input-group {
+        margin-bottom: 16px;
+      }
+
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      input {
+        width: 100%;
+        background-color: var(--surface-color);
+        border: 1px transparent solid;
+        color: var(--text-primary);
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        outline: none;
+        transition: all 0.2s ease;
+      }
+
+      input:focus {
+        background-color: #1c1c1c;
+        border-color: var(--text-secondary);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-bottom: 8px;
+      }
+
+      .btn-primary {
+        background-color: var(--accent-color);
+        color: var(--accent-text);
+      }
+
+      .btn-primary:active {
+        opacity: 0.8;
+        transform: scale(0.98);
+      }
+
+      .btn-secondary {
+        background-color: var(--surface-color);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+      }
+
+      .btn-secondary:hover {
+        background-color: #1a1a1a;
+      }
+
+      .btn-secondary:active {
+        transform: scale(0.98);
+      }
+
+      .btn-group {
+        display: flex;
+        gap: 8px;
+      }
+
+      .btn-group .btn {
+        margin-bottom: 0;
+      }
+
+      .logs-container {
+        flex: 1;
+        background-color: var(--surface-color);
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .logs-header {
+        padding: 16px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .logs-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+
+      .log {
+        flex: 1;
+        padding: 16px;
+        overflow-y: auto;
+        font-family: "JetBrains Mono", "Courier New", monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        color: #d1d1d1;
+      }
+
+      .log::-webkit-scrollbar {
+        width: 6px;
+      }
+      .log::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 3px;
+      }
+
+      .log-entry {
+        margin-bottom: 4px;
+        opacity: 0.9;
+        word-break: break-all;
+      }
+
+      .log-time {
+        color: #666;
+        margin-right: 8px;
+        font-size: 11px;
+      }
+
+      .status-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #ff3b30;
+      }
+
+      .status-dot.connected {
+        background-color: #34c759;
+        box-shadow: 0 0 8px rgba(52, 199, 89, 0.4);
+      }
+
+      .input-inline {
+        display: flex;
+        gap: 8px;
+      }
+      .input-inline input {
+        flex: 1;
+      }
+      .input-inline .btn {
+        width: auto;
+        margin: 0;
+        padding: 0 20px;
+      }
+
+      .chat-container {
+        flex: 1;
+        background-color: var(--surface-color);
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .chat-messages {
+        flex: 1;
+        padding: 16px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .chat-messages::-webkit-scrollbar {
+        width: 6px;
+      }
+      .chat-messages::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 3px;
+      }
+
+      .chat-bubble {
+        max-width: 80%;
+        padding: 10px 14px;
+        border-radius: 16px;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .chat-bubble.remote {
+        background-color: #2a2a2a;
+        color: #fff;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+      }
+
+      .chat-bubble.local {
+        background-color: var(--accent-color);
+        color: var(--accent-text);
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+      }
+
+      .chat-sender {
+        font-size: 11px;
+        opacity: 0.6;
+        margin-bottom: 4px;
+        font-weight: 600;
+        display: block;
+      }
+
+      .chat-input-area {
+        padding: 16px;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sidebar">
+      <h2>Setup</h2>
+      <div class="section">
+        <div class="input-group">
+          <label>Auth Token</label>
+          <input type="text" id="jwtToken" placeholder="eyJhbG..." />
+        </div>
+        <div class="input-group">
+          <label>Party ID</label>
+          <div class="input-inline">
+            <input
+              type="text"
+              id="partyId"
+              placeholder="Generate or paste ID"
+            />
+            <button class="btn btn-secondary" onclick="createParty()">
+              New
+            </button>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="connectWS()" id="connectBtn">
+          Connect Session
+        </button>
+        <button
+          class="btn btn-secondary"
+          onclick="disconnectWS()"
+          style="display: none"
+          id="disconnectBtn"
+        >
+          Disconnect
+        </button>
+      </div>
+
+      <h2>Playback Sync</h2>
+      <div class="section">
+        <div class="input-group">
+          <label>Current Time (Secs)</label>
+          <div class="input-inline">
+            <input type="number" id="videoTime" value="0.0" step="0.1" />
+            <button class="btn btn-secondary" onclick="sendSync()">Sync</button>
+          </div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-secondary" onclick="sendBuffering()">
+            Buffer Wait
+          </button>
+          <button class="btn btn-secondary" onclick="sendBufferingComplete()">
+            Buffer Done
+          </button>
+        </div>
+      </div>
+
+      <h2>Host Controls</h2>
+      <div class="section" style="border: none">
+        <button class="btn btn-secondary" onclick="toggleStrict()">
+          Toggle Strict Mode
+        </button>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="split-view" style="display: flex; gap: 24px; height: 100%">
+        <div class="chat-container">
+          <div class="logs-header">
+            <span class="logs-title">Party Chat</span>
+          </div>
+          <div id="chatBox" class="chat-messages">
+            <!-- Chat messages will appear here -->
+          </div>
+          <div class="chat-input-area">
+            <input
+              type="text"
+              id="chatMsgMain"
+              placeholder="Type a message..."
+              onkeypress="if (event.key === 'Enter') sendChatMain();"
+              style="flex: 1; border-radius: 8px 0 0 8px; border-right: none"
+            />
+            <button
+              class="btn btn-primary"
+              onclick="sendChatMain()"
+              style="
+                width: auto;
+                margin: 0;
+                border-radius: 0 8px 8px 0;
+                padding: 0 20px;
+              "
+            >
+              Send
+            </button>
+          </div>
+        </div>
+
+        <div class="logs-container">
+          <div class="logs-header">
+            <span class="logs-title">System Output</span>
+            <div class="status-badge">
+              <div class="status-dot" id="wsStatusDot"></div>
+              <span id="wsStatusText">Disconnected</span>
+            </div>
+          </div>
+          <div id="logs" class="log"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let stompClient = null;
+      let heartbeatIntb = null;
+
+      function log(msg) {
+        const logs = document.getElementById("logs");
+        const time = new Date().toLocaleTimeString([], {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+        logs.innerHTML += `<div class="log-entry"><span class="log-time">[${time}]</span> ${msg}</div>`;
+        logs.scrollTop = logs.scrollHeight;
+      }
+
+      function jwtDecoder(token) {
+        try {
+          return JSON.parse(atob(token.split(".")[1])).sub;
+        } catch (e) {
+          return "unknown";
+        }
+      }
+
+      function appendChatBubble(text, senderId, isLocal) {
+        const box = document.getElementById("chatBox");
+        const div = document.createElement("div");
+        div.className = `chat-bubble ${isLocal ? "local" : "remote"}`;
+
+        let html = "";
+        if (!isLocal)
+          html += `<span class="chat-sender">${senderId.substring(0, 8)}</span>`;
+        html += text;
+
+        div.innerHTML = html;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+      }
+
+      function sendChatMain() {
+        const partyId = document.getElementById("partyId").value;
+        const input = document.getElementById("chatMsgMain");
+        const text = input.value;
+        if (!stompClient || !stompClient.connected)
+          return alert("Connect to session first");
+        if (!text) return;
+        stompClient.send(
+          `/app/party/${partyId}/chat`,
+          {},
+          JSON.stringify({ text: text }),
+        );
+        input.value = "";
+      }
+
+      function updateConnectionStatus(isConnected) {
+        const dot = document.getElementById("wsStatusDot");
+        const text = document.getElementById("wsStatusText");
+        const connBtn = document.getElementById("connectBtn");
+        const discBtn = document.getElementById("disconnectBtn");
+
+        if (isConnected) {
+          dot.classList.add("connected");
+          text.textContent = "Connected";
+          connBtn.style.display = "none";
+          discBtn.style.display = "flex";
+        } else {
+          dot.classList.remove("connected");
+          text.textContent = "Disconnected";
+          connBtn.style.display = "flex";
+          discBtn.style.display = "none";
+        }
+      }
+
+      async function createParty() {
+        const jwt = document.getElementById("jwtToken").value;
+        if (!jwt) {
+          log("Error: Authorization token missing.");
+          return;
+        }
+
+        log("Initializing party creation request...");
+        try {
+          const res = await fetch("/api/party/create", {
+            method: "POST",
+            headers: {
+              Authorization: "Bearer " + jwt,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              tmdbId: 100,
+              mediaType: "movie",
+              providerId: "vidsrc",
+              startAt: 0,
+            }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            document.getElementById("partyId").value = data.partyId;
+            log(`Success: Party created ${data.partyId}`);
+          } else {
+            log(`Failed: ${JSON.stringify(data)}`);
+          }
+        } catch (e) {
+          log(`Error: ${e.message}`);
+        }
+      }
+
+      async function fetchStateAndRenderChat(partyId, jwt) {
+        try {
+          const res = await fetch(`/api/party/${partyId}/state`, {
+            headers: { Authorization: "Bearer " + jwt },
+          });
+          const data = await res.json();
+          if (data.success && data.data && data.data.recentChat) {
+            document.getElementById("chatBox").innerHTML = "";
+            data.data.recentChat.forEach((msg) => {
+              const isLocal = msg.senderId === jwtDecoder(jwt);
+              appendChatBubble(
+                msg.text || "",
+                msg.senderDisplayName || msg.senderId,
+                isLocal,
+              );
+            });
+          }
+        } catch (e) {
+          log(`Error fetching state: ${e.message}`);
+        }
+      }
+
+      function connectWS() {
+        const jwt = document.getElementById("jwtToken").value;
+        const partyId = document.getElementById("partyId").value;
+        if (!jwt || !partyId) {
+          log("Error: Token and Party ID are required for connection.");
+          return;
+        }
+
+        log(`Connecting to session ${partyId}...`);
+        fetchStateAndRenderChat(partyId, jwt);
+        const socket = new SockJS("/ws");
+        stompClient = Stomp.over(socket);
+        stompClient.debug = null; // Disable noisy stomp logs
+
+        stompClient.connect(
+          { Authorization: "Bearer " + jwt },
+          (frame) => {
+            log("Connection established.");
+            updateConnectionStatus(true);
+
+            stompClient.subscribe("/topic/party/" + partyId, (msg) => {
+              const parsed = JSON.parse(msg.body);
+              const eventPayload = parsed.payload;
+
+              log(
+                `[EVENT: ${parsed.event}] \n  -> ${JSON.stringify(eventPayload)}`,
+              );
+
+              // Render chat bubble if it's a chat event
+              if (parsed.event === "CHAT") {
+                const isLocal = parsed.senderId === jwtDecoder(jwt);
+                appendChatBubble(
+                  eventPayload.text,
+                  eventPayload.senderDisplayName || parsed.senderId,
+                  isLocal,
+                );
+              }
+            });
+
+            stompClient.send(
+              `/app/party/${partyId}/join`,
+              {},
+              JSON.stringify({}),
+            );
+            log("Join command transmitted.");
+
+            heartbeatIntb = setInterval(() => {
+              stompClient.send(
+                `/app/party/${partyId}/heartbeat-ws`,
+                {},
+                JSON.stringify({}),
+              );
+            }, 5000);
+          },
+          (err) => {
+            log(`Connection Error: ${err}`);
+            updateConnectionStatus(false);
+          },
+        );
+      }
+
+      function disconnectWS() {
+        if (stompClient) {
+          stompClient.disconnect(() => {
+            log("Session cleanly disconnected.");
+            updateConnectionStatus(false);
+          });
+        }
+        if (heartbeatIntb) clearInterval(heartbeatIntb);
+      }
+
+      function sendSync() {
+        const partyId = document.getElementById("partyId").value;
+        const time = parseFloat(document.getElementById("videoTime").value);
+        if (!stompClient || !stompClient.connected)
+          return log("Error: Sequence requires active connection");
+        stompClient.send(
+          `/app/party/${partyId}/sync`,
+          {},
+          JSON.stringify({ startAt: time, clientTime: Date.now() }),
+        );
+        log(`Emitted Sync Command: T=${time}s`);
+      }
+
+      function sendBuffering() {
+        const partyId = document.getElementById("partyId").value;
+        if (!stompClient || !stompClient.connected)
+          return log("Error: Sequence requires active connection");
+        stompClient.send(
+          `/app/party/${partyId}/buffering`,
+          {},
+          JSON.stringify({}),
+        );
+        log("Emitted Buffering Flag: Active");
+      }
+
+      function sendBufferingComplete() {
+        const partyId = document.getElementById("partyId").value;
+        if (!stompClient || !stompClient.connected)
+          return log("Error: Sequence requires active connection");
+        stompClient.send(
+          `/app/party/${partyId}/buffering-complete`,
+          {},
+          JSON.stringify({}),
+        );
+        log("Emitted Buffering Flag: Resolved");
+      }
+
+      function toggleStrict() {
+        const partyId = document.getElementById("partyId").value;
+        if (!stompClient || !stompClient.connected)
+          return log("Error: Sequence requires active connection");
+        stompClient.send(
+          `/app/party/${partyId}/toggle-strict-sync`,
+          {},
+          JSON.stringify({}),
+        );
+        log("Emitted Host Command: Toggle Strict Mode");
+      }
+    </script>
+  </body>
+</html>

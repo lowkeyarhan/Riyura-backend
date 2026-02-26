@@ -89,6 +89,9 @@ springdoc:
     - group: party
       paths-to-match:
         - /api/party/**
+    - group: static-files
+      paths-to-match:
+        - /api/test/**
 
 # Application Configuration
 app:

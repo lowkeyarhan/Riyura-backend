@@ -37,13 +37,18 @@ public class PartyWebSocketController {
 
         // Store partyId in WebSocket session attributes for later use
         Map<String, Object> attrs = headerAccessor.getSessionAttributes();
-        if (attrs != null)
+        String userName = userId;
+        if (attrs != null) {
             attrs.put("partyId", partyId);
+            if (attrs.containsKey("userName")) {
+                userName = (String) attrs.get("userName");
+            }
+        }
 
         // Broadcast the updated participant list to all members
         broadcast(partyId, new PartyMessage(
                 PartyEvent.USER_JOINED,
-                Map.of("userId", userId, "participantIds", state.getParticipantIds()),
+                Map.of("userId", userId, "userName", userName, "participantIds", state.getParticipantIds()),
                 userId,
                 now()));
     }
@@ -77,6 +82,13 @@ public class PartyWebSocketController {
 
         String userId = resolveUserId(headerAccessor);
         incomingMessage.setSenderId(userId);
+
+        // Retrieve optional display name from session attributes set during CONNECT
+        Map<String, Object> attrs = headerAccessor.getSessionAttributes();
+        if (attrs != null && attrs.containsKey("userName")) {
+            incomingMessage.setSenderDisplayName((String) attrs.get("userName"));
+        }
+
         incomingMessage.setServerTime(now());
 
         partyService.appendChat(partyId, incomingMessage);

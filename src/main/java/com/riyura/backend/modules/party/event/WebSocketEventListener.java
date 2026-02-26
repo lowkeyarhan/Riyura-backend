@@ -68,7 +68,6 @@ public class WebSocketEventListener {
 
         // If host migrated, notify with new host info
         if (!userId.equals(updated.getHostId())) {
-        } else {
             return;
         }
 

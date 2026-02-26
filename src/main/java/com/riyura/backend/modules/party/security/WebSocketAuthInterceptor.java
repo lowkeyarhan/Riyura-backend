@@ -58,25 +58,54 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                 // attributes
                 if (sessionAttributes != null) {
                     sessionAttributes.put(SESSION_USER_ID, userId);
+
+                    // Try to extract user name from Supabase JWT claims
+                    try {
+                        Map<String, Object> userMetadata = jwt.getClaimAsMap("user_metadata");
+                        if (userMetadata != null && userMetadata.containsKey("name")) {
+                            sessionAttributes.put("userName", userMetadata.get("name"));
+                        } else if (jwt.hasClaim("name")) {
+                            sessionAttributes.put("userName", jwt.getClaimAsString("name"));
+                        }
+                    } catch (Exception ex) {
+                        log.debug("Could not extract user name from JWT: {}", ex.getMessage());
+                    }
+                }
+
+                // Map this specific WebSocket session to a unique Principal name
+                // so the user can open multiple tabs / connections without Spring
+                // forcibly dropping the older one.
+                String principalName = userId;
+                if (accessor.getSessionId() != null) {
+                    principalName = userId + "-" + accessor.getSessionId();
                 }
 
                 // Set the Spring Security principal so @AuthenticationPrincipal works in
                 // message handlers
-
-                // Create a new authentication token
                 var auth = new UsernamePasswordAuthenticationToken(
-                        userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-
-                // Set the authentication token in the accessor
+                        principalName, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
                 accessor.setUser(auth);
 
                 log.debug("WebSocket CONNECT authenticated for user [{}]", userId);
 
             } catch (JwtException e) {
-                // If the JWT is invalid, throw an exception
                 log.warn("WebSocket CONNECT rejected — invalid JWT: {}", e.getMessage());
                 throw new org.springframework.messaging.MessagingException("Invalid JWT: " + e.getMessage());
             }
+        } else if (accessor.getSessionAttributes() != null
+                && accessor.getSessionAttributes().containsKey(SESSION_USER_ID)) {
+            // For all subsequent messages (SUBSCRIBE, SEND, DISCONNECT, etc.),
+            // re-populate the User Principal from the session attributes so that
+            // @AuthenticationPrincipal works and WebSocketEventListener receives
+            // the correct user.
+            String userId = (String) accessor.getSessionAttributes().get(SESSION_USER_ID);
+            String principalName = userId;
+            if (accessor.getSessionId() != null) {
+                principalName = userId + "-" + accessor.getSessionId();
+            }
+            var auth = new UsernamePasswordAuthenticationToken(
+                    principalName, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+            accessor.setUser(auth);
         }
         return message;
     }
