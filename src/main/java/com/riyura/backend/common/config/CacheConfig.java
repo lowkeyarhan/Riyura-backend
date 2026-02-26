@@ -97,14 +97,14 @@ public class CacheConfig {
                 if (ttl == null || ttl.isZero() || ttl.isNegative()) {
                     return ttl;
                 }
-                // Add between 0 and 5 minutes (300 seconds) of jitter
-                int jitterSeconds = ThreadLocalRandom.current().nextInt(0, 300);
+                // Add between 1 hour (3600s) and 6 hours (21600s) of jitter
+                int jitterSeconds = ThreadLocalRandom.current().nextInt(3600, 21601);
                 return ttl.plusSeconds(jitterSeconds);
             }
         };
 
         RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Duration.ofMinutes(60)) // Base TTL of 60 minutes
+                .entryTtl(Duration.ofDays(1)) // Base TTL of 1 day
                 .serializeKeysWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
