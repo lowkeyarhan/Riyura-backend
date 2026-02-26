@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.util.Collections;
 import java.util.List;
@@ -28,19 +29,23 @@ public class MovieService {
     @Value("${tmdb.image-base-url}")
     private String imageBaseUrl;
 
+    @Cacheable(value = "moviesNowPlaying", key = "#limit", sync = true)
     public List<MediaGridResponse> getNowPlayingMovies(int limit) {
         return fetchAndMap(String.format("%s/movie/now_playing?api_key=%s&language=en-US&page=1", baseUrl, apiKey),
                 limit);
     }
 
+    @Cacheable(value = "moviesTrending", key = "#limit", sync = true)
     public List<MediaGridResponse> getTrendingMovies(int limit) {
         return fetchAndMap(String.format("%s/trending/movie/week?api_key=%s&language=en-US", baseUrl, apiKey), limit);
     }
 
+    @Cacheable(value = "moviesPopular", key = "#limit", sync = true)
     public List<MediaGridResponse> getPopularMovies(int limit) {
         return fetchAndMap(String.format("%s/movie/popular?api_key=%s&language=en-US&page=1", baseUrl, apiKey), limit);
     }
 
+    @Cacheable(value = "moviesUpcoming", key = "#limit", sync = true)
     public List<MediaGridResponse> getUpcomingMovies(int limit) {
         return fetchAndMap(String.format("%s/movie/upcoming?api_key=%s&language=en-US&page=1", baseUrl, apiKey), limit);
     }

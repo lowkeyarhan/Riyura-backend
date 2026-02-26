@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import org.springframework.cache.annotation.Cacheable;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +32,7 @@ public class SearchService {
 
     // Performs a search across movies, TV shows, and companies, combining results
     // and sorting by rating
+    @Cacheable(value = "searchResults", key = "#query", sync = true)
     public List<SearchResponse> search(String query) {
         if (query == null || query.trim().isEmpty())
             return Collections.emptyList();

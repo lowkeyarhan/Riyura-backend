@@ -12,6 +12,7 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -37,6 +38,7 @@ public class TvDetailsService {
 
     // Fetches detailed information about a TV show, including its cast and whether
     // it's an anime
+    @Cacheable(value = "tvDetails", key = "#id", sync = true)
     public TvShowDetails getTvDetails(String id) {
         String detailsUrl = String.format("%s/tv/%s?api_key=%s&language=en-US", baseUrl, id, apiKey);
         String creditsUrl = String.format("%s/tv/%s/credits?api_key=%s&language=en-US", baseUrl, id, apiKey);
@@ -69,6 +71,7 @@ public class TvDetailsService {
 
     // Fetches similar TV shows based on a given TV show ID, sorted by rating and
     // limited to a certain number
+    @Cacheable(value = "tvSimilar", key = "#id", sync = true)
     public List<MediaGridResponse> getSimilarTvShows(String id) {
         String similarUrl = String.format("%s/tv/%s/similar?api_key=%s&language=en-US&page=1", baseUrl, id, apiKey);
 

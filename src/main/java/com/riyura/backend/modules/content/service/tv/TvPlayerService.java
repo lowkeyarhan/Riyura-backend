@@ -30,6 +30,7 @@ public class TvPlayerService {
     @Value("${tmdb.base-url}")
     private String baseUrl;
 
+    @org.springframework.cache.annotation.Cacheable(value = "tvPlayer", key = "#id", sync = true)
     public TvPlayerResponse getTvPlayer(String id) {
         String detailsUrl = String.format("%s/tv/%s?api_key=%s&language=en-US", baseUrl, id, apiKey);
 

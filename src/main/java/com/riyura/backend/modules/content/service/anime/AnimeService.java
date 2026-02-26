@@ -7,6 +7,7 @@ import com.riyura.backend.common.util.TmdbUtils;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -32,6 +33,7 @@ public class AnimeService {
     private String imageBaseUrl;
 
     // Fetches trending anime and returns a list of MediaGridResponse DTOs
+    @Cacheable(value = "animeTrending", key = "#limit", sync = true)
     public List<MediaGridResponse> getTrendingAnime(int limit) {
         CompletableFuture<List<AnimeHelper>> tvTask = CompletableFuture.supplyAsync(this::fetchAnimeTv);
         CompletableFuture<List<AnimeHelper>> movieTask = CompletableFuture.supplyAsync(this::fetchAnimeMovies);

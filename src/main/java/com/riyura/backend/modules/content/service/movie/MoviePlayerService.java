@@ -27,6 +27,7 @@ public class MoviePlayerService {
 
     // Fetches the necessary information to play a movie, including its title,
     // overview,
+    @org.springframework.cache.annotation.Cacheable(value = "moviePlayer", key = "#id", sync = true)
     public MoviePlayerResponse getMoviePlayer(String id) {
         String detailsUrl = String.format("%s/movie/%s?api_key=%s&language=en-US", baseUrl, id, apiKey);
 

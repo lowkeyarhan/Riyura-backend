@@ -9,6 +9,7 @@ import com.riyura.backend.modules.content.dto.banner.BannerResponse;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -25,11 +26,12 @@ public class BannerService {
 
     @Value("${tmdb.base-url}")
     private String baseUrl;
-
+    
     @Value("${tmdb.image-base-url}")
     private String imageBaseUrl;
 
     // Fetches banner data for both movies and TV shows
+    @Cacheable(value = "banners", sync = true)
     public List<BannerResponse> getBannerData() {
         CompletableFuture<List<BannerResponse>> moviesTask = CompletableFuture.supplyAsync(this::fetchTopMovies);
         CompletableFuture<List<BannerResponse>> tvTask = CompletableFuture.supplyAsync(this::fetchTopTV);

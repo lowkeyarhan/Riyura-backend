@@ -14,6 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -40,6 +43,7 @@ public class WatchlistService {
     private String imageBaseUrl;
 
     // Fetches the user's watchlist, ordered by most recent first
+    @Cacheable(value = "watchlist", key = "#userId", sync = true)
     public List<MediaGridResponse> getUserWatchlist(UUID userId) {
         return watchlistRepository.findByUserIdOrderByAddedAtDesc(userId)
                 .stream()
@@ -47,9 +51,9 @@ public class WatchlistService {
                 .collect(Collectors.toList());
     }
 
-    // Adds a media item to the user's watchlist (or updates it if it already
-    // exists)
+    // Adds a media item to the user's watchlist
     @Transactional
+    @CacheEvict(value = "watchlist", key = "#userId")
     public Watchlist addToWatchlist(UUID userId, WatchlistRequest request) {
         try {
             Optional<Watchlist> existing = watchlistRepository.findByUserIdAndTmdbIdAndMediaType(
@@ -77,6 +81,7 @@ public class WatchlistService {
 
     // Deletes a media item from the user's watchlist
     @Transactional
+    @CacheEvict(value = "watchlist", key = "#userId")
     public void deleteFromWatchlist(UUID userId, WatchlistRequest request) {
         try {
             Watchlist watchlist = watchlistRepository.findByUserIdAndTmdbIdAndMediaType(

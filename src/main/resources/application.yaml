@@ -1,11 +1,12 @@
-# Managed Redis — starts redis-server alongside the app in dev.
-# Set REDIS_MANAGED=false in production to use an external Redis instance.
-redis:
-  managed: ${REDIS_MANAGED:true}
-
 spring:
   application:
     name: Riyura
+
+  # Virtual threads: every Tomcat request handler and @Async task runs on a
+  # JDK 21 virtual thread instead of a bounded platform-thread pool.
+  threads:
+    virtual:
+      enabled: true
 
   # Redis Configuration (Watch Party ephemeral state)
   data:
@@ -22,11 +23,14 @@ spring:
     driver-class-name: org.postgresql.Driver
 
     # HikariCP Settings
+    # Virtual threads park cheaply while waiting for a connection, so the pool
+    # can stay modest — tuned to the actual DB query parallelism, not thread count.
     hikari:
-      maximum-pool-size: 15
-      minimum-idle: 2
+      maximum-pool-size: 30
+      minimum-idle: 5
       idle-timeout: 30000
       max-lifetime: 1800000
+      connection-timeout: 5000
 
   # JPA Settings
   jpa:
@@ -85,3 +89,13 @@ springdoc:
     - group: party
       paths-to-match:
         - /api/party/**
+
+# Application Configuration
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+
+server:
+  tomcat:
+    max-connections: 50000
+    accept-count: 2000
+    connection-timeout: 60000

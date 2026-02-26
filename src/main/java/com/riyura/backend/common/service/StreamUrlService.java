@@ -32,6 +32,7 @@ public class StreamUrlService {
     @Value("${tmdb.base-url}")
     private String baseUrl;
 
+    @org.springframework.cache.annotation.Cacheable(value = "streamUrls", sync = true)
     public List<StreamUrlResponse> buildStreamUrls(StreamProviderRequest request, MediaType mediaType) {
         List<StreamProviderResponse> providers = streamProviderRepository.findByIsActiveTrueOrderByPriorityAsc();
         List<StreamUrlResponse> results = new ArrayList<>();

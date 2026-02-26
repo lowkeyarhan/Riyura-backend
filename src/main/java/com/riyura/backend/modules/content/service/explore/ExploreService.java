@@ -11,6 +11,7 @@ import com.riyura.backend.common.util.TmdbUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -35,6 +36,7 @@ public class ExploreService {
     private String imageBaseUrl;
 
     // Fetch explore page with mixed movies and TV shows
+    @Cacheable(value = "explore", sync = true)
     public List<ExploreDto> getExplorePage(int page, String genreNames, String language) {
         String isoLanguage = LanguageMapper.toIsoCode(language);
         String movieGenreIds = GenreMapper.toMovieGenreIds(genreNames);

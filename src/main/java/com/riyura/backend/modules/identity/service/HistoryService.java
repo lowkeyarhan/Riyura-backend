@@ -3,6 +3,8 @@ package com.riyura.backend.modules.identity.service;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +40,8 @@ public class HistoryService {
     @Value("${tmdb.base-url}")
     private String baseUrl;
 
+    // Get user watch history
+    @Cacheable(value = "history", key = "#userId", sync = true)
     public List<HistoryResponse> getUserWatchHistory(UUID userId) {
         return watchHistoryRepository.findByUserIdOrderByWatchedAtDesc(userId)
                 .stream()
@@ -45,7 +49,9 @@ public class HistoryService {
                 .toList();
     }
 
+    // Add or update watch history
     @Transactional
+    @CacheEvict(value = "history", key = "#userId")
     public WatchHistory addOrUpdateHistory(UUID userId, HistoryRequest request) {
         try {
             Optional<WatchHistory> existing = watchHistoryRepository.findByUserIdAndTmdbIdAndMediaType(
@@ -87,7 +93,9 @@ public class HistoryService {
         }
     }
 
+    // Delete watch history
     @Transactional
+    @CacheEvict(value = "history", key = "#userId")
     public void deleteWatchHistory(UUID userId, DeleteWatchHistoryRequest request) {
         try {
             Optional<WatchHistory> existing = watchHistoryRepository.findByUserIdAndTmdbIdAndMediaType(
@@ -103,6 +111,7 @@ public class HistoryService {
         }
     }
 
+    // Helper method to fetch metadata from TMDB
     private TmdbMetadataDTO fetchMetadataFromTmdb(Long id, MediaType type, Integer seasonNumber,
             Integer episodeNumber) {
         try {
@@ -146,6 +155,7 @@ public class HistoryService {
         }
     }
 
+    // Helper method to check if the history is same as request
     private boolean isSameContext(WatchHistory history, HistoryRequest request, boolean existing) {
         if (!existing) {
             return false;
@@ -157,6 +167,7 @@ public class HistoryService {
                 && Objects.equals(history.getEpisodeNumber(), request.getEpisodeNumber());
     }
 
+    // Helper method to apply metadata to WatchHistory
     private void applyMetadata(WatchHistory history, HistoryRequest request, TmdbMetadataDTO metadata) {
         if (metadata == null) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to fetch metadata from TMDB");
@@ -183,6 +194,7 @@ public class HistoryService {
         history.setEpisodeLength(runtimeMinutes != null ? runtimeMinutes * 60 : null);
     }
 
+    // Helper method to parse date
     private LocalDate parseDate(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -190,6 +202,7 @@ public class HistoryService {
         return LocalDate.parse(value);
     }
 
+    // Helper method to convert WatchHistory to HistoryResponse
     private HistoryResponse toHistoryResponse(WatchHistory history) {
         HistoryResponse dto = new HistoryResponse();
         dto.setTmdbId(history.getTmdbId());
@@ -207,6 +220,7 @@ public class HistoryService {
         return dto;
     }
 
+    // Helper method to check if the metadata is anime
     private boolean isAnime(TmdbMetadataDTO metadata) {
         return TmdbUtils.isAnime(metadata.getOriginalLanguage(), metadata.getGenres());
     }

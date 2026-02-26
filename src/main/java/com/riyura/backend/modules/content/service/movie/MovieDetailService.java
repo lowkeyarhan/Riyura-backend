@@ -11,6 +11,7 @@ import com.riyura.backend.modules.content.dto.movie.MovieDetail;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -37,6 +38,7 @@ public class MovieDetailService {
 
     // Fetches detailed information about a movie, including its cast and whether
     // it's an anime
+    @Cacheable(value = "movieDetails", key = "#id", sync = true)
     public MovieDetail getMovieDetails(String id) {
         String detailsUrl = String.format("%s/movie/%s?api_key=%s&language=en-US", baseUrl, id, apiKey);
         String creditsUrl = String.format("%s/movie/%s/credits?api_key=%s&language=en-US", baseUrl, id, apiKey);
@@ -69,6 +71,7 @@ public class MovieDetailService {
 
     // Fetches similar movies based on a given movie ID, sorted by rating and
     // limited to a predefined number
+    @Cacheable(value = "movieSimilar", key = "#id", sync = true)
     public List<MediaGridResponse> getSimilarMovies(String id) {
         String similarUrl = String.format("%s/movie/%s/similar?api_key=%s&language=en-US&page=1", baseUrl, id, apiKey);
 
