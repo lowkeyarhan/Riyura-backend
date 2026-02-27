@@ -423,6 +423,12 @@
       let stompClient = null;
       let heartbeatIntb = null;
 
+      function escapeHtml(str) {
+        const div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
       function log(msg) {
         const logs = document.getElementById("logs");
         const time = new Date().toLocaleTimeString([], {
@@ -431,7 +437,10 @@
           minute: "2-digit",
           second: "2-digit",
         });
-        logs.innerHTML += `<div class="log-entry"><span class="log-time">[${time}]</span> ${msg}</div>`;
+        const entry = document.createElement("div");
+        entry.className = "log-entry";
+        entry.innerHTML = `<span class="log-time">[${time}]</span> ${escapeHtml(msg)}`;
+        logs.appendChild(entry);
         logs.scrollTop = logs.scrollHeight;
       }
 
@@ -448,12 +457,15 @@
         const div = document.createElement("div");
         div.className = `chat-bubble ${isLocal ? "local" : "remote"}`;
 
-        let html = "";
-        if (!isLocal)
-          html += `<span class="chat-sender">${senderId.substring(0, 8)}</span>`;
-        html += text;
+        if (!isLocal) {
+          const senderSpan = document.createElement("span");
+          senderSpan.className = "chat-sender";
+          senderSpan.textContent = senderId.substring(0, 8);
+          div.appendChild(senderSpan);
+        }
+        const textNode = document.createTextNode(text);
+        div.appendChild(textNode);
 
-        div.innerHTML = html;
         box.appendChild(div);
         box.scrollTop = box.scrollHeight;
       }

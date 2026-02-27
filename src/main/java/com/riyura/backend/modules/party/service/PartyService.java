@@ -11,6 +11,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.util.HtmlUtils;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -148,6 +149,11 @@ public class PartyService {
 
     // This is the method that is used to append a chat message to a party
     public PartyState appendChat(String partyId, ChatMessage message) {
+        message.setText(HtmlUtils.htmlEscape(message.getText()));
+        if (message.getSenderDisplayName() != null) {
+            message.setSenderDisplayName(HtmlUtils.htmlEscape(message.getSenderDisplayName()));
+        }
+
         PartyState state = load(partyId);
         var chat = state.getRecentChat();
         chat.add(message);
