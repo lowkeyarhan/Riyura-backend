@@ -7,6 +7,7 @@ import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.util.TmdbUtils;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -15,6 +16,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TvService {
@@ -75,7 +77,7 @@ public class TvService {
                     .map(this::mapToDTO)
                     .toList();
         } catch (Exception e) {
-            System.err.println("Error fetching TV data: " + e.getMessage());
+            log.error("Error fetching TV data: {}", e.getMessage());
             return Collections.emptyList();
         }
     }

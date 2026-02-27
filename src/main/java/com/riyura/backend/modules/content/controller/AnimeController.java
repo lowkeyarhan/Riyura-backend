@@ -14,7 +14,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/anime")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class AnimeController {
 
     private final AnimeService animeService;

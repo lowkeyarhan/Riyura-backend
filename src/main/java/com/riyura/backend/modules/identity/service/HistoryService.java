@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -125,11 +127,16 @@ public class HistoryService {
                 }
 
                 String showUrl = String.format("%s/tv/%d?api_key=%s", baseUrl, id, apiKey);
-                TmdbMetadataDTO showData = restTemplate.getForObject(showUrl, TmdbMetadataDTO.class);
-
                 String episodeUrl = String.format("%s/tv/%d/season/%d/episode/%d?api_key=%s",
                         baseUrl, id, seasonNumber, episodeNumber, apiKey);
-                TmdbMetadataDTO episodeData = restTemplate.getForObject(episodeUrl, TmdbMetadataDTO.class);
+
+                CompletableFuture<TmdbMetadataDTO> showFuture = CompletableFuture
+                        .supplyAsync(() -> restTemplate.getForObject(showUrl, TmdbMetadataDTO.class));
+                CompletableFuture<TmdbMetadataDTO> episodeFuture = CompletableFuture
+                        .supplyAsync(() -> restTemplate.getForObject(episodeUrl, TmdbMetadataDTO.class));
+
+                TmdbMetadataDTO showData = showFuture.orTimeout(8, TimeUnit.SECONDS).join();
+                TmdbMetadataDTO episodeData = episodeFuture.orTimeout(8, TimeUnit.SECONDS).join();
 
                 if (showData == null || episodeData == null) {
                     throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to fetch TV metadata from TMDB");

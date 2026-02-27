@@ -11,6 +11,7 @@ import com.riyura.backend.modules.content.dto.movie.MovieDetail;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +20,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MovieDetailService {
@@ -57,8 +60,8 @@ public class MovieDetailService {
                                 return null;
                             }
                         });
-                        MovieDetail details = detailsTask.join();
-                        CreditsResponse credits = creditsTask.join();
+                        MovieDetail details = detailsTask.orTimeout(8, TimeUnit.SECONDS).join();
+                        CreditsResponse credits = creditsTask.orTimeout(8, TimeUnit.SECONDS).join();
                         if (details != null) {
                             details.setCasts(credits != null && credits.getCast() != null
                                     ? credits.getCast()
@@ -67,8 +70,7 @@ public class MovieDetailService {
                         }
                         return details;
                     } catch (Exception e) {
-                        System.err.println("Error fetching movie details for ID " + id
-                                + ": " + TmdbClient.rootMessage(e));
+                        log.error("Error fetching movie details for ID {}: {}", id, TmdbClient.rootMessage(e));
                         return null;
                     }
                 });
@@ -94,8 +96,7 @@ public class MovieDetailService {
                                 .map(this::mapSimilarMovieToDTO)
                                 .toList();
                     } catch (Exception e) {
-                        System.err.println("Error fetching similar movies for ID " + id
-                                + ": " + TmdbClient.rootMessage(e));
+                        log.error("Error fetching similar movies for ID {}: {}", id, TmdbClient.rootMessage(e));
                         return Collections.emptyList();
                     }
                 });

@@ -10,6 +10,7 @@ import com.riyura.backend.common.util.LanguageMapper;
 import com.riyura.backend.common.util.TmdbUtils;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +20,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ExploreService {
@@ -62,8 +65,8 @@ public class ExploreService {
                     CompletableFuture<List<ExploreDto>> tvFuture = CompletableFuture
                             .supplyAsync(() -> fetchAndMap(tvUrl, MediaType.TV));
 
-                    List<ExploreDto> combined = new ArrayList<>(moviesFuture.join());
-                    combined.addAll(tvFuture.join());
+                    List<ExploreDto> combined = new ArrayList<>(moviesFuture.orTimeout(8, TimeUnit.SECONDS).join());
+                    combined.addAll(tvFuture.orTimeout(8, TimeUnit.SECONDS).join());
                     return combined;
                 });
     }
@@ -97,7 +100,7 @@ public class ExploreService {
                     .map(item -> mapToDto(item, mediaType))
                     .toList();
         } catch (Exception e) {
-            System.err.println("Error fetching explore data (" + mediaType + "): " + e.getMessage());
+            log.error("Error fetching explore data ({}): {}", mediaType, e.getMessage());
             return Collections.emptyList();
         }
     }

@@ -12,7 +12,9 @@ import com.riyura.backend.modules.content.dto.movie.MovieDetail;
 import com.riyura.backend.modules.content.dto.movie.MoviePlayerResponse;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MoviePlayerService {
@@ -35,7 +37,7 @@ public class MoviePlayerService {
             MovieDetail details = tmdbClient.fetchWithRetry(detailsUrl, MovieDetail.class);
             return details == null ? null : mapToPlayerResponse(details);
         } catch (Exception e) {
-            System.err.println("Error fetching movie player payload for ID " + id + ": " + TmdbClient.rootMessage(e));
+            log.error("Error fetching movie player payload for ID {}: {}", id, TmdbClient.rootMessage(e));
             return null;
         }
     }

@@ -22,7 +22,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/tv")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class TvController {
 
     private final TvService tvService;

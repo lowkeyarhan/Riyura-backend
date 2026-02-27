@@ -11,6 +11,7 @@
 - [WebSocket & Watch Parties](#websocket--watch-parties)
 - [Security & Authentication](#security--authentication)
 - [Rate Limiting](#rate-limiting)
+- [Performance](#performance)
 - [Key Workflows](#key-workflows)
 - [API Documentation](#api-documentation)
 - [Getting Started](#getting-started)
@@ -49,7 +50,8 @@ The application follows a **Modular Monolith** architecture that emphasizes high
 | Rate Limiting | Bucket4J + Redis (Lettuce) — distributed, fail-open, tiered    |
 | Real-time     | STOMP over WebSocket (SockJS fallback)                         |
 | Security      | Spring Security + OAuth2 Resource Server (Supabase JWT, HS256) |
-| Async         | JDK 21 virtual threads + CompletableFuture                     |
+| HTTP Client   | JDK 21 `HttpClient` with connection pooling and timeouts       |
+| Async         | JDK 21 virtual threads + CompletableFuture (with timeouts)     |
 | Content API   | External REST API (with retry logic)                           |
 | Documentation | SpringDoc OpenAPI (Swagger UI)                                 |
 | Build         | Maven (Maven Wrapper included)                                 |
@@ -123,21 +125,22 @@ This ensures WebSocket message handling inherits the same non-blocking scalabili
 
 ### Parallel Content Fetching (CompletableFuture)
 
-Several services fire multiple content API calls in parallel using `CompletableFuture`, combining results after all futures complete. Because the underlying threads are virtual, parallel calls are cheap even at high fan-out:
+Several services fire multiple content API calls in parallel using `CompletableFuture`, combining results after all futures complete. Every future carries an **8-second timeout** (`orTimeout(8, SECONDS)`) to prevent a single slow upstream call from blocking the entire request indefinitely. Because the underlying threads are virtual, parallel calls are cheap even at high fan-out:
 
-| Service              | Parallel Operations           |
-| -------------------- | ----------------------------- |
-| `BannerService`      | Trending movies + trending TV |
-| `ExploreService`     | Movies + TV                   |
-| `AnimeService`       | Anime movies + anime TV       |
-| `SearchService`      | Multi-search + company search |
-| `MovieDetailService` | Movie details + credits       |
-| `TvDetailsService`   | TV details + credits          |
-| `TvPlayerService`    | All seasons with episodes     |
+| Service              | Parallel Operations                 |
+| -------------------- | ----------------------------------- |
+| `BannerService`      | Trending movies + trending TV       |
+| `ExploreService`     | Movies + TV                         |
+| `AnimeService`       | Anime movies + anime TV             |
+| `SearchService`      | Multi-search + company search       |
+| `MovieDetailService` | Movie details + credits             |
+| `TvDetailsService`   | TV details + credits                |
+| `TvPlayerService`    | All seasons with episodes           |
+| `HistoryService`     | TV show metadata + episode metadata |
 
 ### Content API Client Retry
 
-The content API client uses a built-in retry mechanism — **3 attempts** with a **150 ms backoff** — to gracefully handle transient API failures without propagating errors to the client.
+The content API client (`TmdbClient`) uses a built-in retry mechanism — **3 attempts** with a **150 ms backoff** — to gracefully handle transient API failures without propagating errors to the client. All content services route their external API calls through `TmdbClient.fetchWithRetry()` to benefit from this resilience.
 
 ---
 
@@ -172,7 +175,7 @@ Riyura uses **Spring Security** configured as an **OAuth2 Resource Server** with
 - **Algorithm**: HS256 (HMAC-SHA256) with a custom `NimbusJwtDecoder`
 - **Issuer validation**: Supabase project URL
 - **JWT subject**: Used as `userId` throughout the system (UUID format)
-- **CORS**: Configured for frontend origin (`FRONTEND_URL`, defaults to `http://localhost:3000`)
+- **CORS**: Configured globally via `SecurityConfig` for frontend origin (`FRONTEND_URL`, defaults to `http://localhost:3000`) — no per-controller `@CrossOrigin` annotations
 
 Content discovery endpoints (`/api/movies/**`, `/api/tv/**`, `/api/anime/**`, `/api/search/**`, `/api/banner/**`, `/api/explore/**`) are fully public. User-specific endpoints (`/api/profile/**`, `/api/watchlist/**`, `/api/party/**`) require a valid Supabase-issued JWT in the `Authorization` header. The WebSocket endpoint (`/ws/**`) is publicly reachable at the HTTP level, but authentication is enforced at the STOMP CONNECT frame by `WebSocketAuthInterceptor`.
 
@@ -266,6 +269,53 @@ If neither matches (e.g. a future Lettuce client type), the application fails fa
 ### Virtual Thread Safety
 
 Bucket4J's Lettuce integration issues async Redis commands via Lettuce's non-blocking pipeline. The custom filter contains no `synchronized` blocks, so carrier threads are never pinned during Redis I/O — safe for high-concurrency virtual-thread workloads.
+
+---
+
+## Performance
+
+The backend includes several production-oriented performance optimizations that improve throughput, latency, and resilience under load.
+
+### HTTP Connection Pooling & Timeouts
+
+The `RestTemplate` bean is backed by JDK 21's built-in `java.net.http.HttpClient` via `JdkClientHttpRequestFactory`. This provides automatic HTTP connection pooling (connection reuse across requests) with explicit timeouts:
+
+| Setting         | Value |
+| --------------- | ----- |
+| Connect timeout | 5 s   |
+| Read timeout    | 10 s  |
+
+Without these, a single unresponsive upstream API could stall a request thread indefinitely and cascade into thread pool exhaustion.
+
+### CompletableFuture Timeouts
+
+Every `CompletableFuture` used for parallel upstream API calls carries an **8-second timeout** via `.orTimeout(8, TimeUnit.SECONDS)`. This acts as a circuit breaker — if any individual API call hangs, the future completes exceptionally rather than blocking forever. This applies to all parallel fetches in BannerService, ExploreService, AnimeService, SearchService, MovieDetailService, TvDetailsService, TvPlayerService, and HistoryService.
+
+### Response Compression
+
+Gzip compression is enabled at the server level for JSON, XML, HTML, and plain text responses above 1 KB:
+
+```yaml
+server:
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/plain
+    min-response-size: 1024
+```
+
+This reduces payload sizes significantly for API responses, especially list-heavy endpoints like explore and search.
+
+### SQL Logging Disabled
+
+Hibernate's `show-sql` and `format_sql` are disabled in production configuration. These options log every SQL statement to stdout, which causes measurable overhead from synchronized I/O under concurrent load.
+
+### Structured Logging
+
+All services use SLF4J (`@Slf4j`) instead of `System.out.println` / `System.err.println`. This avoids the performance penalty of synchronized stdout writes and enables proper log-level filtering, structured output, and integration with log aggregation tools.
+
+### CORS Configuration
+
+CORS is handled exclusively by the global `SecurityConfig` bean with a centralized `CorsConfigurationSource`. Per-controller `@CrossOrigin` annotations are not used, avoiding redundant CORS header processing and ensuring consistent origin policy from a single configuration point.
 
 ---
 

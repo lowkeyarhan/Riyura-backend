@@ -11,6 +11,7 @@ import com.riyura.backend.modules.content.dto.tv.TvShowDetails;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -19,7 +20,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TvDetailsService {
@@ -58,8 +61,8 @@ public class TvDetailsService {
                                 return null;
                             }
                         });
-                        TvShowDetails details = detailsTask.join();
-                        CreditsResponse credits = creditsTask.join();
+                        TvShowDetails details = detailsTask.orTimeout(8, TimeUnit.SECONDS).join();
+                        CreditsResponse credits = creditsTask.orTimeout(8, TimeUnit.SECONDS).join();
                         if (details != null) {
                             details.setCasts(credits != null && credits.getCast() != null
                                     ? credits.getCast()
@@ -68,8 +71,7 @@ public class TvDetailsService {
                         }
                         return details;
                     } catch (Exception e) {
-                        System.err.println("Error fetching TV details for ID " + id
-                                + ": " + TmdbClient.rootMessage(e));
+                        log.error("Error fetching TV details for ID {}: {}", id, TmdbClient.rootMessage(e));
                         return null;
                     }
                 });
@@ -95,8 +97,7 @@ public class TvDetailsService {
                                 .map(this::mapSimilarTvToDTO)
                                 .toList();
                     } catch (Exception e) {
-                        System.err.println("Error fetching similar TV shows for ID " + id
-                                + ": " + TmdbClient.rootMessage(e));
+                        log.error("Error fetching similar TV shows for ID {}: {}", id, TmdbClient.rootMessage(e));
                         return Collections.emptyList();
                     }
                 });

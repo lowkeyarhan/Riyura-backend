@@ -13,7 +13,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/search")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class SearchController {
 
     private final SearchService searchService;

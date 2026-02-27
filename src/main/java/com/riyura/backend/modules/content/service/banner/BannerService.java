@@ -9,13 +9,16 @@ import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.modules.content.dto.banner.BannerResponse;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BannerService {
@@ -42,8 +45,8 @@ public class BannerService {
                     CompletableFuture<List<BannerResponse>> moviesTask = CompletableFuture
                             .supplyAsync(this::fetchTopMovies);
                     CompletableFuture<List<BannerResponse>> tvTask = CompletableFuture.supplyAsync(this::fetchTopTV);
-                    List<BannerResponse> allItems = new ArrayList<>(moviesTask.join());
-                    allItems.addAll(tvTask.join());
+                    List<BannerResponse> allItems = new ArrayList<>(moviesTask.orTimeout(8, TimeUnit.SECONDS).join());
+                    allItems.addAll(tvTask.orTimeout(8, TimeUnit.SECONDS).join());
                     Collections.shuffle(allItems);
                     return allItems;
                 });
@@ -70,7 +73,7 @@ public class BannerService {
                     .map(item -> mapItemToBanner(item, type))
                     .toList();
         } catch (Exception e) {
-            System.err.println("Error fetching banner data: " + e.getMessage());
+            log.error("Error fetching banner data: {}", e.getMessage());
             return Collections.emptyList();
         }
     }

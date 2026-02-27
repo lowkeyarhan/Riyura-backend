@@ -4,12 +4,13 @@ import com.riyura.backend.common.cache.CacheStampedeGuard;
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
+import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.common.util.TmdbUtils;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -17,12 +18,14 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AnimeService {
 
-    private final RestTemplate restTemplate;
+    private final TmdbClient tmdbClient;
     private final CacheStampedeGuard cacheStampedeGuard;
 
     @Value("${tmdb.api-key}")
@@ -43,8 +46,8 @@ public class AnimeService {
                     CompletableFuture<List<AnimeHelper>> movieTask = CompletableFuture
                             .supplyAsync(this::fetchAnimeMovies);
 
-                    List<AnimeHelper> allAnime = new ArrayList<>(tvTask.join());
-                    allAnime.addAll(movieTask.join());
+                    List<AnimeHelper> allAnime = new ArrayList<>(tvTask.orTimeout(8, TimeUnit.SECONDS).join());
+                    allAnime.addAll(movieTask.orTimeout(8, TimeUnit.SECONDS).join());
 
                     return allAnime.stream()
                             .filter(item -> item.tmdbItem().getVoteAverage() != null)
@@ -75,7 +78,7 @@ public class AnimeService {
     // Helper method to fetch data from TMDb and wrap it in AnimeHelper objects
     private List<AnimeHelper> fetchAndWrap(String url, MediaType type) {
         try {
-            TmdbTrendingResponse response = restTemplate.getForObject(url, TmdbTrendingResponse.class);
+            TmdbTrendingResponse response = tmdbClient.fetchWithRetry(url, TmdbTrendingResponse.class);
             if (response == null || response.getResults() == null)
                 return Collections.emptyList();
             return response.getResults().stream()
@@ -83,7 +86,7 @@ public class AnimeService {
                     .map(item -> new AnimeHelper(item, type))
                     .toList();
         } catch (Exception e) {
-            System.err.println("Error fetching anime (" + type + "): " + e.getMessage());
+            log.error("Error fetching anime ({}): {}", type, e.getMessage());
             return Collections.emptyList();
         }
     }

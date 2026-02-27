@@ -3,6 +3,7 @@ package com.riyura.backend.modules.content.service.tv;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -17,7 +18,9 @@ import com.riyura.backend.modules.content.model.Season;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TvPlayerService {
@@ -38,7 +41,7 @@ public class TvPlayerService {
             TvShowDetails details = tmdbClient.fetchWithRetry(detailsUrl, TvShowDetails.class);
             return details == null ? null : mapToPlayerResponse(id, details);
         } catch (Exception e) {
-            System.err.println("Error fetching TV player payload for ID " + id + ": " + TmdbClient.rootMessage(e));
+            log.error("Error fetching TV player payload for ID {}: {}", id, TmdbClient.rootMessage(e));
             return null;
         }
     }
@@ -67,7 +70,8 @@ public class TvPlayerService {
                 .toList();
 
         List<CompletableFuture<Season>> futures = filteredSeasons.stream()
-                .map(season -> CompletableFuture.supplyAsync(() -> fetchSeasonWithEpisodes(tvId, season)))
+                .map(season -> CompletableFuture.supplyAsync(() -> fetchSeasonWithEpisodes(tvId, season))
+                        .orTimeout(8, TimeUnit.SECONDS))
                 .toList();
 
         return futures.stream().map(CompletableFuture::join).toList();
@@ -77,15 +81,14 @@ public class TvPlayerService {
         try {
             String url = String.format("%s/tv/%s/season/%d?api_key=%s&language=en-US",
                     baseUrl, tvId, season.getSeasonNumber(), apiKey);
-            SeasonDetails fetched = tmdbClient.fetch(url, SeasonDetails.class);
+            SeasonDetails fetched = tmdbClient.fetchWithRetry(url, SeasonDetails.class);
             if (fetched != null && fetched.getEpisodes() != null) {
                 season.setEpisodes(fetched.getEpisodes());
             }
         } catch (Exception e) {
             // Non-critical — season returns without episodes rather than failing the whole
             // request
-            System.err
-                    .println("Could not fetch episodes for season " + season.getSeasonNumber() + ": " + e.getMessage());
+            log.warn("Could not fetch episodes for season {}: {}", season.getSeasonNumber(), e.getMessage());
         }
         return season;
     }

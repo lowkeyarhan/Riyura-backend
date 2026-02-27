@@ -6,10 +6,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import lombok.extern.slf4j.Slf4j;
 
 import com.riyura.backend.modules.identity.dto.history.DeleteWatchHistoryRequest;
 import com.riyura.backend.modules.identity.dto.history.HistoryResponse;
@@ -25,10 +26,10 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/profile")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class ProfileController {
 
     private final HistoryService historyService;
@@ -38,7 +39,7 @@ public class ProfileController {
         // Extract User ID from the Supabase Token
         String userIdString = jwt.getSubject();
         UUID userId = UUID.fromString(userIdString);
-        System.out.println("Fetching watch history for user ID: " + userId);
+        log.debug("Fetching watch history for user ID: {}", userId);
 
         List<HistoryResponse> history = historyService.getUserWatchHistory(userId);
 

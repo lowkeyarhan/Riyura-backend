@@ -9,13 +9,16 @@ import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.search.SearchResponse;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SearchService {
@@ -48,8 +51,8 @@ public class SearchService {
                             .supplyAsync(() -> searchByCompany(query));
 
                     Map<String, ScoredSearchResult> uniqueResults = new LinkedHashMap<>();
-                    companyTask.join().forEach(item -> uniqueResults.put(genKey(item.getResponse()), item));
-                    multiTask.join().forEach(item -> uniqueResults.putIfAbsent(genKey(item.getResponse()), item));
+                    companyTask.orTimeout(8, TimeUnit.SECONDS).join().forEach(item -> uniqueResults.put(genKey(item.getResponse()), item));
+                    multiTask.orTimeout(8, TimeUnit.SECONDS).join().forEach(item -> uniqueResults.putIfAbsent(genKey(item.getResponse()), item));
 
                     return uniqueResults.values().stream()
                             .sorted(Comparator.comparing(ScoredSearchResult::getRating,
@@ -85,7 +88,7 @@ public class SearchService {
                 results.addAll(discoverContentByPerson(topPersonId));
             return results;
         } catch (Exception e) {
-            System.err.println("Multi search error: " + e.getMessage());
+            log.error("Multi search error: {}", e.getMessage());
             return Collections.emptyList();
         }
     }
@@ -100,7 +103,7 @@ public class SearchService {
                 return discoverContentByCompany(response.getResults().get(0).getId());
             }
         } catch (Exception e) {
-            System.err.println("Company search error: " + e.getMessage());
+            log.error("Company search error: {}", e.getMessage());
         }
         return Collections.emptyList();
     }
@@ -130,8 +133,8 @@ public class SearchService {
             return fetchAndMap(url, MediaType.TV);
         });
 
-        List<ScoredSearchResult> combined = new ArrayList<>(movies.join());
-        combined.addAll(tvShows.join());
+        List<ScoredSearchResult> combined = new ArrayList<>(movies.orTimeout(8, TimeUnit.SECONDS).join());
+        combined.addAll(tvShows.orTimeout(8, TimeUnit.SECONDS).join());
         return combined;
     }
 

@@ -14,7 +14,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/explore")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class ExploreController {
 
     private final ExploreService exploreService;

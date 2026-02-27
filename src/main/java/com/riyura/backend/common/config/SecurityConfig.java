@@ -13,12 +13,14 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import javax.crypto.spec.SecretKeySpec;
+import java.time.Duration;
 import java.util.Arrays;
 
 @Configuration
@@ -95,13 +97,16 @@ public class SecurityConfig {
                                 .createDefaultWithIssuer("https://jlfcixnfwvyyltasemke.supabase.co/auth/v1");
                 decoder.setJwtValidator(validator);
 
-                System.out.println("JWT Decoder configured with secret length: " + keyBytes.length + " bytes");
-
                 return decoder;
         }
 
         @Bean
         public RestTemplate restTemplate() {
-                return new RestTemplate();
+                java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
+                                .connectTimeout(Duration.ofSeconds(5))
+                                .build();
+                JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
+                factory.setReadTimeout(Duration.ofSeconds(10));
+                return new RestTemplate(factory);
         }
 }

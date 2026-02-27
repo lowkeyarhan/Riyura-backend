@@ -16,7 +16,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/party")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3000")
 public class PartyController {
 
     private final PartyService partyService;
