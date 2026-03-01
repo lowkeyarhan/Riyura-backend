@@ -1,13 +1,13 @@
 package com.riyura.backend.modules.content.service.explore;
 
-import com.riyura.backend.common.cache.CacheStampedeGuard;
-import com.riyura.backend.common.dto.explore.ExploreDto;
+import com.riyura.backend.common.config.CacheStampedeGuard;
 import com.riyura.backend.common.dto.tmdb.TmdbDiscoverResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.common.util.GenreMapper;
 import com.riyura.backend.common.util.LanguageMapper;
 import com.riyura.backend.common.util.TmdbUtils;
+import com.riyura.backend.modules.content.dto.explore.ExploreResponse;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,7 +42,7 @@ public class ExploreService {
     private String imageBaseUrl;
 
     // Fetch explore page with mixed movies and TV shows.
-    public List<ExploreDto> getExplorePage(int page, String genreNames, String language) {
+    public List<ExploreResponse> getExplorePage(int page, String genreNames, String language) {
         String cacheKey = String.format("explore:%d:%s:%s",
                 page,
                 Objects.toString(genreNames, ""),
@@ -60,12 +60,12 @@ public class ExploreService {
                     String movieUrl = buildUrl("movie", page, movieGenreIds, isoLanguage);
                     String tvUrl = buildUrl("tv", page, tvGenreIds, isoLanguage);
 
-                    CompletableFuture<List<ExploreDto>> moviesFuture = CompletableFuture
+                    CompletableFuture<List<ExploreResponse>> moviesFuture = CompletableFuture
                             .supplyAsync(() -> fetchAndMap(movieUrl, MediaType.Movie));
-                    CompletableFuture<List<ExploreDto>> tvFuture = CompletableFuture
+                    CompletableFuture<List<ExploreResponse>> tvFuture = CompletableFuture
                             .supplyAsync(() -> fetchAndMap(tvUrl, MediaType.TV));
 
-                    List<ExploreDto> combined = new ArrayList<>(moviesFuture.orTimeout(8, TimeUnit.SECONDS).join());
+                    List<ExploreResponse> combined = new ArrayList<>(moviesFuture.orTimeout(8, TimeUnit.SECONDS).join());
                     combined.addAll(tvFuture.orTimeout(8, TimeUnit.SECONDS).join());
                     return combined;
                 });
@@ -88,7 +88,7 @@ public class ExploreService {
     }
 
     // Fetch and map TMDB response to ExploreDto
-    private List<ExploreDto> fetchAndMap(String url, MediaType mediaType) {
+    private List<ExploreResponse> fetchAndMap(String url, MediaType mediaType) {
         try {
             TmdbDiscoverResponse response = tmdbClient.fetchWithRetry(url, TmdbDiscoverResponse.class);
             if (response == null || response.getResults() == null)
@@ -106,8 +106,8 @@ public class ExploreService {
     }
 
     // Map TMDB response to ExploreDto
-    private ExploreDto mapToDto(TmdbDiscoverResponse.TmdbDiscoverItem item, MediaType mediaType) {
-        ExploreDto dto = new ExploreDto();
+    private ExploreResponse mapToDto(TmdbDiscoverResponse.TmdbDiscoverItem item, MediaType mediaType) {
+        ExploreResponse dto = new ExploreResponse();
         dto.setTmdbId(item.getId());
         dto.setMediaType(mediaType);
         dto.setOriginalLanguage(item.getOriginalLanguage());

@@ -1,12 +1,12 @@
 package com.riyura.backend.modules.content.service.movie;
 
-import com.riyura.backend.common.cache.CacheStampedeGuard;
-import com.riyura.backend.common.dto.cast.CastResponse;
+import com.riyura.backend.common.config.CacheStampedeGuard;
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.common.util.TmdbUtils;
+import com.riyura.backend.modules.content.dto.global.CastResponse;
 import com.riyura.backend.modules.content.dto.movie.MovieDetail;
 
 import lombok.Data;

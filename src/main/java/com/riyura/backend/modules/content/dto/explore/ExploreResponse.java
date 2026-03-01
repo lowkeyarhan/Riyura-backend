@@ -1,10 +1,10 @@
-package com.riyura.backend.common.dto.explore;
+package com.riyura.backend.modules.content.dto.explore;
 
 import com.riyura.backend.common.model.MediaType;
 import lombok.Data;
 
 @Data
-public class ExploreDto {
+public class ExploreResponse {
 
     private Long tmdbId;
     private String title;

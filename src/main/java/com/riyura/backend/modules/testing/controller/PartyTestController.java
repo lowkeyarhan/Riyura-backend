@@ -1,6 +1,5 @@
-package com.riyura.backend.modules.party.controller;
+package com.riyura.backend.modules.testing.controller;
 
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
@@ -9,7 +8,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Profile("dev")
 @RestController
 @RequestMapping("api/test/party")
 public class PartyTestController {

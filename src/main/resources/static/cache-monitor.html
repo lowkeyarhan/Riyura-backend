@@ -1,0 +1,1128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Riyura — Cache Monitor</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "mono-bg": "#050505",
+              "mono-surface": "#121212",
+              "mono-surface-hover": "#1A1A1A",
+              "mono-border": "#262626",
+              "mono-text-primary": "#EDEDED",
+              "mono-text-secondary": "#888888",
+              "mono-text-tertiary": "#444444",
+              "accent-highlight": "#FFFFFF",
+              "status-hot-bg": "#222222",
+              "status-hot-text": "#D4D4D4",
+              "status-aux-bg": "#1A1A1A",
+              "status-aux-text": "#888888",
+              "status-stale-bg": "#221818",
+              "status-stale-text": "#AA7777",
+            },
+            fontFamily: {
+              display: ["Inter", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
+            },
+            boxShadow: {
+              glow: "0 0 20px rgba(255, 255, 255, 0.03)",
+              subtle: "0 1px 2px rgba(0, 0, 0, 0.5)",
+              "inner-border": "inset 0 1px 0 0 rgba(255, 255, 255, 0.05)",
+            },
+            borderRadius: {
+              DEFAULT: "8px",
+              lg: "10px",
+              xl: "14px",
+              "2xl": "18px",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #050505;
+        color: #ededed;
+      }
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0a0a0a;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 4px;
+        border: 2px solid #0a0a0a;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #444;
+      }
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      .sparkline-path {
+        stroke-dasharray: 100;
+        stroke-dashoffset: 100;
+        animation: draw 2s ease-out forwards;
+      }
+      @keyframes draw {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+      .glass-panel {
+        background: rgba(18, 18, 18, 0.8);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+
+      /* Expand panel */
+      .ep-section {
+        margin-bottom: 14px;
+      }
+      .ep-section:last-child {
+        margin-bottom: 0;
+      }
+      .ep-json {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        line-height: 1.7;
+        color: #888;
+        overflow-x: auto;
+        max-height: 280px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+        margin: 0;
+      }
+      .t-brace {
+        color: #444;
+      }
+      .t-key {
+        color: #888;
+      }
+      .t-colon {
+        color: #444;
+        margin: 0 6px;
+      }
+      .t-str {
+        color: #86efac;
+      }
+      .t-num {
+        color: #93c5fd;
+      }
+      .t-null {
+        color: #444;
+        font-style: italic;
+      }
+
+      /* Error bar */
+      .err-bar {
+        display: none;
+        padding: 8px 32px;
+        font-size: 11px;
+        color: #aa7777;
+        border-bottom: 1px solid rgba(170, 119, 119, 0.2);
+        background: rgba(34, 24, 24, 0.5);
+      }
+      .err-bar.on {
+        display: block;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-mono-bg text-mono-text-primary h-screen overflow-hidden flex selection:bg-white selection:text-black"
+  >
+    <!-- Sidebar -->
+    <aside
+      class="w-64 flex-shrink-0 border-r border-mono-border flex flex-col h-full bg-[#080808]"
+    >
+      <div class="p-5 pb-2">
+        <div class="relative group">
+          <span
+            class="material-symbols-outlined absolute left-3 top-2.5 text-mono-text-tertiary group-focus-within:text-mono-text-secondary transition-colors text-[18px]"
+            >search</span
+          >
+          <input
+            id="searchInput"
+            oninput="renderTable()"
+            class="w-full bg-[#161616] border border-mono-border/50 rounded-lg py-2 pl-10 pr-3 text-sm placeholder-mono-text-tertiary focus:ring-1 focus:ring-mono-text-secondary focus:border-mono-text-secondary focus:outline-none transition-all text-mono-text-primary shadow-inner-border"
+            placeholder="Search"
+            type="text"
+          />
+        </div>
+      </div>
+      <div class="flex-1 overflow-y-auto px-3 py-2 space-y-6">
+        <div>
+          <h3
+            class="px-3 text-[10px] font-bold text-mono-text-tertiary uppercase tracking-widest mb-2 opacity-60"
+          >
+            Groups
+          </h3>
+          <ul id="groupList" class="space-y-0.5"></ul>
+        </div>
+        <div>
+          <h3
+            class="px-3 text-[10px] font-bold text-mono-text-tertiary uppercase tracking-widest mb-2 opacity-60"
+          >
+            Strategies
+          </h3>
+          <ul id="strategyList" class="space-y-0.5"></ul>
+        </div>
+        <div class="pt-4 px-3 space-y-2">
+          <button
+            onclick="clearAll()"
+            class="w-full px-4 py-2 text-xs font-medium text-mono-text-secondary border border-mono-border rounded-lg bg-[#121212] hover:bg-[#1A1A1A] hover:border-white hover:text-white transition-all focus:outline-none flex items-center justify-center gap-2"
+          >
+            <span class="material-symbols-outlined text-[14px]">delete</span>
+            Clear Cache
+          </button>
+          <div class="flex">
+            <input
+              id="patternInput"
+              class="flex-1 bg-[#161616] border border-mono-border/50 rounded-l-lg py-1.5 px-3 text-xs placeholder-mono-text-tertiary focus:outline-none text-mono-text-primary"
+              placeholder="Pattern, e.g. movie*"
+              type="text"
+            />
+            <button
+              onclick="clearPattern()"
+              class="px-3 py-1.5 text-[10px] font-medium text-mono-text-secondary border border-mono-border/50 border-l-0 rounded-r-lg bg-[#161616] hover:bg-[#1A1A1A] hover:text-white transition-all"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-hidden bg-mono-bg">
+      <header class="flex-shrink-0 px-8 py-6 flex items-center justify-between">
+        <h1 class="text-2xl font-bold tracking-tight text-white">
+          Cache Monitor
+        </h1>
+        <div class="flex items-center space-x-4 text-sm">
+          <span class="font-mono text-[10px] text-mono-text-tertiary"
+            ><span id="lastUpdated"></span> <span id="countdown"></span
+          ></span>
+          <div
+            class="flex bg-[#161616] rounded-lg p-0.5 border border-mono-border"
+          >
+            <button
+              id="autoBtn"
+              onclick="toggleAuto()"
+              class="px-3 py-1 bg-[#2A2A2A] rounded-md shadow-sm text-white font-medium text-xs border border-[#3A3A3A]"
+            >
+              Auto
+            </button>
+            <button
+              onclick="fetchStats()"
+              class="px-3 py-1 text-mono-text-secondary hover:text-white font-medium text-xs transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div class="flex-1 flex flex-col px-8 pb-8 gap-6 overflow-hidden">
+        <!-- Stat Cards -->
+        <div class="grid grid-cols-5 gap-4 h-32 shrink-0 w-full">
+          <div
+            class="bg-mono-surface border border-mono-border rounded-xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-[#333] transition-colors"
+          >
+            <div class="flex justify-between items-start z-10">
+              <span
+                class="text-[11px] uppercase font-bold tracking-widest text-mono-text-secondary"
+                >Total</span
+              >
+            </div>
+            <div class="flex items-end justify-between z-10">
+              <div>
+                <span
+                  id="sTotal"
+                  class="text-4xl font-light text-white block -mb-1 tracking-tight"
+                  >&mdash;</span
+                >
+                <span class="text-[11px] text-mono-text-secondary mt-1 block"
+                  >Total metrics</span
+                >
+              </div>
+              <svg
+                class="w-16 h-8 text-mono-text-tertiary group-hover:text-white transition-colors duration-500"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                viewBox="0 0 50 20"
+              >
+                <defs>
+                  <linearGradient
+                    id="gradientTotal"
+                    x1="0"
+                    x2="0"
+                    y1="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="0%"
+                      stop-color="white"
+                      stop-opacity="0.2"
+                    ></stop>
+                    <stop
+                      offset="100%"
+                      stop-color="transparent"
+                      stop-opacity="0"
+                    ></stop>
+                  </linearGradient>
+                </defs>
+                <path
+                  class="sparkline-path"
+                  d="M0 15 L10 12 L20 16 L30 8 L40 10 L50 4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></path>
+                <path
+                  class="opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                  d="M0 15 L10 12 L20 16 L30 8 L40 10 L50 4 V 20 H 0 Z"
+                  fill="url(#gradientTotal)"
+                  stroke="none"
+                ></path>
+              </svg>
+            </div>
+          </div>
+          <div
+            class="bg-mono-surface border border-mono-border rounded-xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-[#333] transition-colors"
+          >
+            <div class="flex justify-between items-start z-10">
+              <span
+                class="text-[11px] uppercase font-bold tracking-widest text-mono-text-secondary"
+                >Cache</span
+              >
+            </div>
+            <div class="flex items-end justify-between z-10">
+              <div>
+                <span
+                  id="sCache"
+                  class="text-4xl font-light text-white block -mb-1 tracking-tight"
+                  >&mdash;</span
+                >
+                <span class="text-[11px] text-mono-text-secondary mt-1 block"
+                  >Active</span
+                >
+              </div>
+              <svg
+                class="w-16 h-8 text-mono-text-tertiary group-hover:text-white transition-colors duration-500"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                viewBox="0 0 50 20"
+              >
+                <path
+                  class="sparkline-path"
+                  d="M0 18 L10 15 L20 12 L30 14 L40 8 L50 6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></path>
+              </svg>
+            </div>
+          </div>
+          <div
+            class="bg-mono-surface border border-mono-border rounded-xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-[#333] transition-colors"
+          >
+            <div class="flex justify-between items-start z-10">
+              <span
+                class="text-[11px] uppercase font-bold tracking-widest text-mono-text-secondary"
+                >Aux</span
+              >
+            </div>
+            <div class="flex items-end justify-between z-10">
+              <div>
+                <span
+                  id="sAux"
+                  class="text-4xl font-light text-white block -mb-1 tracking-tight"
+                  >&mdash;</span
+                >
+                <span class="text-[11px] text-mono-text-secondary mt-1 block"
+                  >Auxiliary</span
+                >
+              </div>
+              <svg
+                class="w-16 h-8 text-mono-text-tertiary group-hover:text-white transition-colors duration-500"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                viewBox="0 0 50 20"
+              >
+                <path
+                  class="sparkline-path"
+                  d="M0 10 L10 12 L20 8 L30 10 L40 6 L50 8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></path>
+              </svg>
+            </div>
+          </div>
+          <div
+            class="bg-mono-surface border border-mono-border rounded-xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-[#333] transition-colors"
+          >
+            <div class="flex justify-between items-start z-10">
+              <span
+                class="text-[11px] uppercase font-bold tracking-widest text-mono-text-secondary"
+                >Hot</span
+              >
+            </div>
+            <div class="flex items-end justify-between z-10">
+              <div>
+                <span
+                  id="sHot"
+                  class="text-4xl font-light text-white block -mb-1 tracking-tight"
+                  >&mdash;</span
+                >
+                <span class="text-[11px] text-mono-text-secondary mt-1 block"
+                  >Hot items</span
+                >
+              </div>
+              <svg
+                class="w-16 h-8 text-mono-text-tertiary group-hover:text-white transition-colors duration-500"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                viewBox="0 0 50 20"
+              >
+                <path
+                  class="sparkline-path"
+                  d="M0 14 L10 10 L20 12 L30 6 L40 8 L50 2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></path>
+              </svg>
+            </div>
+          </div>
+          <div
+            class="bg-mono-surface border border-mono-border rounded-xl p-5 flex flex-col justify-between relative overflow-hidden group hover:border-[#333] transition-colors"
+          >
+            <div class="flex justify-between items-start z-10">
+              <span
+                class="text-[11px] uppercase font-bold tracking-widest text-mono-text-secondary"
+                >Stale</span
+              >
+            </div>
+            <div class="flex items-end justify-between z-10">
+              <div>
+                <span
+                  id="sStale"
+                  class="text-4xl font-light text-white block -mb-1 tracking-tight"
+                  >&mdash;</span
+                >
+                <span class="text-[11px] text-mono-text-secondary mt-1 block"
+                  >Expired</span
+                >
+              </div>
+              <svg
+                class="w-16 h-8 text-mono-text-tertiary group-hover:text-white transition-colors duration-500"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                viewBox="0 0 50 20"
+              >
+                <path
+                  class="sparkline-path"
+                  d="M0 18 L10 18 L20 18 L30 18 L40 10 L50 6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                ></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="err-bar" id="errBar"></div>
+
+        <!-- Table + Event Log -->
+        <div class="flex-1 flex gap-6 min-h-0">
+          <div class="flex-1 flex flex-col min-w-0">
+            <div
+              class="flex-1 bg-mono-surface border border-mono-border rounded-xl shadow-sm flex flex-col overflow-hidden relative"
+            >
+              <div
+                class="px-6 py-4 border-b border-mono-border flex text-[11px] font-bold text-mono-text-secondary uppercase tracking-wider bg-[#161616] cursor-pointer select-none"
+              >
+                <div class="flex-grow pl-1" onclick="sortBy('key')">
+                  Key
+                  <span class="text-[8px] opacity-40" data-col="key"
+                    >&#x21D5;</span
+                  >
+                </div>
+                <div class="w-32" onclick="sortBy('group')">
+                  Group
+                  <span class="text-[8px] opacity-40" data-col="group"
+                    >&#x21D5;</span
+                  >
+                </div>
+                <div class="w-32" onclick="sortBy('strategy')">
+                  Strategy
+                  <span class="text-[8px] opacity-40" data-col="strategy"
+                    >&#x21D5;</span
+                  >
+                </div>
+                <div class="w-32" onclick="sortBy('ttlSeconds')">
+                  TTL
+                  <span class="text-[8px]" data-col="ttlSeconds">&#x2193;</span>
+                </div>
+                <div class="w-24 text-center" onclick="sortBy('status')">
+                  Status
+                  <span class="text-[8px] opacity-40" data-col="status"
+                    >&#x21D5;</span
+                  >
+                </div>
+                <div class="w-10"></div>
+              </div>
+              <div class="flex-1 overflow-y-auto" id="tableScroll">
+                <table class="w-full text-left border-collapse table-fixed">
+                  <tbody
+                    id="tableBody"
+                    class="divide-y divide-mono-border text-sm"
+                  >
+                    <tr>
+                      <td
+                        colspan="6"
+                        class="px-6 py-16 text-center text-mono-text-tertiary text-sm"
+                      >
+                        Fetching cache data&hellip;
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="flex justify-between items-center mt-2">
+              <span
+                id="rowCount"
+                class="text-[11px] text-mono-text-tertiary font-mono pl-2"
+              ></span>
+              <button
+                onclick="fetchStats()"
+                class="px-3 py-1.5 text-[11px] font-medium text-mono-text-secondary border border-transparent rounded-lg hover:border-mono-border hover:bg-[#161616] hover:text-white transition-all focus:outline-none flex items-center gap-1.5 opacity-60 hover:opacity-100"
+              >
+                <span class="material-symbols-outlined text-[14px]"
+                  >refresh</span
+                >
+                Force Refresh Table
+              </button>
+            </div>
+          </div>
+
+          <!-- Event Log -->
+          <div
+            class="w-80 flex-shrink-0 bg-mono-surface border border-mono-border rounded-xl shadow-sm flex flex-col overflow-hidden self-start h-[calc(100%-40px)]"
+          >
+            <div
+              class="px-5 py-4 border-b border-mono-border flex justify-between items-center bg-[#161616]"
+            >
+              <span
+                class="text-[11px] font-bold text-mono-text-secondary uppercase tracking-widest"
+                >Event Log</span
+              >
+              <button
+                onclick="clearLogs()"
+                class="text-[10px] text-mono-text-tertiary hover:text-white transition-colors"
+              >
+                CLEAR
+              </button>
+            </div>
+            <div
+              id="logsBody"
+              class="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-[11px] leading-relaxed bg-mono-surface"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      let allKeys = [];
+      let activeGroup = "All";
+      let activeStrategy = "All";
+      let sortCol = "ttlSeconds";
+      let sortDir = -1;
+      let autoOn = true;
+      let cdVal = 10;
+      let cdTimer = null;
+      let expanded = new Set();
+      let valueCache = {};
+
+      const MAX_TTL = 7 * 86400;
+      const AUX_SFX = [":lock", ":fresh", ":refreshing", ":delta"];
+
+      const GROUP_ICONS = {
+        All: "folder_open",
+        Explore: "folder",
+        Internal: "folder",
+        Movies: "folder",
+        "Rate Limits": "folder",
+        Search: "folder",
+        TV: "folder",
+      };
+
+      const STRAT_ICONS = {
+        All: "grid_view",
+        XFetch: "bolt",
+        SWR: "sync",
+        "Spring Cache": "inventory_2",
+        Auxiliary: "layers",
+        "Redis Direct": "storage",
+        Bucket4J: "speed",
+      };
+
+      const STRAT_LABEL = {
+        XFetch: "XFETCH",
+        SWR: "SWR",
+        "Spring Cache": "SPRING CACHE",
+        "Redis Direct": "REDIS DIRECT",
+        Bucket4J: "BUCKET4J",
+        Auxiliary: "AUXILIARY",
+      };
+
+      const STATUS_ORD = {
+        hot: 0,
+        persistent: 1,
+        warm: 2,
+        stale: 3,
+        auxiliary: 4,
+        expired: 5,
+      };
+      const STATUS_LBL = {
+        hot: "HOT",
+        warm: "WARM",
+        stale: "STALE",
+        persistent: "PERSIST",
+        auxiliary: "AUX",
+        expired: "EXPIRED",
+      };
+
+      function statusClass(status) {
+        switch (status) {
+          case "hot":
+            return "bg-status-hot-bg text-status-hot-text border-mono-border";
+          case "stale":
+          case "expired":
+            return "bg-status-stale-bg text-status-stale-text border-mono-border";
+          case "auxiliary":
+            return "bg-status-aux-bg text-status-aux-text border-mono-border";
+          default:
+            return "bg-status-hot-bg text-status-hot-text border-mono-border";
+        }
+      }
+
+      function addLog(msg, type = "info") {
+        const el = document.getElementById("logsBody");
+        const now = new Date();
+        const ts = now.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        });
+        const div = document.createElement("div");
+        div.className = "flex gap-3 items-start group";
+        let msgHtml = escHtml(msg);
+        if (type === "ok") {
+          msgHtml = `<span class="text-[#86efac]">${msgHtml}</span>`;
+        } else if (type === "err") {
+          msgHtml = `<span class="text-[#AA7777]">${msgHtml}</span>`;
+        } else if (type === "action") {
+          msgHtml = `<span class="text-[#fde68a]">${msgHtml}</span>`;
+        }
+        div.innerHTML = `<span class="text-mono-text-tertiary shrink-0 select-none">${ts}</span><div class="text-mono-text-secondary group-hover:text-mono-text-primary transition-colors">${msgHtml}</div>`;
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+      }
+
+      function clearLogs() {
+        document.getElementById("logsBody").innerHTML = "";
+      }
+
+      async function fetchStats() {
+        try {
+          const res = await fetch("/api/test/cache/stats");
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          hideErr();
+          applyData(data);
+          document.getElementById("lastUpdated").textContent =
+            new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false,
+            });
+          addLog(
+            `Refreshed <span class="text-white font-semibold">${data.summary?.totalKeys ?? 0} keys</span>`,
+            "info",
+          );
+        } catch (e) {
+          showErr(e.message);
+          addLog("Fetch failed: " + e.message, "err");
+        }
+      }
+
+      function applyData(data) {
+        allKeys = data.keys || [];
+        valueCache = {};
+        const s = data.summary || {};
+        document.getElementById("sTotal").textContent = s.totalKeys ?? "\u2014";
+        document.getElementById("sCache").textContent = s.cacheKeys ?? "\u2014";
+        document.getElementById("sAux").textContent = s.auxKeys ?? "\u2014";
+        document.getElementById("sHot").textContent = allKeys.filter(
+          (k) => k.status === "hot",
+        ).length;
+        document.getElementById("sStale").textContent = allKeys.filter(
+          (k) => k.status === "stale" || k.status === "expired",
+        ).length;
+        buildGroups(s.groups || {});
+        buildStrategies();
+        renderTable();
+      }
+
+      function buildGroups(groups) {
+        const el = document.getElementById("groupList");
+        const allCount = allKeys.filter(
+          (k) => k.strategy !== "Auxiliary",
+        ).length;
+        const names = ["All", ...Object.keys(groups).sort()];
+        el.innerHTML = names
+          .map((name) => {
+            const cnt = name === "All" ? allCount : groups[name] || 0;
+            const isActive = name === activeGroup;
+            const icon = GROUP_ICONS[name] || "folder";
+            if (isActive) {
+              return `<li><a onclick="setGroup('${escAttr(name)}');return false" class="flex items-center justify-between px-3 py-1.5 rounded-md bg-[#1F1F1F] text-sm font-medium shadow-subtle border border-[#2A2A2A] group cursor-pointer" href="#">
+                    <div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[16px] text-white">${name === "All" ? "folder_open" : icon}</span><span class="text-white">${escHtml(name)}</span></div>
+                    <span class="text-xs text-mono-text-secondary font-mono">${cnt}</span>
+                </a></li>`;
+            }
+            return `<li><a onclick="setGroup('${escAttr(name)}');return false" class="flex items-center justify-between px-3 py-1.5 rounded-md text-mono-text-secondary hover:bg-[#161616] hover:text-mono-text-primary text-sm transition-all group cursor-pointer" href="#">
+                <div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[16px] text-mono-text-tertiary group-hover:text-mono-text-secondary transition-colors">${icon}</span><span>${escHtml(name)}</span></div>
+                <span class="text-xs text-mono-text-tertiary group-hover:text-mono-text-secondary font-mono">${cnt}</span>
+            </a></li>`;
+          })
+          .join("");
+      }
+
+      function setGroup(name) {
+        activeGroup = name;
+        const groups = {};
+        allKeys.forEach((k) => {
+          if (k.group) groups[k.group] = (groups[k.group] || 0) + 1;
+        });
+        buildGroups(groups);
+        renderTable();
+      }
+
+      function buildStrategies() {
+        const el = document.getElementById("strategyList");
+        const counts = {};
+        allKeys.forEach((k) => {
+          counts[k.strategy] = (counts[k.strategy] || 0) + 1;
+        });
+        const order = [
+          "All",
+          "XFetch",
+          "SWR",
+          "Spring Cache",
+          "Redis Direct",
+          "Bucket4J",
+          "Auxiliary",
+        ];
+        const names = order.filter((s) => s === "All" || counts[s]);
+        el.innerHTML = names
+          .map((name) => {
+            const cnt = name === "All" ? allKeys.length : counts[name] || 0;
+            const isActive = name === activeStrategy;
+            const icon = STRAT_ICONS[name] || "grid_view";
+            if (isActive) {
+              return `<li><a onclick="setStrategy('${escAttr(name)}');return false" class="flex items-center justify-between px-3 py-1.5 rounded-md bg-[#1F1F1F] text-sm font-medium shadow-subtle border border-[#2A2A2A] group cursor-pointer" href="#">
+                    <div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[16px] text-white">${icon}</span><span class="text-white">${escHtml(name)}</span></div>
+                    <span class="text-xs text-mono-text-secondary font-mono">${cnt}</span>
+                </a></li>`;
+            }
+            return `<li><a onclick="setStrategy('${escAttr(name)}');return false" class="flex items-center justify-between px-3 py-1.5 rounded-md text-mono-text-secondary hover:bg-[#161616] hover:text-mono-text-primary text-sm transition-all group cursor-pointer" href="#">
+                <div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[16px] text-mono-text-tertiary group-hover:text-mono-text-secondary transition-colors">${icon}</span><span>${escHtml(name)}</span></div>
+                <span class="text-xs text-mono-text-tertiary group-hover:text-mono-text-secondary font-mono">${cnt}</span>
+            </a></li>`;
+          })
+          .join("");
+      }
+
+      function setStrategy(name) {
+        activeStrategy = name;
+        buildStrategies();
+        renderTable();
+      }
+
+      function renderTable() {
+        const q = document.getElementById("searchInput").value.toLowerCase();
+        let rows = allKeys.filter((k) => {
+          const gm = activeGroup === "All" || k.group === activeGroup;
+          const stm = activeStrategy === "All" || k.strategy === activeStrategy;
+          const sm = !q || k.key.toLowerCase().includes(q);
+          return gm && stm && sm;
+        });
+        rows = rows.slice().sort((a, b) => {
+          let av = a[sortCol],
+            bv = b[sortCol];
+          if (sortCol === "status") {
+            av = STATUS_ORD[av] ?? 9;
+            bv = STATUS_ORD[bv] ?? 9;
+          }
+          if (sortCol === "ttlSeconds") {
+            av =
+              av === null
+                ? -Infinity
+                : av === -1
+                  ? Infinity
+                  : av === -2
+                    ? -Infinity
+                    : av;
+            bv =
+              bv === null
+                ? -Infinity
+                : bv === -1
+                  ? Infinity
+                  : bv === -2
+                    ? -Infinity
+                    : bv;
+          }
+          if (av == null) av = "";
+          if (bv == null) bv = "";
+          if (av < bv) return -sortDir;
+          if (av > bv) return sortDir;
+          return 0;
+        });
+        const tbody = document.getElementById("tableBody");
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-16 text-center text-mono-text-tertiary text-sm">No keys match the current filter.</td></tr>`;
+          document.getElementById("rowCount").textContent = "";
+          return;
+        }
+        tbody.innerHTML = rows.flatMap((k) => buildRows(k)).join("");
+        const n = rows.length;
+        document.getElementById("rowCount").textContent =
+          `${n} ${n === 1 ? "key" : "keys"}`;
+      }
+
+      function buildRows(k) {
+        const isExp = expanded.has(k.key);
+        let keyBase = k.key;
+        let keySfx = "";
+        for (const sfx of AUX_SFX) {
+          if (k.key.endsWith(sfx)) {
+            keyBase = k.key.slice(0, k.key.length - sfx.length);
+            keySfx = sfx;
+            break;
+          }
+        }
+        const safeKey = escAttr(k.key);
+        const stratLabel = STRAT_LABEL[k.strategy] || escHtml(k.strategy);
+        const statusLabel = STATUS_LBL[k.status] || k.status;
+        const sCls = statusClass(k.status);
+
+        const dataRow = `<tr class="group hover:bg-[#1A1A1A] transition-colors cursor-pointer${isExp ? " bg-[#1A1A1A]" : ""}" onclick="toggleExpand('${safeKey}')">
+            <td class="px-6 py-3.5 font-mono text-mono-text-primary text-[13px] truncate">${escHtml(keyBase)}${keySfx ? ` <span class="text-mono-text-tertiary">${escHtml(keySfx)}</span>` : ""}</td>
+            <td class="px-6 py-3.5 text-mono-text-secondary text-[13px] w-32 truncate">${escHtml(k.group)}</td>
+            <td class="px-6 py-3.5 text-[13px] text-mono-text-primary w-32 truncate">${stratLabel}</td>
+            <td class="px-6 py-3.5 text-[13px] text-mono-text-primary font-mono w-32">${buildTtl(k)}</td>
+            <td class="px-6 py-3.5 text-center w-24"><span class="px-2.5 py-1 rounded ${sCls} text-[10px] font-bold border">${statusLabel}</span></td>
+            <td class="px-6 py-3.5 w-10 text-center"><button class="text-mono-text-tertiary hover:text-[#AA7777] opacity-0 group-hover:opacity-100 transition-all text-[11px]" onclick="event.stopPropagation();deleteKey('${safeKey}')" title="Delete">&#x2715;</button></td>
+        </tr>`;
+
+        if (!isExp) return [dataRow];
+
+        const expandRow = `<tr class="bg-[#0D0D0D] border-b border-mono-border"><td colspan="6" class="px-10 py-5">
+            <div class="ep-section">
+                <div class="text-[9px] font-bold tracking-widest uppercase text-mono-text-tertiary mb-2">Metadata</div>
+                <div class="font-mono text-[11px] leading-[1.9]"><div><span class="t-brace">{</span></div>${buildMetaTree(k)}<div><span class="t-brace">}</span></div></div>
+            </div>
+            <div class="ep-section">
+                <div class="text-[9px] font-bold tracking-widest uppercase text-mono-text-tertiary mb-2 flex items-center gap-2">Cached Data ${buildSizeLabel(k.key)}</div>
+                ${buildDataPreview(k.key)}
+            </div>
+        </td></tr>`;
+        return [dataRow, expandRow];
+      }
+
+      function buildMetaTree(k) {
+        return [
+          ["key", k.key],
+          ["group", k.group],
+          ["strategy", k.strategy],
+          ["ttlSeconds", k.ttlSeconds],
+          ["status", k.status],
+        ]
+          .map(([key, val]) => {
+            let v;
+            if (val == null) v = `<span class="t-null">null</span>`;
+            else if (typeof val === "number")
+              v = `<span class="t-num">${val}</span>`;
+            else v = `<span class="t-str">"${escHtml(String(val))}"</span>`;
+            return `<div style="padding-left:16px"><span class="t-key">${key}</span><span class="t-colon">:</span>${v}</div>`;
+          })
+          .join("");
+      }
+
+      function buildSizeLabel(key) {
+        const vc = valueCache[key];
+        if (!vc || !vc.found) return "";
+        const b = vc.sizeBytes || 0;
+        return b >= 1024
+          ? `<span class="font-mono text-[9px] text-mono-text-tertiary">${(b / 1024).toFixed(1)} KB</span>`
+          : `<span class="font-mono text-[9px] text-mono-text-tertiary">${b} B</span>`;
+      }
+
+      function buildDataPreview(key) {
+        const vc = valueCache[key];
+        if (!vc)
+          return `<div class="text-[11px] text-mono-text-tertiary italic">Loading...</div>`;
+        if (!vc.found && vc.error)
+          return `<div class="text-[11px] text-[#AA7777]">Error: ${escHtml(vc.error)}</div>`;
+        if (!vc.found)
+          return `<div class="text-[11px] text-mono-text-tertiary">Key not found (may have expired)</div>`;
+        try {
+          const pretty = JSON.stringify(JSON.parse(vc.value), null, 2);
+          return `<pre class="ep-json">${syntaxHighlight(pretty)}</pre>`;
+        } catch {
+          return `<pre class="ep-json">${escHtml(vc.value)}</pre>`;
+        }
+      }
+
+      function syntaxHighlight(json) {
+        return escHtml(json).replace(
+          /("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+          (match) => {
+            let cls = "t-num";
+            if (/^"/.test(match)) cls = /:$/.test(match) ? "t-key" : "t-str";
+            else if (/true|false/.test(match)) cls = "t-num";
+            else if (/null/.test(match)) cls = "t-null";
+            return `<span class="${cls}">${match}</span>`;
+          },
+        );
+      }
+
+      async function toggleExpand(key) {
+        if (expanded.has(key)) {
+          expanded.delete(key);
+          renderTable();
+          return;
+        }
+        expanded.add(key);
+        renderTable();
+        if (!valueCache[key]) {
+          try {
+            const res = await fetch(
+              `/api/test/cache/value?key=${encodeURIComponent(key)}`,
+            );
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            valueCache[key] = await res.json();
+          } catch (e) {
+            valueCache[key] = { found: false, error: e.message };
+          }
+          renderTable();
+        }
+      }
+
+      function buildTtl(k) {
+        const t = k.ttlSeconds;
+        if (t === -1)
+          return `<span class="text-[#60a5fa]">&#x221E; persist</span>`;
+        if (t === -2 || t === null)
+          return `<span class="text-mono-text-tertiary">&mdash;</span>`;
+        return fmtTtl(t);
+      }
+
+      async function clearAll() {
+        if (!confirm("Clear ALL cache keys?")) return;
+        addLog("Clearing all keys\u2026", "action");
+        try {
+          const res = await fetch("/api/test/cache/all", { method: "DELETE" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          addLog(
+            `Cleared ${data.cleared} key${data.cleared !== 1 ? "s" : ""}`,
+            "ok",
+          );
+          expanded.clear();
+          await fetchStats();
+        } catch (e) {
+          addLog("Clear all failed: " + e.message, "err");
+        }
+      }
+
+      async function clearPattern() {
+        const pat = document.getElementById("patternInput").value.trim();
+        if (!pat) {
+          addLog("Pattern is empty", "err");
+          return;
+        }
+        if (!confirm(`Clear keys matching "${pat}"?`)) return;
+        addLog(`Clearing pattern: ${pat}`, "action");
+        try {
+          const res = await fetch(
+            `/api/test/cache/pattern?pattern=${encodeURIComponent(pat)}`,
+            { method: "DELETE" },
+          );
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          addLog(
+            `Cleared ${data.cleared} key${data.cleared !== 1 ? "s" : ""} matching "${pat}"`,
+            "ok",
+          );
+          document.getElementById("patternInput").value = "";
+          expanded.clear();
+          await fetchStats();
+        } catch (e) {
+          addLog("Clear pattern failed: " + e.message, "err");
+        }
+      }
+
+      async function deleteKey(key) {
+        addLog(`Deleting: ${key}`, "action");
+        try {
+          const res = await fetch(
+            `/api/test/cache/key?key=${encodeURIComponent(key)}`,
+            { method: "DELETE" },
+          );
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          addLog(
+            data.deleted ? `Deleted: ${key}` : `Not found: ${key}`,
+            data.deleted ? "ok" : "err",
+          );
+          expanded.delete(key);
+          await fetchStats();
+        } catch (e) {
+          addLog("Delete failed: " + e.message, "err");
+        }
+      }
+
+      function sortBy(col) {
+        if (sortCol === col) sortDir *= -1;
+        else {
+          sortCol = col;
+          sortDir = col === "ttlSeconds" ? -1 : 1;
+        }
+        document.querySelectorAll("[data-col]").forEach((el) => {
+          el.textContent = "\u21D5";
+          el.className = "text-[8px] opacity-40";
+          if (el.dataset.col === col) {
+            el.textContent = sortDir === 1 ? "\u2191" : "\u2193";
+            el.className = "text-[8px]";
+          }
+        });
+        renderTable();
+      }
+
+      function toggleAuto() {
+        autoOn = !autoOn;
+        const btn = document.getElementById("autoBtn");
+        if (autoOn) {
+          btn.className =
+            "px-3 py-1 bg-[#2A2A2A] rounded-md shadow-sm text-white font-medium text-xs border border-[#3A3A3A]";
+          startCd();
+        } else {
+          btn.className =
+            "px-3 py-1 text-mono-text-secondary hover:text-white font-medium text-xs transition-colors";
+          stopCd();
+        }
+        addLog(autoOn ? "Auto-refresh on" : "Auto-refresh off", "info");
+      }
+
+      function startCd() {
+        stopCd();
+        cdVal = 10;
+        updCd();
+        cdTimer = setInterval(() => {
+          cdVal--;
+          updCd();
+          if (cdVal <= 0) {
+            fetchStats();
+            cdVal = 10;
+          }
+        }, 1000);
+      }
+
+      function stopCd() {
+        clearInterval(cdTimer);
+        cdTimer = null;
+        document.getElementById("countdown").textContent = "";
+      }
+
+      function updCd() {
+        document.getElementById("countdown").textContent = `${cdVal}s`;
+      }
+
+      function showErr(msg) {
+        const e = document.getElementById("errBar");
+        e.textContent = msg;
+        e.classList.add("on");
+      }
+
+      function hideErr() {
+        document.getElementById("errBar").classList.remove("on");
+      }
+
+      function fmtTtl(s) {
+        if (s >= 86400)
+          return `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`;
+        if (s >= 3600)
+          return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+        if (s >= 60) return `${Math.floor(s / 60)}m ${s % 60}s`;
+        return `${s}s`;
+      }
+
+      function escHtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function escAttr(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/'/g, "&#39;")
+          .replace(/"/g, "&quot;");
+      }
+
+      // Init
+      addLog("Cache Monitor initialized", "info");
+      fetchStats();
+      startCd();
+    </script>
+  </body>
+</html>

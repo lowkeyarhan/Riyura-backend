@@ -22,11 +22,12 @@ public class RedisConfig {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(factory);
 
-        // Create a new object mapper
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        // Store class type info so deserialisation works without explicit type hints
+        // NON_FINAL + WRAPPER_ARRAY: type info is stored for non-final classes.
+        // All cached collections MUST be mutable (e.g. ArrayList) — immutable/final
+        // collections won't get type info and will fail on deserialization.
         mapper.activateDefaultTyping(
                 mapper.getPolymorphicTypeValidator(),
                 ObjectMapper.DefaultTyping.NON_FINAL);

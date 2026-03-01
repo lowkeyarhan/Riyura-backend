@@ -1,15 +1,15 @@
 package com.riyura.backend.modules.content.controller;
 
 import com.riyura.backend.common.dto.media.MediaGridResponse;
-import com.riyura.backend.common.dto.stream.StreamProviderRequest;
-import com.riyura.backend.common.dto.stream.StreamUrlResponse;
 import com.riyura.backend.common.model.MediaType;
-import com.riyura.backend.common.service.StreamUrlService;
 import com.riyura.backend.modules.content.dto.movie.MovieDetail;
 import com.riyura.backend.modules.content.dto.movie.MoviePlayerResponse;
+import com.riyura.backend.modules.content.dto.stream.StreamProviderRequest;
+import com.riyura.backend.modules.content.dto.stream.StreamUrlResponse;
 import com.riyura.backend.modules.content.service.movie.MovieDetailService;
 import com.riyura.backend.modules.content.service.movie.MoviePlayerService;
 import com.riyura.backend.modules.content.service.movie.MovieService;
+import com.riyura.backend.modules.content.service.stream.StreamUrlService;
 
 import lombok.RequiredArgsConstructor;
 

@@ -1,12 +1,12 @@
 package com.riyura.backend.modules.content.controller;
 
 import com.riyura.backend.common.dto.media.MediaGridResponse;
-import com.riyura.backend.common.dto.stream.StreamProviderRequest;
-import com.riyura.backend.common.dto.stream.StreamUrlResponse;
 import com.riyura.backend.common.model.MediaType;
-import com.riyura.backend.common.service.StreamUrlService;
+import com.riyura.backend.modules.content.dto.stream.StreamProviderRequest;
+import com.riyura.backend.modules.content.dto.stream.StreamUrlResponse;
 import com.riyura.backend.modules.content.dto.tv.TvPlayerResponse;
 import com.riyura.backend.modules.content.dto.tv.TvShowDetails;
+import com.riyura.backend.modules.content.service.stream.StreamUrlService;
 import com.riyura.backend.modules.content.service.tv.TvDetailsService;
 import com.riyura.backend.modules.content.service.tv.TvPlayerService;
 import com.riyura.backend.modules.content.service.tv.TvService;

@@ -2,8 +2,8 @@ package com.riyura.backend.modules.content.dto.tv;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.riyura.backend.common.dto.cast.CastResponse;
 import com.riyura.backend.common.util.GenreLike;
+import com.riyura.backend.modules.content.dto.global.CastResponse;
 import com.riyura.backend.modules.content.model.Season;
 
 import lombok.Data;

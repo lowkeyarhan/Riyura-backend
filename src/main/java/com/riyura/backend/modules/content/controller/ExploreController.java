@@ -1,6 +1,6 @@
 package com.riyura.backend.modules.content.controller;
 
-import com.riyura.backend.common.dto.explore.ExploreDto;
+import com.riyura.backend.modules.content.dto.explore.ExploreResponse;
 import com.riyura.backend.modules.content.service.explore.ExploreService;
 
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,7 @@ public class ExploreController {
             @RequestParam(required = false) String genres,
             @RequestParam(required = false) String language) {
 
-        List<ExploreDto> results = exploreService.getExplorePage(page, genres, language);
+        List<ExploreResponse> results = exploreService.getExplorePage(page, genres, language);
 
         Map<String, Object> response = new HashMap<>();
         response.put("page", page);

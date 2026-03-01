@@ -1,14 +1,15 @@
-package com.riyura.backend.common.service;
+package com.riyura.backend.modules.content.service.stream;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.riyura.backend.common.dto.stream.StreamProviderRequest;
-import com.riyura.backend.common.dto.stream.StreamProviderResponse;
-import com.riyura.backend.common.dto.stream.StreamUrlResponse;
 import com.riyura.backend.common.model.MediaType;
-import com.riyura.backend.common.repository.StreamProviderRepository;
+import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.common.util.GenreLike;
 import com.riyura.backend.common.util.TmdbUtils;
+import com.riyura.backend.modules.content.dto.stream.StreamProviderRequest;
+import com.riyura.backend.modules.content.dto.stream.StreamProviderResponse;
+import com.riyura.backend.modules.content.dto.stream.StreamUrlResponse;
+import com.riyura.backend.modules.content.repository.StreamProviderRepository;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;

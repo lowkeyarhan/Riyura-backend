@@ -1,6 +1,6 @@
 package com.riyura.backend.modules.content.service.tv;
 
-import com.riyura.backend.common.cache.CacheStampedeGuard;
+import com.riyura.backend.common.config.CacheStampedeGuard;
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;

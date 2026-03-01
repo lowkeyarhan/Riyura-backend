@@ -86,7 +86,7 @@ springdoc:
     - group: party
       paths-to-match:
         - /api/party/**
-    - group: static-files
+    - group: testing
       paths-to-match:
         - /api/test/**
 

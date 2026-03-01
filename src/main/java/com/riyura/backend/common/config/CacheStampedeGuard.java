@@ -1,4 +1,4 @@
-package com.riyura.backend.common.cache;
+package com.riyura.backend.common.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -6,6 +6,8 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -39,7 +41,14 @@ public class CacheStampedeGuard {
     @SuppressWarnings("unchecked")
     public <T> T xfetch(String key, Duration ttl, double beta, Supplier<T> loader) {
         while (true) {
-            Object cached = redisTemplate.opsForValue().get(key);
+            Object cached;
+            try {
+                cached = redisTemplate.opsForValue().get(key);
+            } catch (Exception e) {
+                log.warn("XFetch: failed to deserialize '{}', evicting stale entry: {}", key, e.getMessage());
+                redisTemplate.delete(key);
+                cached = null;
+            }
             Long remainingTtlMs = redisTemplate.getExpire(key, TimeUnit.MILLISECONDS);
 
             if (cached != null && remainingTtlMs != null && remainingTtlMs > 0) {
@@ -94,7 +103,14 @@ public class CacheStampedeGuard {
 
         // Loop to perform SWR
         while (true) {
-            Object cached = redisTemplate.opsForValue().get(key);
+            Object cached;
+            try {
+                cached = redisTemplate.opsForValue().get(key);
+            } catch (Exception e) {
+                log.warn("SWR: failed to deserialize '{}', evicting stale entry: {}", key, e.getMessage());
+                redisTemplate.delete(key);
+                cached = null;
+            }
 
             // Condition to check if the cache is warm and not stale
             if (cached != null) {
@@ -137,7 +153,7 @@ public class CacheStampedeGuard {
             long delta = System.currentTimeMillis() - start;
             if (value != null) {
                 storeDelta(key, delta);
-                redisTemplate.opsForValue().set(key, value, addJitter(ttl));
+                redisTemplate.opsForValue().set(key, toCacheable(value), addJitter(ttl));
             }
             return value;
         } finally {
@@ -154,7 +170,7 @@ public class CacheStampedeGuard {
             long delta = System.currentTimeMillis() - start;
             if (value != null) {
                 storeDelta(key, delta);
-                redisTemplate.opsForValue().set(key, value, addJitter(hardTtl));
+                redisTemplate.opsForValue().set(key, toCacheable(value), addJitter(hardTtl));
                 redisTemplate.opsForValue().set(freshKey, "1", addJitter(softTtl));
             }
             return value;
@@ -174,7 +190,7 @@ public class CacheStampedeGuard {
             long delta = System.currentTimeMillis() - start;
             if (value != null) {
                 storeDelta(key, delta);
-                redisTemplate.opsForValue().set(key, value, addJitter(hardTtl));
+                redisTemplate.opsForValue().set(key, toCacheable(value), addJitter(hardTtl));
                 redisTemplate.opsForValue().set(freshKey, "1", addJitter(softTtl));
                 log.debug("SWR: background refresh complete for '{}'", key);
             }
@@ -183,6 +199,16 @@ public class CacheStampedeGuard {
         } finally {
             redisTemplate.delete(refreshingKey);
         }
+    }
+
+    // Ensure the value is serializable by Jackson's NON_FINAL default typing.
+    // Immutable/final collections (e.g. from .toList()) won't get type info,
+    // so convert them to ArrayList which is non-final and gets properly wrapped.
+    private Object toCacheable(Object value) {
+        if (value instanceof List<?> list) {
+            return new ArrayList<>(list);
+        }
+        return value;
     }
 
     // Get stored delta from Redis

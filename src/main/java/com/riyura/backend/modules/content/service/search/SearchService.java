@@ -1,7 +1,7 @@
 package com.riyura.backend.modules.content.service.search;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.riyura.backend.common.cache.CacheStampedeGuard;
+import com.riyura.backend.common.config.CacheStampedeGuard;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
