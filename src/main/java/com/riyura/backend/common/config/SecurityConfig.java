@@ -22,6 +22,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import javax.crypto.spec.SecretKeySpec;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -29,6 +30,9 @@ public class SecurityConfig {
 
         @Value("${supabase.jwt-secret}")
         private String jwtSecret;
+
+        @Value("${app.frontend-url}")
+        private String frontendUrl;
 
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -54,7 +58,7 @@ public class SecurityConfig {
                                                 // Protected Endpoints
                                                 .requestMatchers(
                                                                 "/api/profile/**",
-                                                                "/api/watch-history/**",
+                                                                "/api/watchlist/**",
                                                                 "/api/party/**")
                                                 .authenticated()
 
@@ -68,9 +72,9 @@ public class SecurityConfig {
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration configuration = new CorsConfiguration();
-                configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:8080"));
+                configuration.setAllowedOrigins(buildAllowedOrigins());
                 configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-                configuration.setAllowedHeaders(Arrays.asList("*"));
+                configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept"));
                 configuration.setAllowCredentials(true);
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -108,5 +112,14 @@ public class SecurityConfig {
                 JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
                 factory.setReadTimeout(Duration.ofSeconds(10));
                 return new RestTemplate(factory);
+        }
+
+        private List<String> buildAllowedOrigins() {
+                // Always allow localhost for development
+                if (frontendUrl.contains("localhost")) {
+                        return Arrays.asList("http://localhost:3000", "http://localhost:8080");
+                }
+                // In production, allow both the configured frontend URL and localhost for dev
+                return Arrays.asList(frontendUrl, "http://localhost:3000", "http://localhost:8080");
         }
 }

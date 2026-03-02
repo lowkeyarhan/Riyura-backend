@@ -16,6 +16,7 @@ import org.springframework.web.util.HtmlUtils;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -24,7 +25,11 @@ public class PartyService {
 
     private static final String KEY_PREFIX = "party:";
     private static final int MAX_CHAT_HISTORY = 50;
+    private static final int MAX_PARTICIPANTS = 20;
     private static final long HEARTBEAT_TIMEOUT_MS = 45_000L;
+
+    // PartyId must be alphanumeric, 1-20 characters
+    private static final Pattern PARTY_ID_PATTERN = Pattern.compile("^[A-Za-z0-9]{1,20}$");
 
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -53,14 +58,21 @@ public class PartyService {
 
     // This is the method that is used to get the state of a party
     public PartyStateResponse getState(String partyId) {
+        validatePartyId(partyId);
         PartyState state = load(partyId);
         return PartyStateResponse.from(state);
     }
 
     // This is the method that is used to add a participant to a party
     public PartyState addParticipant(String partyId, String userId) {
+        validatePartyId(partyId);
         PartyState state = load(partyId);
+
         if (!state.getParticipantIds().contains(userId)) {
+            if (state.getParticipantIds().size() >= MAX_PARTICIPANTS) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Party is full (max " + MAX_PARTICIPANTS + " participants)");
+            }
             state.getParticipantIds().add(userId);
             log.info("User [{}] joined party [{}]", userId, partyId);
         }
@@ -71,6 +83,7 @@ public class PartyService {
 
     // This is the method that is used to remove a participant from a party
     public PartyState handleDisconnect(String partyId, String userId) {
+        validatePartyId(partyId);
         PartyState state = loadOrNull(partyId);
         if (state == null)
             return null;
@@ -100,6 +113,7 @@ public class PartyService {
 
     // This is the method that is used to record a heartbeat for a participant
     public void recordHeartbeat(String partyId, String userId) {
+        validatePartyId(partyId);
         PartyState state = loadOrNull(partyId);
         if (state == null)
             return;
@@ -110,6 +124,7 @@ public class PartyService {
     // This is the method that is used to evict any participant whose last heartbeat
     // is older than HEARTBEAT_TIMEOUT_MS
     public PartyState evictZombies(String partyId) {
+        validatePartyId(partyId);
         PartyState state = loadOrNull(partyId);
         if (state == null)
             return null;
@@ -131,24 +146,35 @@ public class PartyService {
 
     // This is the method that is used to apply a seek command to a party
     public PartyState applySeek(String partyId, String hostId, int startAt, long clientTime) {
+        validatePartyId(partyId);
         PartyState state = load(partyId);
 
+        // Only the host can issue sync commands
         if (!hostId.equals(state.getHostId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the host can issue sync commands");
         }
 
+        // Calculate the server time
         long serverTime = Instant.now().toEpochMilli();
-        long latencyMs = Math.max(0, serverTime - clientTime);
-        // Compensate for round-trip: advance the position by half the one-way latency
+
+        // Only apply latency compensation if the client time is plausible
+        long latencyMs = 0;
+        if (clientTime > 0 && clientTime <= serverTime && (serverTime - clientTime) < 30_000L) {
+            latencyMs = serverTime - clientTime;
+        }
+
+        // Apply the latency compensation
         double compensatedStartAt = startAt + (latencyMs / 2000.0);
         state.setStartAt((int) Math.round(compensatedStartAt));
         state.setPartyStartedAt(serverTime);
+        // Save the state
         save(state);
         return state;
     }
 
     // This is the method that is used to append a chat message to a party
     public PartyState appendChat(String partyId, ChatMessage message) {
+        validatePartyId(partyId);
         message.setText(HtmlUtils.htmlEscape(message.getText()));
         if (message.getSenderDisplayName() != null) {
             message.setSenderDisplayName(HtmlUtils.htmlEscape(message.getSenderDisplayName()));
@@ -166,6 +192,7 @@ public class PartyService {
 
     // This is the method that is used to mark a participant as buffering
     public boolean markBuffering(String partyId, String userId) {
+        validatePartyId(partyId);
         PartyState state = load(partyId);
         if (!state.getBufferingParticipants().contains(userId)) {
             state.getBufferingParticipants().add(userId);
@@ -176,6 +203,7 @@ public class PartyService {
 
     // This is the method that is used to clear a participant's buffering status
     public boolean markBufferingComplete(String partyId, String userId) {
+        validatePartyId(partyId);
         PartyState state = load(partyId);
         state.getBufferingParticipants().remove(userId);
         save(state);
@@ -184,6 +212,7 @@ public class PartyService {
 
     // This is the method that is used to toggle strict-sync mode
     public boolean toggleStrictSync(String partyId, String hostId) {
+        validatePartyId(partyId);
         PartyState state = load(partyId);
         if (!hostId.equals(state.getHostId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the host can toggle strict sync");
@@ -193,11 +222,18 @@ public class PartyService {
         return state.isStrictSync();
     }
 
+    // Validates partyId format to prevent Redis key injection
+    private void validatePartyId(String partyId) {
+        if (partyId == null || !PARTY_ID_PATTERN.matcher(partyId).matches()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid party ID");
+        }
+    }
+
     // Helper method to load a party state from the database
     private PartyState load(String partyId) {
         PartyState state = loadOrNull(partyId);
         if (state == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Party not found: " + partyId);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Party not found");
         }
         return state;
     }

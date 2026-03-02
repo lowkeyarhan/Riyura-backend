@@ -3,6 +3,8 @@ package com.riyura.backend.modules.content.service.tv;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TvPlayerService {
 
     private final TmdbClient tmdbClient;
+    private final Executor tmdbExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -70,7 +73,8 @@ public class TvPlayerService {
                 .toList();
 
         List<CompletableFuture<Season>> futures = filteredSeasons.stream()
-                .map(season -> CompletableFuture.supplyAsync(() -> fetchSeasonWithEpisodes(tvId, season))
+                .map(season -> CompletableFuture
+                        .supplyAsync(() -> fetchSeasonWithEpisodes(tvId, season), tmdbExecutor)
                         .orTimeout(8, TimeUnit.SECONDS))
                 .toList();
 

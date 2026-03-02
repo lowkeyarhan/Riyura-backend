@@ -17,12 +17,17 @@ public class SearchController {
 
     private final SearchService searchService;
 
-    // Endpoint to handle search requests from the frontend
+    // Handle search requests from the frontend
     @GetMapping
-    public ResponseEntity<Map<String, List<SearchResponse>>> search(@RequestParam("q") String query) {
-        List<SearchResponse> results = searchService.search(query);
-        Map<String, List<SearchResponse>> response = new HashMap<>();
+    public ResponseEntity<Map<String, Object>> search(
+            @RequestParam("q") String query,
+            @RequestParam(defaultValue = "0") int page) {
+        // Fetch the search results from the service
+        List<SearchResponse> results = searchService.search(query, page);
+        // Prepare the response
+        Map<String, Object> response = new HashMap<>();
         response.put("results", results);
+        response.put("page", page);
         return ResponseEntity.ok(response);
     }
 }

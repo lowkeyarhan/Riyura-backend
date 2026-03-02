@@ -45,12 +45,13 @@ public class WebSocketEventListener {
 
         log.info("Disconnect detected — user [{}] leaving party [{}]", userId, partyId);
 
+        // Handle the disconnect
         PartyState updated = partyService.handleDisconnect(partyId, userId);
 
         String topic = "/topic/party/" + partyId;
 
         if (updated == null) {
-            // Party was destroyed
+            // Party was destroyed, broadcast the party closed event
             messagingTemplate.convertAndSend(topic, new PartyMessage(
                     PartyEvent.PARTY_CLOSED,
                     Map.of("reason", "All participants left"),
@@ -59,23 +60,21 @@ public class WebSocketEventListener {
             return;
         }
 
-        // Broadcast USER_LEFT
+        // Broadcast the user left event
         messagingTemplate.convertAndSend(topic, new PartyMessage(
                 PartyEvent.USER_LEFT,
                 Map.of("userId", userId, "participantIds", updated.getParticipantIds()),
                 userId,
                 Instant.now().toEpochMilli()));
 
-        // If host migrated, notify with new host info
+        // If the leaving user was the host, a new host was assigned, broadcast the new
+        // host assigned event to all members
         if (!userId.equals(updated.getHostId())) {
-            return;
+            messagingTemplate.convertAndSend(topic, new PartyMessage(
+                    PartyEvent.NEW_HOST_ASSIGNED,
+                    Map.of("newHostId", updated.getHostId()),
+                    "system",
+                    Instant.now().toEpochMilli()));
         }
-
-        // Host migration occurred — broadcast
-        messagingTemplate.convertAndSend(topic, new PartyMessage(
-                PartyEvent.NEW_HOST_ASSIGNED,
-                Map.of("newHostId", updated.getHostId()),
-                "system",
-                Instant.now().toEpochMilli()));
     }
 }

@@ -20,6 +20,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -31,6 +33,7 @@ public class MovieDetailService {
 
     private final TmdbClient tmdbClient;
     private final CacheStampedeGuard cacheStampedeGuard;
+    private final Executor tmdbExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -47,25 +50,32 @@ public class MovieDetailService {
         return cacheStampedeGuard.xfetch(
                 "movieDetails:" + id, Duration.ofDays(7), 1.5,
                 () -> {
+                    // Build the URLs for the movie details and credits
                     String detailsUrl = String.format("%s/movie/%s?api_key=%s&language=en-US", baseUrl, id, apiKey);
                     String creditsUrl = String.format("%s/movie/%s/credits?api_key=%s&language=en-US",
                             baseUrl, id, apiKey);
                     try {
+                        // Fetch the movie details and credits in parallel
                         CompletableFuture<MovieDetail> detailsTask = CompletableFuture
-                                .supplyAsync(() -> tmdbClient.fetchWithRetry(detailsUrl, MovieDetail.class));
+                                .supplyAsync(() -> tmdbClient.fetchWithRetry(detailsUrl, MovieDetail.class),
+                                        tmdbExecutor);
+                        // Fetch the credits in parallel
                         CompletableFuture<CreditsResponse> creditsTask = CompletableFuture.supplyAsync(() -> {
                             try {
                                 return tmdbClient.fetchWithRetry(creditsUrl, CreditsResponse.class);
                             } catch (Exception e) {
                                 return null;
                             }
-                        });
+                        }, tmdbExecutor);
+                        // Join the tasks and map the results
                         MovieDetail details = detailsTask.orTimeout(8, TimeUnit.SECONDS).join();
                         CreditsResponse credits = creditsTask.orTimeout(8, TimeUnit.SECONDS).join();
                         if (details != null) {
+                            // Set the casts
                             details.setCasts(credits != null && credits.getCast() != null
                                     ? credits.getCast()
                                     : Collections.emptyList());
+                            // Set the anime flag
                             details.setAnime(TmdbUtils.isAnime(details.getOriginalLanguage(), details.getGenres()));
                         }
                         return details;
@@ -82,13 +92,16 @@ public class MovieDetailService {
         return cacheStampedeGuard.xfetch(
                 "movieSimilar:" + id, Duration.ofDays(7), 1.0,
                 () -> {
+                    // Build the URL for the similar movies
                     String similarUrl = String.format(
                             "%s/movie/%s/similar?api_key=%s&language=en-US&page=1", baseUrl, id, apiKey);
                     try {
+                        // Fetch the similar movies
                         TmdbTrendingResponse response = tmdbClient.fetchWithRetry(similarUrl,
                                 TmdbTrendingResponse.class);
                         if (response == null || response.getResults() == null)
                             return Collections.emptyList();
+                        // Sort the movies by rating and map to MediaGridResponse
                         return response.getResults().stream()
                                 .sorted(Comparator.comparing(TmdbTrendingResponse.TmdbItem::getVoteAverage,
                                         Comparator.nullsLast(Comparator.reverseOrder())))
@@ -104,6 +117,7 @@ public class MovieDetailService {
 
     // Maps a TMDb item to a MediaGridResponse DTO, specifically for similar movies
     private MediaGridResponse mapSimilarMovieToDTO(TmdbTrendingResponse.TmdbItem item) {
+        // Map the TMDb item to a MediaGridResponse
         MediaGridResponse dto = new MediaGridResponse();
         dto.setTmdbId(item.getId());
         dto.setTitle(item.getTitle());

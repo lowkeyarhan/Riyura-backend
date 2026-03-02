@@ -3,11 +3,13 @@ package com.riyura.backend.modules.identity.dto.history;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.riyura.backend.common.model.MediaType;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.Data;
 
 @Data
 public class DeleteWatchHistoryRequest {
     @NotNull(message = "tmdb_id is required")
+    @Positive(message = "tmdb_id must be positive")
     @JsonProperty("tmdb_id")
     private Long tmdbId;
 

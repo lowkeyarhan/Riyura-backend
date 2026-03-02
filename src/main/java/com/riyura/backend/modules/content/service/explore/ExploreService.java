@@ -20,6 +20,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -31,6 +33,7 @@ public class ExploreService {
 
     private final TmdbClient tmdbClient;
     private final CacheStampedeGuard cacheStampedeGuard;
+    private final Executor tmdbExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -48,24 +51,29 @@ public class ExploreService {
                 Objects.toString(genreNames, ""),
                 Objects.toString(language, ""));
 
+        // Fetch the explore page from the cache
         return cacheStampedeGuard.staleWhileRevalidate(
                 cacheKey,
                 Duration.ofHours(12), // fresh window
                 Duration.ofDays(1), // hard window
                 () -> {
+                    // Convert the language to ISO code
                     String isoLanguage = LanguageMapper.toIsoCode(language);
                     String movieGenreIds = GenreMapper.toMovieGenreIds(genreNames);
                     String tvGenreIds = GenreMapper.toTvGenreIds(genreNames);
 
+                    // Build the URLs for the movies and TV shows
                     String movieUrl = buildUrl("movie", page, movieGenreIds, isoLanguage);
                     String tvUrl = buildUrl("tv", page, tvGenreIds, isoLanguage);
 
+                    // Fetch the movies and TV shows in parallel
                     CompletableFuture<List<ExploreResponse>> moviesFuture = CompletableFuture
-                            .supplyAsync(() -> fetchAndMap(movieUrl, MediaType.Movie));
+                            .supplyAsync(() -> fetchAndMap(movieUrl, MediaType.Movie), tmdbExecutor);
                     CompletableFuture<List<ExploreResponse>> tvFuture = CompletableFuture
-                            .supplyAsync(() -> fetchAndMap(tvUrl, MediaType.TV));
+                            .supplyAsync(() -> fetchAndMap(tvUrl, MediaType.TV), tmdbExecutor);
 
-                    List<ExploreResponse> combined = new ArrayList<>(moviesFuture.orTimeout(8, TimeUnit.SECONDS).join());
+                    List<ExploreResponse> combined = new ArrayList<>(
+                            moviesFuture.orTimeout(8, TimeUnit.SECONDS).join());
                     combined.addAll(tvFuture.orTimeout(8, TimeUnit.SECONDS).join());
                     return combined;
                 });

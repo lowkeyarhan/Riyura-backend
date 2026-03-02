@@ -1,10 +1,14 @@
 package com.riyura.backend.modules.identity.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,19 +26,29 @@ import com.riyura.backend.modules.identity.repository.WatchHistoryRepository;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class HistoryService {
 
+    private static final int MAX_HISTORY_SIZE = 1000;
+    private static final int DEFAULT_PAGE_SIZE = 10;
+
     private final RestTemplate restTemplate;
     private final WatchHistoryRepository watchHistoryRepository;
+
+    // Dedicated virtual thread executor for TMDB API calls
+    private final Executor tmdbExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -42,18 +56,20 @@ public class HistoryService {
     @Value("${tmdb.base-url}")
     private String baseUrl;
 
-    // Get user watch history
-    @Cacheable(value = "history", key = "#userId", sync = true)
-    public List<HistoryResponse> getUserWatchHistory(UUID userId) {
-        return watchHistoryRepository.findByUserIdOrderByWatchedAtDesc(userId)
+    // Fetch the user's watch history with pagination
+    @Cacheable(value = "history", key = "#userId + ':' + #page", sync = true)
+    @Transactional(readOnly = true)
+    public List<HistoryResponse> getUserWatchHistory(UUID userId, int page) {
+        Pageable pageable = PageRequest.of(page, DEFAULT_PAGE_SIZE);
+        return watchHistoryRepository.findByUserIdOrderByWatchedAtDesc(userId, pageable)
                 .stream()
                 .map(this::toHistoryResponse)
                 .toList();
     }
 
-    // Add or update watch history
+    // Add or update a watch history item
     @Transactional
-    @CacheEvict(value = "history", key = "#userId")
+    @CacheEvict(value = "history", allEntries = true)
     public WatchHistory addOrUpdateHistory(UUID userId, HistoryRequest request) {
         try {
             Optional<WatchHistory> existing = watchHistoryRepository.findByUserIdAndTmdbIdAndMediaType(
@@ -63,6 +79,13 @@ public class HistoryService {
             boolean sameContext = isSameContext(history, request, existing.isPresent());
 
             if (existing.isEmpty()) {
+                // Enforce the per-user size limit
+                long count = watchHistoryRepository.countByUserId(userId);
+                if (count >= MAX_HISTORY_SIZE) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Watch history limit reached (" + MAX_HISTORY_SIZE + " items)");
+                }
+
                 history.setUserId(userId);
                 history.setTmdbId(request.getTmdbId());
                 history.setMediaType(request.getMediaType());
@@ -90,14 +113,16 @@ public class HistoryService {
             return watchHistoryRepository.save(history);
         } catch (ResponseStatusException e) {
             throw e;
+        } catch (DataIntegrityViolationException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Watch history entry already exists");
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to save history", e);
         }
     }
 
-    // Delete watch history
+    // Delete a watch history item
     @Transactional
-    @CacheEvict(value = "history", key = "#userId")
+    @CacheEvict(value = "history", allEntries = true)
     public void deleteWatchHistory(UUID userId, DeleteWatchHistoryRequest request) {
         try {
             Optional<WatchHistory> existing = watchHistoryRepository.findByUserIdAndTmdbIdAndMediaType(
@@ -113,7 +138,7 @@ public class HistoryService {
         }
     }
 
-    // Helper method to fetch metadata from TMDB
+    // Fetch metadata from TMDB
     private TmdbMetadataDTO fetchMetadataFromTmdb(Long id, MediaType type, Integer seasonNumber,
             Integer episodeNumber) {
         try {
@@ -131,9 +156,9 @@ public class HistoryService {
                         baseUrl, id, seasonNumber, episodeNumber, apiKey);
 
                 CompletableFuture<TmdbMetadataDTO> showFuture = CompletableFuture
-                        .supplyAsync(() -> restTemplate.getForObject(showUrl, TmdbMetadataDTO.class));
+                        .supplyAsync(() -> restTemplate.getForObject(showUrl, TmdbMetadataDTO.class), tmdbExecutor);
                 CompletableFuture<TmdbMetadataDTO> episodeFuture = CompletableFuture
-                        .supplyAsync(() -> restTemplate.getForObject(episodeUrl, TmdbMetadataDTO.class));
+                        .supplyAsync(() -> restTemplate.getForObject(episodeUrl, TmdbMetadataDTO.class), tmdbExecutor);
 
                 TmdbMetadataDTO showData = showFuture.orTimeout(8, TimeUnit.SECONDS).join();
                 TmdbMetadataDTO episodeData = episodeFuture.orTimeout(8, TimeUnit.SECONDS).join();
@@ -162,7 +187,7 @@ public class HistoryService {
         }
     }
 
-    // Helper method to check if the history is same as request
+    // Check if the history is the same as the request
     private boolean isSameContext(WatchHistory history, HistoryRequest request, boolean existing) {
         if (!existing) {
             return false;
@@ -174,7 +199,7 @@ public class HistoryService {
                 && Objects.equals(history.getEpisodeNumber(), request.getEpisodeNumber());
     }
 
-    // Helper method to apply metadata to WatchHistory
+    // Apply metadata to the watch history
     private void applyMetadata(WatchHistory history, HistoryRequest request, TmdbMetadataDTO metadata) {
         if (metadata == null) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to fetch metadata from TMDB");
@@ -201,15 +226,20 @@ public class HistoryService {
         history.setEpisodeLength(runtimeMinutes != null ? runtimeMinutes * 60 : null);
     }
 
-    // Helper method to parse date
+    // Parses a date string safely, returning null on invalid formats
     private LocalDate parseDate(String value) {
         if (value == null || value.isBlank()) {
             return null;
         }
-        return LocalDate.parse(value);
+        try {
+            return LocalDate.parse(value);
+        } catch (DateTimeParseException e) {
+            log.warn("Failed to parse date: {}", value);
+            return null;
+        }
     }
 
-    // Helper method to convert WatchHistory to HistoryResponse
+    // Convert the watch history to a history response
     private HistoryResponse toHistoryResponse(WatchHistory history) {
         HistoryResponse dto = new HistoryResponse();
         dto.setTmdbId(history.getTmdbId());
@@ -227,7 +257,7 @@ public class HistoryService {
         return dto;
     }
 
-    // Helper method to check if the metadata is anime
+    // Check if the metadata is anime
     private boolean isAnime(TmdbMetadataDTO metadata) {
         return TmdbUtils.isAnime(metadata.getOriginalLanguage(), metadata.getGenres());
     }

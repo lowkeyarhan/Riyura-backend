@@ -46,8 +46,8 @@ public final class LanguageMapper {
 
         String trimmed = language.trim();
 
-        // Already a 2-letter ISO code — pass through directly
-        if (trimmed.length() == 2)
+        // Already a 2-letter ISO code — validate it's alphabetic before passing through
+        if (trimmed.length() == 2 && trimmed.chars().allMatch(Character::isLetter))
             return trimmed.toLowerCase();
 
         return LANGUAGE_CODES.get(trimmed.toLowerCase());

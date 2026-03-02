@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,45 +14,50 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.modules.identity.dto.watchlist.WatchlistRequest;
-import com.riyura.backend.modules.identity.model.Watchlist;
 import com.riyura.backend.modules.identity.service.WatchlistService;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/watchlist")
+@RequiredArgsConstructor
 public class WatchlistController {
 
-    @Autowired
-    private WatchlistService watchlistService;
+    private final WatchlistService watchlistService;
 
-    // Get the user's watchlist, ordered by most recent first
-    @GetMapping()
-    public ResponseEntity<Map<String, Object>> getWatchlist(@AuthenticationPrincipal Jwt jwt) {
-        Map<String, Object> response = new HashMap<>();
+    // Fetch the user's watchlist, ordered by most recent
+    @GetMapping
+    public ResponseEntity<Map<String, Object>> getWatchlist(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(defaultValue = "0") int page) {
         UUID userId = UUID.fromString(jwt.getSubject());
-        List<MediaGridResponse> data = watchlistService.getUserWatchlist(userId);
+        List<MediaGridResponse> data = watchlistService.getUserWatchlist(userId, page);
+
+        Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("data", data);
         return ResponseEntity.ok(response);
     }
 
     // Add a media item to the user's watchlist
-    @PostMapping()
+    @PostMapping
     public ResponseEntity<Map<String, Object>> addToWatchlist(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody WatchlistRequest request) {
         try {
-            Map<String, Object> response = new HashMap<>();
             UUID userId = UUID.fromString(jwt.getSubject());
-            Watchlist data = watchlistService.addToWatchlist(userId, request);
+            watchlistService.addToWatchlist(userId, request);
+
+            Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("data", data);
+            response.put("message", "Added to watchlist");
             return ResponseEntity.ok(response);
         } catch (ResponseStatusException e) {
             if (e.getStatusCode().value() == HttpStatus.CONFLICT.value()) {
@@ -67,14 +71,15 @@ public class WatchlistController {
     }
 
     // Delete a media item from the user's watchlist
-    @DeleteMapping()
+    @DeleteMapping
     public ResponseEntity<Map<String, Object>> deleteFromWatchlist(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody WatchlistRequest request) {
         try {
-            Map<String, Object> response = new HashMap<>();
             UUID userId = UUID.fromString(jwt.getSubject());
             watchlistService.deleteFromWatchlist(userId, request);
+
+            Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Watchlist item deleted successfully");
             return ResponseEntity.ok(response);

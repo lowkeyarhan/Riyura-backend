@@ -28,7 +28,12 @@ public class ClientIdentifierProvider {
     private String extractClientIp(HttpServletRequest request) {
         String forwarded = request.getHeader("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+            String ip = forwarded.split(",")[0].trim();
+            // Sanitize: only allow valid IP-like characters to prevent injection of
+            // arbitrary rate limit keys
+            if (ip.matches("[0-9a-fA-F.:]+") && ip.length() <= 45) {
+                return ip;
+            }
         }
         return request.getRemoteAddr();
     }

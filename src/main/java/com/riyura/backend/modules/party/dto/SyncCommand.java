@@ -1,5 +1,6 @@
 package com.riyura.backend.modules.party.dto;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -8,6 +9,7 @@ import lombok.Data;
 @Data
 public class SyncCommand {
 
+    // The action to perform
     public enum Action {
         SEEK
     }
@@ -16,7 +18,9 @@ public class SyncCommand {
     private Action action;
 
     @NotNull
+    @Min(value = 0, message = "startAt must not be negative")
     private Integer startAt;
 
+    @Min(value = 0, message = "clientTime must not be negative")
     private long clientTime;
 }

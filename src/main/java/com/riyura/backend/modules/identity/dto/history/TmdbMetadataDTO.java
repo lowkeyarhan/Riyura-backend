@@ -52,6 +52,15 @@ public class TmdbMetadataDTO {
 
     private String episodeName;
 
+    @JsonProperty("vote_average")
+    private Double voteAverage;
+
+    @JsonProperty("number_of_seasons")
+    private Integer numberOfSeasons;
+
+    @JsonProperty("number_of_episodes")
+    private Integer numberOfEpisodes;
+
     public Integer resolveRuntime() {
         if (runtime != null) {
             return runtime;

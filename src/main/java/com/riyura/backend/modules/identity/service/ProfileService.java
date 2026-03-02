@@ -3,9 +3,12 @@ package com.riyura.backend.modules.identity.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.riyura.backend.modules.identity.model.UserProfile;
 import com.riyura.backend.modules.identity.repository.UserProfileRepository;
@@ -21,6 +24,8 @@ public class ProfileService {
 
     private final UserProfileRepository userProfileRepository;
 
+    private static final int LAST_LOGIN_UPDATE_MINUTES = 5;
+
     // Fetch the user's profile along with creating it if it doesn't exist
     @Transactional
     public UserProfile getProfile(Jwt jwt) {
@@ -30,16 +35,22 @@ public class ProfileService {
         UserProfile profile = userProfileRepository.findById(userId)
                 .orElseGet(() -> createProfile(userId, jwt));
 
-        // Update the last login time
-        profile.setLastLogin(OffsetDateTime.now());
-        return userProfileRepository.save(profile);
+        // Only update the last login time if it's been more than 5 minutes since the
+        // last update
+        if (profile.getLastLogin() == null
+                || profile.getLastLogin().plusMinutes(LAST_LOGIN_UPDATE_MINUTES).isBefore(OffsetDateTime.now())) {
+            profile.setLastLogin(OffsetDateTime.now());
+            return userProfileRepository.save(profile);
+        }
+
+        return profile;
     }
 
     // Update the user's onboarding status
     @Transactional
     public UserProfile updateOnboarded(UUID userId, boolean onboarded) {
         UserProfile profile = userProfileRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Profile not found for user: " + userId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Profile not found"));
 
         profile.setOnboarded(onboarded);
         log.debug("Updated onboarded={} for user {}", onboarded, userId);
@@ -64,7 +75,16 @@ public class ProfileService {
         profile.setCreatedAt(OffsetDateTime.now());
         profile.setOnboarded(false);
 
-        return userProfileRepository.save(profile);
+        // Save the profile and flush the changes
+        try {
+            return userProfileRepository.saveAndFlush(profile);
+        } catch (DataIntegrityViolationException e) {
+            // Concurrent request already created the profile - fetch it
+            log.debug("Profile already created concurrently for user {}", userId);
+            return userProfileRepository.findById(userId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                            "Failed to create profile"));
+        }
     }
 
     // Extract a non-blank string from a map given multiple possible keys

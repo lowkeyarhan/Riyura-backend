@@ -13,9 +13,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -23,8 +27,12 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class SearchService {
 
+    private static final int PAGE_SIZE = 15;
+
     private final TmdbClient tmdbClient;
     private final CacheStampedeGuard cacheStampedeGuard;
+
+    private final Executor searchExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -36,23 +44,29 @@ public class SearchService {
     private String imageBaseUrl;
 
     // Performs a search across movies, TV shows, and companies, combining results
-    // and sorting by rating.
-    public List<SearchResponse> search(String query) {
+    // and sorting by rating. Returns a paginated slice.
+    public List<SearchResponse> search(String query, int page) {
         if (query == null || query.trim().isEmpty())
             return Collections.emptyList();
 
         String normalizedQuery = query.trim().toLowerCase();
-        return cacheStampedeGuard.xfetch(
+        String encodedQuery = URLEncoder.encode(query.trim(), StandardCharsets.UTF_8);
+
+        // Fetch the search results from the cache
+        List<SearchResponse> allResults = cacheStampedeGuard.xfetch(
                 "searchResults:" + normalizedQuery, Duration.ofDays(1), 1.0,
                 () -> {
                     CompletableFuture<List<ScoredSearchResult>> multiTask = CompletableFuture
-                            .supplyAsync(() -> searchMulti(query));
+                            .supplyAsync(() -> searchMulti(encodedQuery), searchExecutor);
                     CompletableFuture<List<ScoredSearchResult>> companyTask = CompletableFuture
-                            .supplyAsync(() -> searchByCompany(query));
+                            .supplyAsync(() -> searchByCompany(encodedQuery), searchExecutor);
 
+                    // Combine the results from the company and multi search
                     Map<String, ScoredSearchResult> uniqueResults = new LinkedHashMap<>();
-                    companyTask.orTimeout(8, TimeUnit.SECONDS).join().forEach(item -> uniqueResults.put(genKey(item.getResponse()), item));
-                    multiTask.orTimeout(8, TimeUnit.SECONDS).join().forEach(item -> uniqueResults.putIfAbsent(genKey(item.getResponse()), item));
+                    companyTask.orTimeout(8, TimeUnit.SECONDS).join()
+                            .forEach(item -> uniqueResults.put(genKey(item.getResponse()), item));
+                    multiTask.orTimeout(8, TimeUnit.SECONDS).join()
+                            .forEach(item -> uniqueResults.putIfAbsent(genKey(item.getResponse()), item));
 
                     return uniqueResults.values().stream()
                             .sorted(Comparator.comparing(ScoredSearchResult::getRating,
@@ -60,13 +74,25 @@ public class SearchService {
                             .map(ScoredSearchResult::getResponse)
                             .toList();
                 });
+
+        if (allResults == null) {
+            return Collections.emptyList();
+        }
+
+        // Paginate the cached results
+        int start = page * PAGE_SIZE;
+        if (start >= allResults.size()) {
+            return Collections.emptyList();
+        }
+        int end = Math.min(start + PAGE_SIZE, allResults.size());
+        return allResults.subList(start, end);
     }
 
     // Performs a multi-search on TMDb and processes results to extract movies, TV
     // shows, and top person for further discovery
-    private List<ScoredSearchResult> searchMulti(String query) {
+    private List<ScoredSearchResult> searchMulti(String encodedQuery) {
         String url = String.format("%s/search/multi?api_key=%s&language=en-US&query=%s&page=1&include_adult=false",
-                baseUrl, apiKey, query);
+                baseUrl, apiKey, encodedQuery);
         try {
             TmdbTrendingResponse response = tmdbClient.fetchWithRetry(url, TmdbTrendingResponse.class);
             if (response == null || response.getResults() == null)
@@ -95,8 +121,8 @@ public class SearchService {
 
     // Performs a search for companies matching the query and discovers content
     // associated with the top company result
-    private List<ScoredSearchResult> searchByCompany(String query) {
-        String url = String.format("%s/search/company?api_key=%s&query=%s&page=1", baseUrl, apiKey, query);
+    private List<ScoredSearchResult> searchByCompany(String encodedQuery) {
+        String url = String.format("%s/search/company?api_key=%s&query=%s&page=1", baseUrl, apiKey, encodedQuery);
         try {
             TmdbCompanySearchResponse response = tmdbClient.fetchWithRetry(url, TmdbCompanySearchResponse.class);
             if (response != null && response.getResults() != null && !response.getResults().isEmpty()) {
@@ -126,12 +152,12 @@ public class SearchService {
             String url = String.format("%s/discover/movie?api_key=%s&language=en-US&sort_by=popularity.desc&%s=%d",
                     baseUrl, apiKey, filterParam, id);
             return fetchAndMap(url, MediaType.Movie);
-        });
+        }, searchExecutor);
         CompletableFuture<List<ScoredSearchResult>> tvShows = CompletableFuture.supplyAsync(() -> {
             String url = String.format("%s/discover/tv?api_key=%s&language=en-US&sort_by=popularity.desc&%s=%d",
                     baseUrl, apiKey, filterParam, id);
             return fetchAndMap(url, MediaType.TV);
-        });
+        }, searchExecutor);
 
         List<ScoredSearchResult> combined = new ArrayList<>(movies.orTimeout(8, TimeUnit.SECONDS).join());
         combined.addAll(tvShows.orTimeout(8, TimeUnit.SECONDS).join());

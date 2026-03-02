@@ -20,6 +20,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -31,6 +33,7 @@ public class TvDetailsService {
 
     private final TmdbClient tmdbClient;
     private final CacheStampedeGuard cacheStampedeGuard;
+    private final Executor tmdbExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     @Value("${tmdb.api-key}")
     private String apiKey;
@@ -53,14 +56,15 @@ public class TvDetailsService {
                             "%s/tv/%s/credits?api_key=%s&language=en-US", baseUrl, id, apiKey);
                     try {
                         CompletableFuture<TvShowDetails> detailsTask = CompletableFuture
-                                .supplyAsync(() -> tmdbClient.fetchWithRetry(detailsUrl, TvShowDetails.class));
+                                .supplyAsync(() -> tmdbClient.fetchWithRetry(detailsUrl, TvShowDetails.class),
+                                        tmdbExecutor);
                         CompletableFuture<CreditsResponse> creditsTask = CompletableFuture.supplyAsync(() -> {
                             try {
                                 return tmdbClient.fetchWithRetry(creditsUrl, CreditsResponse.class);
                             } catch (Exception e) {
                                 return null;
                             }
-                        });
+                        }, tmdbExecutor);
                         TvShowDetails details = detailsTask.orTimeout(8, TimeUnit.SECONDS).join();
                         CreditsResponse credits = creditsTask.orTimeout(8, TimeUnit.SECONDS).join();
                         if (details != null) {

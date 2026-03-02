@@ -11,15 +11,20 @@ import com.riyura.backend.modules.content.service.movie.MoviePlayerService;
 import com.riyura.backend.modules.content.service.movie.MovieService;
 import com.riyura.backend.modules.content.service.stream.StreamUrlService;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Validated
 @RestController
 @RequestMapping("/api/movies")
 @RequiredArgsConstructor
@@ -30,38 +35,38 @@ public class MovieController {
     private final MoviePlayerService moviePlayerService;
     private final StreamUrlService streamUrlService;
 
-    // Get Now Playing Movies with a limit (e.g., top 10)
+    // Get Now Playing Movies with a limit (e.g., top 12)
     @GetMapping("/now-playing")
     public ResponseEntity<Map<String, List<MediaGridResponse>>> getNowPlaying(
-            @RequestParam(defaultValue = "12") int limit) {
+            @RequestParam(defaultValue = "12") @Min(1) @Max(50) int limit) {
         return wrapResponse(movieService.getNowPlayingMovies(limit));
     }
 
-    // Get Trending Movies with a limit (e.g., top 10)
+    // Get Trending Movies with a limit (e.g., top 12)
     @GetMapping("/trending")
     public ResponseEntity<Map<String, List<MediaGridResponse>>> getTrending(
-            @RequestParam(defaultValue = "12") int limit) {
+            @RequestParam(defaultValue = "12") @Min(1) @Max(50) int limit) {
         return wrapResponse(movieService.getTrendingMovies(limit));
     }
 
-    // Get Popular Movies with a limit (e.g., top 10)
+    // Get Popular Movies with a limit (e.g., top 12)
     @GetMapping("/popular")
     public ResponseEntity<Map<String, List<MediaGridResponse>>> getPopular(
-            @RequestParam(defaultValue = "12") int limit) {
+            @RequestParam(defaultValue = "12") @Min(1) @Max(50) int limit) {
         return wrapResponse(movieService.getPopularMovies(limit));
     }
 
-    // Get Upcoming Movies with a limit (e.g., top 10)
+    // Get Upcoming Movies with a limit (e.g., top 12)
     @GetMapping("/upcoming")
     public ResponseEntity<Map<String, List<MediaGridResponse>>> getUpcoming(
-            @RequestParam(defaultValue = "12") int limit) {
+            @RequestParam(defaultValue = "12") @Min(1) @Max(50) int limit) {
         return wrapResponse(movieService.getUpcomingMovies(limit));
     }
 
     // Get Movie Details by ID
     @GetMapping("details/{id}")
-    public ResponseEntity<MovieDetail> getMovieById(@PathVariable String id) {
-        MovieDetail details = movieDetailsService.getMovieDetails(id);
+    public ResponseEntity<MovieDetail> getMovieById(@PathVariable Long id) {
+        MovieDetail details = movieDetailsService.getMovieDetails(String.valueOf(id));
         if (details == null) {
             return ResponseEntity.notFound().build();
         }
@@ -70,14 +75,14 @@ public class MovieController {
 
     // Get Similar Movies by Movie ID (top 6 by vote average)
     @GetMapping("details/{id}/similar")
-    public ResponseEntity<Map<String, List<MediaGridResponse>>> getSimilarMovies(@PathVariable String id) {
-        return wrapResponse(movieDetailsService.getSimilarMovies(id));
+    public ResponseEntity<Map<String, List<MediaGridResponse>>> getSimilarMovies(@PathVariable Long id) {
+        return wrapResponse(movieDetailsService.getSimilarMovies(String.valueOf(id)));
     }
 
     // Get Movie Player Info by ID
     @GetMapping("/player/{id}")
-    public ResponseEntity<MoviePlayerResponse> getMoviePlayer(@PathVariable String id) {
-        MoviePlayerResponse playerResponse = moviePlayerService.getMoviePlayer(id);
+    public ResponseEntity<MoviePlayerResponse> getMoviePlayer(@PathVariable Long id) {
+        MoviePlayerResponse playerResponse = moviePlayerService.getMoviePlayer(String.valueOf(id));
         if (playerResponse == null) {
             return ResponseEntity.notFound().build();
         }
@@ -86,7 +91,8 @@ public class MovieController {
 
     // Build fully-constructed stream URLs for a specific movie
     @PostMapping("/stream")
-    public ResponseEntity<List<StreamUrlResponse>> getMovieStream(@RequestBody StreamProviderRequest request) {
+    public ResponseEntity<List<StreamUrlResponse>> getMovieStream(
+            @Valid @RequestBody StreamProviderRequest request) {
         return ResponseEntity.ok(streamUrlService.buildStreamUrls(request, MediaType.Movie));
     }
 

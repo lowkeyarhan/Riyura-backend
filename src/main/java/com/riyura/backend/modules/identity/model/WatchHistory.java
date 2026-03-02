@@ -11,7 +11,9 @@ import java.util.UUID;
 
 @Data
 @Entity
-@Table(name = "watch_history")
+@Table(name = "watch_history", uniqueConstraints = {
+        @UniqueConstraint(columnNames = { "user_id", "tmdb_id", "media_type" })
+})
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class WatchHistory {
 
