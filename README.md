@@ -12,9 +12,6 @@
 - [Security & Authentication](#security--authentication)
 - [Rate Limiting](#rate-limiting)
 - [Performance](#performance)
-- [Key Workflows](#key-workflows)
-- [API Documentation](#api-documentation)
-- [Getting Started](#getting-started)
 
 ---
 
@@ -22,7 +19,7 @@
 
 This is a sophisticated backend service for Riyura that acts as the core orchestration layer for the modern media streaming platform. Built on **Spring Boot 4.x** with **Java 21**, it seamlessly serves rich media content, dynamic discovery features, personalized user experiences, and real-time collaborative watch parties. The system integrates with an external content API for media metadata, **Supabase** for identity/auth, **PostgreSQL** for persistent storage, and **Redis** for high-performance caching, ephemeral party state, and distributed rate limiting.
 
-From managing trending banners and multi-provider stream URL resolution to synchronized watch parties with real-time chat, Riyura powers every essential feature of a full-stack entertainment hub — all while leveraging JDK 21 virtual threads for high concurrency without the complexity of traditional thread pools.
+From managing trending banners and multi-provider stream URL resolution to synchronized watch parties with real-time chat, Riyura powers every essential feature of a full-stack entertainment hub.
 
 ---
 
@@ -43,7 +40,7 @@ The application follows a **Modular Monolith** architecture that emphasizes high
 | Layer         | Technology                                                     |
 | ------------- | -------------------------------------------------------------- |
 | Framework     | Spring Boot 4.x                                                |
-| Language      | Java 21 (virtual threads enabled)                              |
+| Language      | Java 21                                                        |
 | Database      | PostgreSQL with HikariCP connection pooling                    |
 | ORM           | Spring Data JPA / Hibernate                                    |
 | Caching       | Redis (Spring Cache abstraction + custom RedisTemplate)        |
@@ -62,6 +59,21 @@ The application follows a **Modular Monolith** architecture that emphasizes high
 ## Database & Persistence
 
 Riyura uses PostgreSQL as its primary relational store, managed through Spring Data JPA with Hibernate. The schema covers three core entities: **stream providers** (configures available streaming providers with per-media-type URL templates, quality, priority, and an active toggle), **watchlist** (persists user-saved content with a metadata snapshot including title, poster, release date, and vote), and **watch history** (records full playback events with streaming context — provider used, stream ID, episode info, watch duration, and an anime flag for UI hints).
+
+### Data Integrity
+
+Both `watchlist` and `watch_history` tables enforce **unique constraints** on `(user_id, tmdb_id, media_type)` at the database level. This prevents duplicate entries even under concurrent requests (e.g. a user double-tapping "Add to Watchlist"). Services handle `DataIntegrityViolationException` gracefully — either returning the existing record or ignoring the duplicate — rather than surfacing a 500 error.
+
+Per-user size limits are enforced in application code:
+
+| Collection        | Max Size |
+| ----------------- | -------- |
+| **Watchlist**     | 500      |
+| **Watch History** | 1000     |
+
+### Pagination
+
+User-specific list endpoints (watchlist, watch history) are paginated using Spring Data's `Pageable` with a default page size of **10 items**. Search results are paginated at **15 items per page**. Cache keys include the page number to avoid serving incorrect slices.
 
 ### Connection Pooling (HikariCP)
 
@@ -90,7 +102,7 @@ Riyura uses **Redis** as its distributed cache, combining Spring's `@Cacheable` 
 - **Null caching**: Disabled — absent values are never cached so transient errors don't poison the cache
 - **Background refresh pool**: Dedicated `cacheRefreshExecutor` (4–16 threads) for SWR background refreshes; `CallerRunsPolicy` provides back-pressure if the queue is full
 
-Content caches use `CacheStampedeGuard` and are keyed by their natural discriminator (e.g. `limit`, `query`, `id`). User-specific caches (`watchlist`, `history`) use `@Cacheable` with `sync = true` and are evicted via `@CacheEvict` on writes.
+Content caches use `CacheStampedeGuard` and are keyed by their natural discriminator (e.g. `limit`, `query`, `id`). User-specific caches (`watchlist`, `history`) use `@Cacheable` with `sync = true` and are keyed by `userId + ':' + page` for pagination-aware caching. Writes trigger `@CacheEvict(allEntries = true)` to invalidate all pages for the affected user, ensuring consistency after additions or deletions.
 
 ### Redis Party State
 
@@ -122,6 +134,10 @@ executor = Executors.newVirtualThreadPerTaskExecutor()
 ```
 
 This ensures WebSocket message handling inherits the same non-blocking scalability as the HTTP layer.
+
+### Dedicated Virtual Thread Executors
+
+All services that use `CompletableFuture` for parallel API calls supply a **dedicated virtual thread executor** (`Executors.newVirtualThreadPerTaskExecutor()`) rather than relying on the `ForkJoinPool.commonPool()`. This prevents content API I/O from starving the shared pool used by framework internals and other CompletableFuture operations.
 
 ### Parallel Content Fetching (CompletableFuture)
 
@@ -159,10 +175,12 @@ Riyura supports real-time synchronized watch parties powered by **STOMP over Web
 ### Party Lifecycle & Features
 
 - **Host migration**: When the host disconnects, `WebSocketEventListener` automatically promotes the next participant to host and broadcasts `NEW_HOST_ASSIGNED`
+- **Participant cap**: Parties are limited to a maximum of **20 participants** — join attempts beyond this limit receive a 400 error
+- **Party ID validation**: All party IDs are validated against a strict alphanumeric regex (`^[A-Za-z0-9]{1,20}$`) to prevent Redis key injection
 - **Zombie eviction**: On each WebSocket heartbeat, participants inactive for more than **45 seconds** are removed from the party
 - **Buffering sync**: When a participant reports buffering, `PartyService` tracks all buffering participants. In strict sync mode this triggers a `FORCE_PAUSE` to all members; once all are ready a `RESUME` is broadcast
 - **Strict sync mode**: When enabled (host only), any participant buffering pauses playback for everyone
-- **Latency compensation**: Sync commands carry a timestamp; the service applies a compensation offset based on round-trip time before broadcasting the target playback position
+- **Latency compensation**: Sync commands carry a `clientTime` timestamp that is validated for plausibility (positive, not in the future, within 30 s of server time). The service applies a compensation offset based on round-trip time before broadcasting the target playback position
 - **Chat history**: The last 50 chat messages are stored in the Redis party state and replayed on join
 - **Party cleanup**: When the last participant leaves or the party TTL expires, the party is removed from Redis
 
@@ -175,9 +193,38 @@ Riyura uses **Spring Security** configured as an **OAuth2 Resource Server** with
 - **Algorithm**: HS256 (HMAC-SHA256) with a custom `NimbusJwtDecoder`
 - **Issuer validation**: Supabase project URL
 - **JWT subject**: Used as `userId` throughout the system (UUID format)
-- **CORS**: Configured globally via `SecurityConfig` for frontend origin (`FRONTEND_URL`, defaults to `http://localhost:3000`) — no per-controller `@CrossOrigin` annotations
+- **CORS**: Configured globally via `SecurityConfig` using the `APP_FRONTEND_URL` environment variable — no per-controller `@CrossOrigin` annotations. Allowed headers are narrowed to `Authorization`, `Content-Type`, and `Accept`
 
 Content discovery endpoints (`/api/movies/**`, `/api/tv/**`, `/api/anime/**`, `/api/search/**`, `/api/banner/**`, `/api/explore/**`) are fully public. User-specific endpoints (`/api/profile/**`, `/api/watchlist/**`, `/api/party/**`) require a valid Supabase-issued JWT in the `Authorization` header. The WebSocket endpoint (`/ws/**`) is publicly reachable at the HTTP level, but authentication is enforced at the STOMP CONNECT frame by `WebSocketAuthInterceptor`.
+
+### Input Validation
+
+All controllers are annotated with `@Validated` to enable Jakarta Bean Validation on both path variables and query parameters. Request bodies use `@Valid` to trigger DTO-level validation. Key validations include:
+
+| Layer              | Validation                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| **Path variables** | TMDB IDs validated as `Long` (rejects non-numeric input), limits bounded with `@Min` / `@Max`                |
+| **Query params**   | Page numbers bounded (`@Min(0)` or `@Min(1)`), limits bounded (`@Min(1) @Max(50)`)                           |
+| **Request DTOs**   | `@Positive` on IDs, `@Size` on strings, `@Min(0)` on numeric fields, `@Pattern` on enum-like fields          |
+| **Party IDs**      | Validated against `^[A-Za-z0-9]{1,20}$` regex to prevent Redis key injection                                 |
+| **Search queries** | URL-encoded via `URLEncoder.encode()` before being passed to the content API, preventing URL/query injection |
+| **Language codes** | 2-letter passthrough codes validated as strictly alphabetic                                                  |
+
+### Global Exception Handling
+
+A centralized `@RestControllerAdvice` (`GlobalExceptionHandler`) intercepts all exceptions and returns a consistent JSON error response — preventing stack traces, internal class names, and other sensitive details from leaking to clients.
+
+| Exception Type                        | HTTP Status | Behavior                                          |
+| ------------------------------------- | ----------- | ------------------------------------------------- |
+| `MethodArgumentNotValidException`     | 400         | Returns field-level validation error messages     |
+| `ConstraintViolationException`        | 400         | Returns parameter-level constraint violations     |
+| `MethodArgumentTypeMismatchException` | 400         | Returns type conversion error (e.g. "abc" → Long) |
+| `ResponseStatusException`             | Varies      | Forwards the status and reason from the service   |
+| All other `Exception`                 | 500         | Generic "An unexpected error occurred" message    |
+
+### IP Sanitization
+
+The `ClientIdentifierProvider` extracts client IP from `X-Forwarded-For` for rate-limiting keys. The extracted IP is validated against a strict regex (`[0-9a-fA-F.:]+`) and length check (`≤ 45` characters for IPv6) to prevent header injection attacks that could manipulate rate-limit bucket keys.
 
 ---
 
@@ -187,12 +234,12 @@ Riyura uses **Bucket4J** backed by **Redis (Lettuce)** for distributed, highly a
 
 ### Architecture
 
-| Component                  | Responsibility                                                                                                      |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `LettuceBasedProxyManager` | Distributed bucket store — fetches or creates per-key buckets in Redis via atomic CAS operations                    |
-| `ClientIdentifierProvider` | Resolves caller identity: authenticated user ID (JWT `sub`) or client IP; handles `X-Forwarded-For` for proxies/LBs |
-| `RateLimitTierService`     | Maps request URIs to rate-limit tiers with distinct bucket configurations                                           |
-| `RateLimitFilter`          | `OncePerRequestFilter` at order 1 — runs after Security so JWT context is available for per-user scoping            |
+| Component                  | Responsibility                                                                                                              |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `LettuceBasedProxyManager` | Distributed bucket store — fetches or creates per-key buckets in Redis via atomic CAS operations                            |
+| `ClientIdentifierProvider` | Resolves caller identity: authenticated user ID (JWT `sub`) or client IP; handles `X-Forwarded-For` with regex sanitization |
+| `RateLimitTierService`     | Maps request URIs to rate-limit tiers with distinct bucket configurations                                                   |
+| `RateLimitFilter`          | `OncePerRequestFilter` at order 1 — runs after Security so JWT context is available for per-user scoping                    |
 
 ### Rate Limit Tiers
 
@@ -315,56 +362,6 @@ All services use SLF4J (`@Slf4j`) instead of `System.out.println` / `System.err.
 
 ### CORS Configuration
 
-CORS is handled exclusively by the global `SecurityConfig` bean with a centralized `CorsConfigurationSource`. Per-controller `@CrossOrigin` annotations are not used, avoiding redundant CORS header processing and ensuring consistent origin policy from a single configuration point.
+CORS is handled exclusively by the global `SecurityConfig` bean with a centralized `CorsConfigurationSource`. The allowed origin is read from the `APP_FRONTEND_URL` environment variable rather than being hardcoded. Allowed headers are explicitly narrowed to `Authorization`, `Content-Type`, and `Accept` instead of using a wildcard. Per-controller `@CrossOrigin` annotations are not used, avoiding redundant CORS header processing and ensuring consistent origin policy from a single configuration point.
 
 ---
-
-## Key Workflows
-
-### Dynamic Content Discovery
-
-Clients request categorized media using limit-controlled endpoints. The `Content` module fetches from the content API, applies genre/language mapping, assembles standardized DTOs, and returns paginated results — all served from Redis cache on subsequent calls.
-
-### Anime Detection
-
-Anime is identified from the standard movie/TV dataset by inspecting `original_language` (`ja`) combined with presence of genre ID `16` (Animation). Genre utilities and mappers handle this logic centrally, ensuring consistent anime classification across content services, stream URL resolution, and watch history recording.
-
-### Streaming Orchestration
-
-`StreamUrlService` queries the `stream_providers` table for active providers ordered by priority. For each provider it selects the appropriate URL template (movie, TV, or anime) and performs parameter substitution (content ID, season, episode, etc.). The resolved URLs are returned to the client, which handles actual media fetching directly — keeping stream bandwidth off the backend.
-
-### Search & Discovery
-
-`SearchService` fires multi-search and company search calls in parallel. Results are scored and sorted before being returned in a unified `SearchResponse`, providing a seamless cross-entity search experience.
-
-### Watch History
-
-Every playback event (movie start, episode watched) is recorded via the profile history endpoint. The history entry stores full streaming context (provider, stream ID, episode info, duration, anime flag) enabling the frontend to resume content or display "Continue Watching" rows.
-
----
-
-## API Documentation
-
-Once the application is running, interactive OpenAPI documentation is available at:
-
-```
-http://localhost:8080/swagger-ui.html
-```
-
-Raw OpenAPI spec:
-
-```
-http://localhost:8080/v3/api-docs
-```
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Java 21+
-- PostgreSQL instance
-- Redis instance
-- Content provider API key
-- Supabase project (for JWT secret)
