@@ -89,6 +89,7 @@ springdoc:
     - group: testing
       paths-to-match:
         - /api/test/**
+        - /api/test/health
 
 # Application Configuration
 app:

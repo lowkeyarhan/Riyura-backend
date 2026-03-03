@@ -11,6 +11,7 @@
 - [WebSocket & Watch Parties](#websocket--watch-parties)
 - [Security & Authentication](#security--authentication)
 - [Rate Limiting](#rate-limiting)
+- [Health Check](#health-check)
 - [Performance](#performance)
 
 ---
@@ -316,6 +317,95 @@ If neither matches (e.g. a future Lettuce client type), the application fails fa
 ### Virtual Thread Safety
 
 Bucket4J's Lettuce integration issues async Redis commands via Lettuce's non-blocking pipeline. The custom filter contains no `synchronized` blocks, so carrier threads are never pinned during Redis I/O — safe for high-concurrency virtual-thread workloads.
+
+---
+
+## Health Check
+
+Riyura exposes a lightweight, **unauthenticated** liveness endpoint at `GET /api/health`. It is designed to be polled by the frontend immediately after a user lands on the login page — if the backend is unreachable or returns `503`, a downtime modal is shown before any auth flow is attempted.
+
+### Probe Strategy
+
+Each probe is executed synchronously and timed independently so that latency regressions are visible before they become hard outages.
+
+| Component    | Probe                                                                                              | Failure Severity            |
+| ------------ | -------------------------------------------------------------------------------------------------- | --------------------------- |
+| **Database** | `SELECT 1` via `JdbcTemplate` — validates the HikariCP connection pool and PostgreSQL reachability | **Critical → DOWN**         |
+| **Redis**    | `PING` command via `StringRedisTemplate` — validates the Lettuce connection                        | **Non-critical → DEGRADED** |
+
+Redis is deliberately treated as non-critical: if it is unreachable, caching, rate limiting, and party state are degraded but core playback and profile features still function.
+
+### Aggregate Status (Worst-Wins)
+
+```
+DB = DOWN              → aggregate = DOWN
+DB = UP, Redis = DOWN  → aggregate = DEGRADED
+DB = UP, Redis = UP    → aggregate = UP
+```
+
+### HTTP Status Contract
+
+| Aggregate Status | HTTP Status               | Frontend action                       |
+| ---------------- | ------------------------- | ------------------------------------- |
+| `UP`             | `200 OK`                  | Proceed normally                      |
+| `DEGRADED`       | `200 OK`                  | Proceed (degraded UX banner optional) |
+| `DOWN`           | `503 Service Unavailable` | Show downtime modal                   |
+
+### Response Envelope
+
+```json
+{
+  "status": "UP",
+  "components": {
+    "database": { "status": "UP", "latencyMs": 4 },
+    "redis": { "status": "UP", "latencyMs": 1 }
+  },
+  "checkedAt": "2026-03-04T01:14:07Z"
+}
+```
+
+When a component is unhealthy the `errorMessage` field is included in that component's object:
+
+```json
+{
+  "status": "DOWN",
+  "components": {
+    "database": {
+      "status": "DOWN",
+      "latencyMs": 5002,
+      "errorMessage": "Database is unreachable: Connection refused"
+    },
+    "redis": { "status": "UP", "latencyMs": 1 }
+  },
+  "checkedAt": "2026-03-04T01:14:07Z"
+}
+```
+
+The `errorMessage` field is omitted from JSON when `null` (healthy components) so that clean responses stay noise-free.
+
+### Security
+
+`/api/health` is listed in the `SecurityConfig` permit-all block — no `Authorization` header is required. This endpoint should never return sensitive internal state; error messages are intentionally limited to connection-level failures.
+
+### Rate Limiting
+
+The health endpoint falls under the **DEFAULT** rate-limit tier (100 req/min per client). It is exempt from the Redis fail-open concern because the health check itself reports Redis availability — a design that avoids a circular dependency where the rate limiter silently passes through while health falsely reports `UP`.
+
+### Frontend Integration (Conceptual)
+
+```ts
+// Run before auth flow on the login page
+async function checkHealth(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/health", {
+      signal: AbortSignal.timeout(5000),
+    });
+    return res.ok; // false for 503
+  } catch {
+    return false; // network unreachable
+  }
+}
+```
 
 ---
 
