@@ -9,6 +9,10 @@ public final class TmdbUtils {
     private TmdbUtils() {
     }
 
+    public static final int GENRE_ANIMATION = 16;
+    public static final int GENRE_TALK = 10767;
+    public static final int GENRE_SOAP = 10766;
+
     public static String extractYear(String dateString) {
         if (dateString == null || dateString.isEmpty())
             return null;
@@ -23,15 +27,36 @@ public final class TmdbUtils {
         return "ja".equalsIgnoreCase(lang);
     }
 
-    public static boolean hasAnimationGenre(List<? extends GenreLike> genres) {
-        if (genres == null || genres.isEmpty())
-            return false;
+    // ── Core ID-based methods (single source of truth) ──
+
+    public static boolean hasGenreId(List<Integer> genreIds, int targetGenreId) {
+        return genreIds != null && genreIds.contains(targetGenreId);
+    }
+
+    public static boolean isAnimeByIds(String originalLanguage, List<Integer> genreIds) {
+        return isJapanese(originalLanguage) && hasGenreId(genreIds, GENRE_ANIMATION);
+    }
+
+    public static boolean isTalkShow(List<Integer> genreIds) {
+        return hasGenreId(genreIds, GENRE_TALK);
+    }
+
+    public static boolean isSoapOpera(List<Integer> genreIds) {
+        return hasGenreId(genreIds, GENRE_SOAP);
+    }
+
+    // ── GenreLike adapter — extracts IDs and delegates ──
+
+    private static List<Integer> extractIds(List<? extends GenreLike> genres) {
+        if (genres == null)
+            return List.of();
         return genres.stream()
-                .anyMatch(
-                        g -> g != null && ("Animation".equals(g.getName()) || (g.getId() != null && g.getId() == 16)));
+                .filter(g -> g != null && g.getId() != null)
+                .map(g -> g.getId().intValue())
+                .toList();
     }
 
     public static boolean isAnime(String originalLanguage, List<? extends GenreLike> genres) {
-        return isJapanese(originalLanguage) && hasAnimationGenre(genres);
+        return isAnimeByIds(originalLanguage, extractIds(genres));
     }
 }

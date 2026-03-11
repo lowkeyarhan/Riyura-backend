@@ -4,13 +4,13 @@ import com.riyura.backend.common.config.CacheStampedeGuard;
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
+import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.common.util.TmdbUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -21,7 +21,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MovieService {
 
-    private final RestTemplate restTemplate;
+    private final TmdbClient tmdbClient;
     private final CacheStampedeGuard cacheStampedeGuard;
 
     @Value("${tmdb.api-key}")
@@ -67,7 +67,7 @@ public class MovieService {
 
     private List<MediaGridResponse> fetchAndMap(String url, int limit) {
         try {
-            TmdbTrendingResponse response = restTemplate.getForObject(url, TmdbTrendingResponse.class);
+            TmdbTrendingResponse response = tmdbClient.fetchWithRetry(url, TmdbTrendingResponse.class);
             if (response == null || response.getResults() == null)
                 return Collections.emptyList();
 
