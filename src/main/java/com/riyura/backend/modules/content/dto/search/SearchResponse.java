@@ -25,4 +25,6 @@ public class SearchResponse {
     private String posterPath;
 
     private String description;
+
+    private Double popularity;
 }

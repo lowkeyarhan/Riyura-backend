@@ -7,6 +7,7 @@ import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.search.SearchResponse;
+import com.riyura.backend.modules.content.dto.search.SearchSortOrder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +46,7 @@ public class SearchService {
 
     // Performs a search across movies, TV shows, and companies, combining results
     // and sorting by rating. Returns a paginated slice.
-    public List<SearchResponse> search(String query, int page) {
+    public List<SearchResponse> search(String query, int page, SearchSortOrder sortOrder) {
         if (query == null || query.trim().isEmpty())
             return Collections.emptyList();
 
@@ -79,13 +80,30 @@ public class SearchService {
             return Collections.emptyList();
         }
 
-        // Paginate the cached results
+        // Apply sort order before pagination (default to popularity desc if not
+        // specified)
+        SearchSortOrder effectiveSort = sortOrder != null ? sortOrder : SearchSortOrder.POPULARITY_DESC;
+        Comparator<SearchResponse> comparator = switch (effectiveSort) {
+            case POPULARITY_ASC -> Comparator.comparingDouble(
+                    r -> r.getPopularity() != null ? r.getPopularity() : 0.0);
+            case RELEASE_DATE_DESC -> Comparator.comparing(
+                    r -> r.getReleaseYear() != null ? r.getReleaseYear() : "",
+                    Comparator.reverseOrder());
+            case RELEASE_DATE_ASC -> Comparator.comparing(
+                    r -> r.getReleaseYear() != null ? r.getReleaseYear() : "");
+            default -> Comparator.comparingDouble(
+                    (SearchResponse r) -> r.getPopularity() != null ? r.getPopularity() : 0.0)
+                    .reversed();
+        };
+        List<SearchResponse> sorted = allResults.stream().sorted(comparator).toList();
+
+        // Paginate the sorted results
         int start = page * PAGE_SIZE;
-        if (start >= allResults.size()) {
+        if (start >= sorted.size()) {
             return Collections.emptyList();
         }
-        int end = Math.min(start + PAGE_SIZE, allResults.size());
-        return allResults.subList(start, end);
+        int end = Math.min(start + PAGE_SIZE, sorted.size());
+        return sorted.subList(start, end);
     }
 
     // Performs a multi-search on TMDb and processes results to extract movies, TV
@@ -193,6 +211,7 @@ public class SearchService {
         dto.setTmdbId(item.getId());
         dto.setDescription(item.getOverview());
         dto.setOriginalLanguage(item.getOriginalLanguage());
+        dto.setPopularity(item.getVoteAverage());
 
         if (item.getPosterPath() != null)
             dto.setPosterPath(imageBaseUrl + item.getPosterPath());
