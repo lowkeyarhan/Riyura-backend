@@ -48,8 +48,8 @@ public class ExploreService {
     public List<ExploreResponse> getExplorePage(int page, String genreNames, String language) {
         String cacheKey = String.format("explore:%d:%s:%s",
                 page,
-                Objects.toString(genreNames, ""),
-                Objects.toString(language, ""));
+                Objects.toString(genreNames, "").toLowerCase(),
+                Objects.toString(language, "").toLowerCase());
 
         // Fetch the explore page from the cache
         return cacheStampedeGuard.staleWhileRevalidate(

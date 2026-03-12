@@ -84,6 +84,15 @@ public class CacheMonitorController {
         return ResponseEntity.ok(Map.of("key", key, "deleted", Boolean.TRUE.equals(deleted)));
     }
 
+    @DeleteMapping("/batch")
+    public ResponseEntity<Map<String, Object>> clearBatch(@RequestBody List<String> keys) {
+        long cleared = 0;
+        if (keys != null && !keys.isEmpty()) {
+            cleared = redisTemplate.delete(keys);
+        }
+        return ResponseEntity.ok(Map.of("cleared", cleared));
+    }
+
     @DeleteMapping("/pattern")
     public ResponseEntity<Map<String, Object>> clearPattern(@RequestParam String pattern) {
         Set<String> keys = redisTemplate.keys(pattern);

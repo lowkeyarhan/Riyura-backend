@@ -141,6 +141,56 @@
         font-style: italic;
       }
 
+      /* Checkbox */
+      input[type="checkbox"].cache-check {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        border: 1px solid #333;
+        border-radius: 3px;
+        background: transparent;
+        cursor: pointer;
+        position: relative;
+        transition:
+          border-color 0.15s,
+          background 0.15s;
+        flex-shrink: 0;
+        display: block;
+      }
+      input[type="checkbox"].cache-check:checked {
+        background: #fff;
+        border-color: #fff;
+      }
+      input[type="checkbox"].cache-check:checked::after {
+        content: "";
+        position: absolute;
+        left: 3px;
+        top: 0px;
+        width: 4px;
+        height: 8px;
+        border: 1.5px solid #000;
+        border-top: none;
+        border-left: none;
+        transform: rotate(45deg);
+      }
+      input[type="checkbox"].cache-check:indeterminate {
+        background: #2a2a2a;
+        border-color: #666;
+      }
+      input[type="checkbox"].cache-check:indeterminate::after {
+        content: "";
+        position: absolute;
+        left: 2px;
+        top: 5px;
+        width: 8px;
+        height: 0;
+        border-top: 1.5px solid #aaa;
+      }
+      input[type="checkbox"].cache-check:hover {
+        border-color: #777;
+      }
+
       /* Error bar */
       .err-bar {
         display: none;
@@ -470,9 +520,22 @@
               class="flex-1 bg-mono-surface border border-mono-border rounded-xl shadow-sm flex flex-col overflow-hidden relative"
             >
               <div
-                class="px-6 py-4 border-b border-mono-border flex text-[11px] font-bold text-mono-text-secondary uppercase tracking-wider bg-[#161616] cursor-pointer select-none"
+                class="px-6 py-4 border-b border-mono-border flex text-[11px] font-bold text-mono-text-secondary uppercase tracking-wider bg-[#161616] select-none"
               >
-                <div class="flex-grow pl-1" onclick="sortBy('key')">
+                <div
+                  class="w-10 flex items-center justify-center cursor-pointer"
+                  onclick="toggleSelectAll()"
+                >
+                  <input
+                    type="checkbox"
+                    id="selectAllChk"
+                    class="cache-check pointer-events-none"
+                  />
+                </div>
+                <div
+                  class="flex-grow pl-1 cursor-pointer"
+                  onclick="sortBy('key')"
+                >
                   Key
                   <span class="text-[8px] opacity-40" data-col="key"
                     >&#x21D5;</span
@@ -510,7 +573,7 @@
                   >
                     <tr>
                       <td
-                        colspan="6"
+                        colspan="7"
                         class="px-6 py-16 text-center text-mono-text-tertiary text-sm"
                       >
                         Fetching cache data&hellip;
@@ -521,10 +584,34 @@
               </div>
             </div>
             <div class="flex justify-between items-center mt-2">
-              <span
-                id="rowCount"
-                class="text-[11px] text-mono-text-tertiary font-mono pl-2"
-              ></span>
+              <div class="flex items-center gap-3 pl-2">
+                <span
+                  id="rowCount"
+                  class="text-[11px] text-mono-text-tertiary font-mono"
+                ></span>
+                <div id="selectionBar" class="hidden flex items-center gap-2">
+                  <span class="text-mono-text-tertiary text-[11px]">·</span>
+                  <span
+                    id="selectionCount"
+                    class="text-[11px] text-white font-mono"
+                  ></span>
+                  <button
+                    onclick="deleteSelected()"
+                    class="px-2.5 py-1 text-[10px] font-medium text-[#AA7777] border border-[#AA777733] rounded-md bg-[#221818] hover:bg-[#2A1A1A] hover:border-[#AA7777] transition-all flex items-center gap-1 focus:outline-none"
+                  >
+                    <span class="material-symbols-outlined text-[12px]"
+                      >delete</span
+                    >
+                    Delete selected
+                  </button>
+                  <button
+                    onclick="clearSelection()"
+                    class="px-2.5 py-1 text-[10px] font-medium text-mono-text-tertiary border border-mono-border rounded-md bg-[#161616] hover:bg-[#1A1A1A] hover:text-white transition-all focus:outline-none"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
               <button
                 onclick="fetchStats()"
                 class="px-3 py-1.5 text-[11px] font-medium text-mono-text-secondary border border-transparent rounded-lg hover:border-mono-border hover:bg-[#161616] hover:text-white transition-all focus:outline-none flex items-center gap-1.5 opacity-60 hover:opacity-100"
@@ -575,6 +662,8 @@
       let cdTimer = null;
       let expanded = new Set();
       let valueCache = {};
+      let selectedKeys = new Set();
+      let visibleKeys = [];
 
       const MAX_TTL = 7 * 86400;
       const AUX_SFX = [":lock", ":fresh", ":refreshing", ":delta"];
@@ -720,15 +809,17 @@
             const cnt = name === "All" ? allCount : groups[name] || 0;
             const isActive = name === activeGroup;
             const icon = GROUP_ICONS[name] || "folder";
+            const safeN = escAttr(name);
+            const selectBtn = `<button onclick="event.stopPropagation();event.preventDefault();selectGroup('${safeN}')" title="Select all in ${escHtml(name)}" class="opacity-0 group-hover:opacity-100 transition-opacity text-mono-text-tertiary hover:text-white p-0.5 rounded focus:outline-none"><span class="material-symbols-outlined text-[13px] leading-none">check_box</span></button>`;
             if (isActive) {
-              return `<li><a onclick="setGroup('${escAttr(name)}');return false" class="flex items-center justify-between px-3 py-1.5 rounded-md bg-[#1F1F1F] text-sm font-medium shadow-subtle border border-[#2A2A2A] group cursor-pointer" href="#">
+              return `<li><a onclick="setGroup('${safeN}');return false" class="flex items-center justify-between px-3 py-1.5 rounded-md bg-[#1F1F1F] text-sm font-medium shadow-subtle border border-[#2A2A2A] group cursor-pointer" href="#">
                     <div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[16px] text-white">${name === "All" ? "folder_open" : icon}</span><span class="text-white">${escHtml(name)}</span></div>
-                    <span class="text-xs text-mono-text-secondary font-mono">${cnt}</span>
+                    <div class="flex items-center gap-1.5">${selectBtn}<span class="text-xs text-mono-text-secondary font-mono">${cnt}</span></div>
                 </a></li>`;
             }
-            return `<li><a onclick="setGroup('${escAttr(name)}');return false" class="flex items-center justify-between px-3 py-1.5 rounded-md text-mono-text-secondary hover:bg-[#161616] hover:text-mono-text-primary text-sm transition-all group cursor-pointer" href="#">
+            return `<li><a onclick="setGroup('${safeN}');return false" class="flex items-center justify-between px-3 py-1.5 rounded-md text-mono-text-secondary hover:bg-[#161616] hover:text-mono-text-primary text-sm transition-all group cursor-pointer" href="#">
                 <div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[16px] text-mono-text-tertiary group-hover:text-mono-text-secondary transition-colors">${icon}</span><span>${escHtml(name)}</span></div>
-                <span class="text-xs text-mono-text-tertiary group-hover:text-mono-text-secondary font-mono">${cnt}</span>
+                <div class="flex items-center gap-1.5">${selectBtn}<span class="text-xs text-mono-text-tertiary group-hover:text-mono-text-secondary font-mono">${cnt}</span></div>
             </a></li>`;
           })
           .join("");
@@ -824,16 +915,19 @@
           if (av > bv) return sortDir;
           return 0;
         });
+        visibleKeys = rows.map((k) => k.key);
         const tbody = document.getElementById("tableBody");
         if (rows.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-16 text-center text-mono-text-tertiary text-sm">No keys match the current filter.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-16 text-center text-mono-text-tertiary text-sm">No keys match the current filter.</td></tr>`;
           document.getElementById("rowCount").textContent = "";
+          updateSelectionUI();
           return;
         }
         tbody.innerHTML = rows.flatMap((k) => buildRows(k)).join("");
         const n = rows.length;
         document.getElementById("rowCount").textContent =
           `${n} ${n === 1 ? "key" : "keys"}`;
+        updateSelectionUI();
       }
 
       function buildRows(k) {
@@ -851,9 +945,13 @@
         const stratLabel = STRAT_LABEL[k.strategy] || escHtml(k.strategy);
         const statusLabel = STATUS_LBL[k.status] || k.status;
         const sCls = statusClass(k.status);
+        const isSel = selectedKeys.has(k.key);
+        let rowBg = isExp ? " bg-[#1A1A1A]" : "";
+        if (isSel) rowBg = " bg-[#1C1C1C]";
 
-        const dataRow = `<tr class="group hover:bg-[#1A1A1A] transition-colors cursor-pointer${isExp ? " bg-[#1A1A1A]" : ""}" onclick="toggleExpand('${safeKey}')">
-            <td class="px-6 py-3.5 font-mono text-mono-text-primary text-[13px] truncate">${escHtml(keyBase)}${keySfx ? ` <span class="text-mono-text-tertiary">${escHtml(keySfx)}</span>` : ""}</td>
+        const dataRow = `<tr class="group hover:bg-[#1A1A1A] transition-colors cursor-pointer${rowBg}" onclick="toggleExpand('${safeKey}')">
+            <td class="pl-6 pr-2 py-3.5 w-10 text-center" onclick="event.stopPropagation()"><input type="checkbox" class="cache-check" ${isSel ? "checked" : ""} onchange="toggleSelectKey('${safeKey}')"></td>
+            <td class="px-3 py-3.5 font-mono text-mono-text-primary text-[13px] truncate">${escHtml(keyBase)}${keySfx ? ` <span class="text-mono-text-tertiary">${escHtml(keySfx)}</span>` : ""}</td>
             <td class="px-6 py-3.5 text-mono-text-secondary text-[13px] w-32 truncate">${escHtml(k.group)}</td>
             <td class="px-6 py-3.5 text-[13px] text-mono-text-primary w-32 truncate">${stratLabel}</td>
             <td class="px-6 py-3.5 text-[13px] text-mono-text-primary font-mono w-32">${buildTtl(k)}</td>
@@ -863,7 +961,7 @@
 
         if (!isExp) return [dataRow];
 
-        const expandRow = `<tr class="bg-[#0D0D0D] border-b border-mono-border"><td colspan="6" class="px-10 py-5">
+        const expandRow = `<tr class="bg-[#0D0D0D] border-b border-mono-border"><td colspan="7" class="px-10 py-5">
             <div class="ep-section">
                 <div class="text-[9px] font-bold tracking-widest uppercase text-mono-text-tertiary mb-2">Metadata</div>
                 <div class="font-mono text-[11px] leading-[1.9]"><div><span class="t-brace">{</span></div>${buildMetaTree(k)}<div><span class="t-brace">}</span></div></div>
@@ -976,6 +1074,7 @@
             "ok",
           );
           expanded.clear();
+          selectedKeys.clear();
           await fetchStats();
         } catch (e) {
           addLog("Clear all failed: " + e.message, "err");
@@ -1003,6 +1102,7 @@
           );
           document.getElementById("patternInput").value = "";
           expanded.clear();
+          selectedKeys.clear();
           await fetchStats();
         } catch (e) {
           addLog("Clear pattern failed: " + e.message, "err");
@@ -1023,6 +1123,7 @@
             data.deleted ? "ok" : "err",
           );
           expanded.delete(key);
+          selectedKeys.delete(key);
           await fetchStats();
         } catch (e) {
           addLog("Delete failed: " + e.message, "err");
@@ -1117,6 +1218,112 @@
           .replace(/&/g, "&amp;")
           .replace(/'/g, "&#39;")
           .replace(/"/g, "&quot;");
+      }
+
+      function toggleSelectKey(key) {
+        if (selectedKeys.has(key)) selectedKeys.delete(key);
+        else selectedKeys.add(key);
+        updateSelectionUI();
+      }
+
+      function toggleSelectAll() {
+        const allSelected =
+          visibleKeys.length > 0 &&
+          visibleKeys.every((k) => selectedKeys.has(k));
+        if (allSelected) {
+          visibleKeys.forEach((k) => selectedKeys.delete(k));
+        } else {
+          visibleKeys.forEach((k) => selectedKeys.add(k));
+        }
+        renderTable();
+      }
+
+      function selectGroup(groupName) {
+        const keys = allKeys
+          .filter((k) =>
+            groupName === "All"
+              ? k.strategy !== "Auxiliary"
+              : k.group === groupName,
+          )
+          .map((k) => k.key);
+        const allAlreadySelected =
+          keys.length > 0 && keys.every((k) => selectedKeys.has(k));
+        if (allAlreadySelected) {
+          keys.forEach((k) => selectedKeys.delete(k));
+          addLog(
+            `Deselected ${keys.length} key${keys.length !== 1 ? "s" : ""} in "${groupName}"`,
+            "info",
+          );
+        } else {
+          keys.forEach((k) => selectedKeys.add(k));
+          addLog(
+            `Selected ${keys.length} key${keys.length !== 1 ? "s" : ""} in "${groupName}"`,
+            "info",
+          );
+        }
+        renderTable();
+      }
+
+      function clearSelection() {
+        selectedKeys.clear();
+        renderTable();
+      }
+
+      async function deleteSelected() {
+        const keys = [...selectedKeys];
+        if (keys.length === 0) return;
+        if (
+          !confirm(
+            `Delete ${keys.length} selected key${keys.length !== 1 ? "s" : ""}?`,
+          )
+        )
+          return;
+        addLog(
+          `Deleting ${keys.length} selected key${keys.length !== 1 ? "s" : ""}\u2026`,
+          "action",
+        );
+        try {
+          const res = await fetch("/api/test/cache/batch", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(keys),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const cleared = data.cleared ?? 0;
+          keys.forEach((k) => {
+            expanded.delete(k);
+            selectedKeys.delete(k);
+          });
+          addLog(
+            `Deleted ${cleared} of ${keys.length} key${keys.length !== 1 ? "s" : ""}`,
+            cleared === keys.length ? "ok" : "err",
+          );
+        } catch (e) {
+          addLog("Batch delete failed: " + e.message, "err");
+        }
+        await fetchStats();
+      }
+
+      function updateSelectionUI() {
+        const n = selectedKeys.size;
+        const bar = document.getElementById("selectionBar");
+        const countEl = document.getElementById("selectionCount");
+        const chk = document.getElementById("selectAllChk");
+        if (n > 0) {
+          bar.classList.remove("hidden");
+          countEl.textContent = `${n} selected`;
+        } else {
+          bar.classList.add("hidden");
+        }
+        if (chk) {
+          const visCount = visibleKeys.length;
+          const selVisible = visibleKeys.filter((k) =>
+            selectedKeys.has(k),
+          ).length;
+          chk.indeterminate = selVisible > 0 && selVisible < visCount;
+          chk.checked = visCount > 0 && selVisible === visCount;
+        }
       }
 
       // Init
