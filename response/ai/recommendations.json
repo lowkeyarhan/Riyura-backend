@@ -1,0 +1,94 @@
+{
+  "source": "database",
+  "recommendations": [
+    {
+      "episodes": 24,
+      "genres": "Anime/Sci-Fi",
+      "mediaType": "TV",
+      "posterPath": "/6iysgZr6Upm5RlAlVFo5f4D9euu.jpg",
+      "reason": "A masterclass in temporal consequences and timeline shifting that aligns with the user's interest in Loki and Bunny Girl Senpai.",
+      "seasons": 1,
+      "title": "Steins;Gate",
+      "tmdbId": 42509,
+      "year": 2011
+    },
+    {
+      "episodes": 10,
+      "genres": "Anime/Sci-Fi",
+      "mediaType": "TV",
+      "posterPath": "/lqcDVZ8pyk08AVftMBildDR3QUK.jpg",
+      "reason": "Captures the vibrant, neon-drenched aesthetic and frantic visual energy that defines the user's obsession with Spider-Verse.",
+      "seasons": 2,
+      "title": "Cyberpunk: Edgerunners",
+      "tmdbId": 105248,
+      "year": 2022
+    },
+    {
+      "episodes": 68,
+      "genres": "Fantasy/Drama",
+      "mediaType": "TV",
+      "posterPath": "/qTZIgXrBKURBK1KrsT7fe3qwtl9.jpg",
+      "reason": "Directly continues the supernatural lore and character-driven drama established in The Originals and The Vampire Diaries.",
+      "seasons": 4,
+      "title": "Legacies",
+      "tmdbId": 79460,
+      "year": 2018
+    },
+    {
+      "episodes": 40,
+      "genres": "Satire/Action",
+      "mediaType": "TV",
+      "posterPath": "/in1R2dDc421JxsoRWaIIAqVI2KE.jpg",
+      "reason": "Provides a gritty, subversive perspective on superhuman entities, appealing to the user's affinity for varied hero archetypes.",
+      "seasons": 5,
+      "title": "The Boys",
+      "tmdbId": 76479,
+      "year": 2019
+    },
+    {
+      "episodes": 36,
+      "genres": "Superhero/Fantasy",
+      "mediaType": "TV",
+      "posterPath": "/qhcwrnnCnN8NE1N6XXKHFmveJR9.jpg",
+      "reason": "Features a dysfunctional supernatural ensemble and time-travel stakes that bridge the gap between Stranger Things and Loki.",
+      "seasons": 4,
+      "title": "The Umbrella Academy",
+      "tmdbId": 75006,
+      "year": 2019
+    },
+    {
+      "episodes": null,
+      "genres": "Sci-Fi/Action",
+      "mediaType": "Movie",
+      "posterPath": "/aCIFMriQh8rvhxpN1IWGgvH0Tlg.jpg",
+      "reason": "Connects to the complex temporal manipulation and high-stakes survival elements found in Loki and Greenland 2.",
+      "seasons": null,
+      "title": "Tenet",
+      "tmdbId": 577922,
+      "year": 2020
+    },
+    {
+      "episodes": null,
+      "genres": "Action/Comedy",
+      "mediaType": "Movie",
+      "posterPath": "/j8szC8OgrejDQjjMKSVXyaAjw3V.jpg",
+      "reason": "Matches the stylized, high-energy action choreography and kinetic editing style seen in A Gentleman and Spider-Verse.",
+      "seasons": null,
+      "title": "Bullet Train",
+      "tmdbId": 718930,
+      "year": 2022
+    },
+    {
+      "episodes": null,
+      "genres": "Sci-Fi/Action",
+      "mediaType": "Movie",
+      "posterPath": "/u68AjlvlutfEIcpmbYpKcdi09ut.jpg",
+      "reason": "Expands on the multiverse themes from Spider-Verse and Loki through a lens of existentialism and chaotic family dynamics.",
+      "seasons": null,
+      "title": "Everything Everywhere All at Once",
+      "tmdbId": 545611,
+      "year": 2022
+    }
+  ],
+  "success": true
+}

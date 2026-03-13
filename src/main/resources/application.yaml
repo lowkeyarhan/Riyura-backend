@@ -76,9 +76,9 @@ springdoc:
     - group: profile
       paths-to-match:
         - /api/profile/**
-    - group: key
+    - group: ai-features
       paths-to-match:
-        - /api/key/**
+        - /api/ai/**
     - group: banner
       paths-to-match:
         - /api/banner/**
