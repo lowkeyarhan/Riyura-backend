@@ -49,6 +49,11 @@ tmdb:
 supabase:
   jwt-secret: ${SUPABASE_JWT_SECRET}
 
+# Application security configuration
+riyura:
+  security:
+    encryption-key: ${ENCRYPTION_KEY}
+
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -71,6 +76,9 @@ springdoc:
     - group: profile
       paths-to-match:
         - /api/profile/**
+    - group: key
+      paths-to-match:
+        - /api/key/**
     - group: banner
       paths-to-match:
         - /api/banner/**
