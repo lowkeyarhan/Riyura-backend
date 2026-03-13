@@ -11,14 +11,14 @@ import java.util.UUID;
 
 @Data
 @Entity
-@Table(name = "user_profiles")
+@Table(name = "profiles")
 public class UserProfile {
 
     @Id
     @Column(name = "id")
     private UUID id;
 
-    @Column(name = "name")
+    @Column(name = "display_name")
     private String name;
 
     @Column(name = "email", nullable = false)
@@ -33,6 +33,6 @@ public class UserProfile {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
-    @Column(name = "onboarded", nullable = false)
-    private boolean onboarded = false;
+    @Column(name = "onboarded")
+    private Boolean onboarded = false;
 }
