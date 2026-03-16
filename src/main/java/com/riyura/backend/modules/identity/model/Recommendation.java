@@ -40,12 +40,6 @@ public class Recommendation implements Persistable<RecommendationId> {
     @Column(name = "release_date")
     private LocalDate releaseDate;
 
-    @Column(name = "number_of_seasons")
-    private Integer numberOfSeasons;
-
-    @Column(name = "number_of_episodes")
-    private Integer numberOfEpisodes;
-
     @Column(nullable = false, columnDefinition = "text")
     private String reason;
 

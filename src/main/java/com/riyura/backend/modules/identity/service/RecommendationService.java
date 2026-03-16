@@ -103,8 +103,6 @@ public class RecommendationService {
                             .title(meta.title())
                             .mediaType(meta.mediaType())
                             .releaseDate(meta.releaseDate())
-                            .numberOfSeasons(meta.numberOfSeasons())
-                            .numberOfEpisodes(meta.numberOfEpisodes())
                             .reason(sel.getReason())
                             .build();
                 })
@@ -238,7 +236,7 @@ public class RecommendationService {
             }
         }
 
-        return new CandidateItem(id, title, mediaType, releaseDate, genreIds, overview, null, null);
+        return new CandidateItem(id, title, mediaType, releaseDate, genreIds, overview);
     }
 
     // Builds the RAG prompt.
@@ -393,8 +391,6 @@ public class RecommendationService {
             MediaType mediaType,
             LocalDate releaseDate,
             String genreIds,
-            String overview,
-            Integer numberOfSeasons,
-            Integer numberOfEpisodes) {
+            String overview) {
     }
 }

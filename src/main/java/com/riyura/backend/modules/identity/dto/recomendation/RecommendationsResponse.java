@@ -14,8 +14,6 @@ public class RecommendationsResponse {
     Integer year;
     MediaType mediaType;
     String reason;
-    Integer seasons;
-    Integer episodes;
 
     public static RecommendationsResponse from(Recommendation r) {
         return RecommendationsResponse.builder()
@@ -24,8 +22,6 @@ public class RecommendationsResponse {
                 .year(r.getReleaseDate() != null ? r.getReleaseDate().getYear() : null)
                 .mediaType(r.getMediaType())
                 .reason(r.getReason())
-                .seasons(r.getNumberOfSeasons())
-                .episodes(r.getNumberOfEpisodes())
                 .build();
     }
 }
