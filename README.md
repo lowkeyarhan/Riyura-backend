@@ -8,6 +8,7 @@
 - [Database & Persistence](#database--persistence)
 - [Caching](#caching)
 - [Concurrency](#concurrency)
+- [AI Recommendations (Gemini)](#ai-recommendations-gemini)
 - [WebSocket & Watch Parties](#websocket--watch-parties)
 - [Security & Authentication](#security--authentication)
 - [Rate Limiting](#rate-limiting)
@@ -161,6 +162,42 @@ The content API client (`TmdbClient`) uses a built-in retry mechanism — **3 at
 
 ---
 
+## AI Recommendations (Gemini)
+
+Riyura features an intelligent, personalized recommendation engine powered by Google's **Gemini AI** (`gemini-2.0-flash`). It uses a **Retrieval-Augmented Generation (RAG)** pipeline — Gemini never invents content; it selects from a pre-fetched candidate pool of real, verified TMDB items.
+
+### RAG Pipeline
+
+```
+1. RETRIEVE  — Fetch TMDB /recommendations for each of the user's 8 seed history items (parallel)
+               → builds a ~50-item candidate pool with full metadata (tmdb_id, title, year, etc.)
+
+2. AUGMENT   — Build a compact prompt: user's recent 8 watches + watchlist + the candidate pool
+
+3. GENERATE  — Gemini selects exactly 8 items from the pool and returns [{ tmdb_id, reason }]
+               Structured output schema enforces valid integer tmdb_ids — no hallucinations possible
+
+4. ENRICH    — Look up chosen tmdb_ids in the already-fetched pool map (O(1), zero extra calls)
+
+5. SAVE      — Persist to PostgreSQL in the background (fire-and-forget)
+```
+
+### Resilience & Rate Limit Protection
+
+- **TMDB rate limiting**: Candidate pool fetch is gated by `Semaphore(4)` — safe for personal API keys. 429 errors retry 3× with 1.5s/3s/4.5s exponential backoff per seed item; one failure doesn't block the rest.
+- **Gemini retries**: Catches `503`, `429`, and read timeouts — retries 3× with exponential backoff. Hard client errors (400, 401, 403) are not retried.
+- **Hallucination-proof**: Gemini can only return `tmdb_id` values present in the pool. Any ID not found in the pool is silently skipped rather than crashing the batch.
+
+### Response Fields
+
+Each recommendation returns: `tmdbId`, `title`, `year`, `mediaType`, `reason`, and `seasons`/`episodes` (TV only).
+
+### Caching
+
+Recommendations are cached in PostgreSQL and served instantly on subsequent calls. The full RAG pipeline only runs when `?refresh=true` is explicitly passed.
+
+---
+
 ## WebSocket & Watch Parties
 
 Riyura supports real-time synchronized watch parties powered by **STOMP over WebSocket** with a SockJS fallback. The WebSocket endpoint is exposed at `/ws`; party state lives in Redis and messaging is handled via a simple in-memory broker broadcasting to `/topic` destinations. Transport limits are set to a 128 KB message size, 512 KB send buffer, and a 20 s send time limit.
@@ -179,6 +216,8 @@ Riyura supports real-time synchronized watch parties powered by **STOMP over Web
 - **Participant cap**: Parties are limited to a maximum of **20 participants** — join attempts beyond this limit receive a 400 error
 - **Party ID validation**: All party IDs are validated against a strict alphanumeric regex (`^[A-Za-z0-9]{1,20}$`) to prevent Redis key injection
 - **Zombie eviction**: On each WebSocket heartbeat, participants inactive for more than **45 seconds** are removed from the party
+- **Auto-Sync on Join**: Newly joined participants immediately receive a directed `SYNC` event with the host's current playback position to synchronize instantly
+- **Participant Sync Pull**: A failsafe `/request-sync` button allows any participant to request a manual sync. The server reads the current state from Redis and returns a directed `SYNC` event exclusively to the requester without interrupting the host
 - **Buffering sync**: When a participant reports buffering, `PartyService` tracks all buffering participants. In strict sync mode this triggers a `FORCE_PAUSE` to all members; once all are ready a `RESUME` is broadcast
 - **Strict sync mode**: When enabled (host only), any participant buffering pauses playback for everyone
 - **Latency compensation**: Sync commands carry a `clientTime` timestamp that is validated for plausibility (positive, not in the future, within 30 s of server time). The service applies a compensation offset based on round-trip time before broadcasting the target playback position

@@ -1,10 +1,11 @@
 package com.riyura.backend.modules.identity.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.genai.Client;
+import com.google.genai.ResponseStream;
+import com.google.genai.types.*;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.modules.identity.dto.recomendation.GeminiRecommendationItem;
@@ -19,18 +20,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestTemplate;
 
-import java.net.http.HttpTimeoutException;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -51,32 +44,16 @@ public class RecommendationService {
     private final TmdbClient tmdbClient;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final ObjectMapper enumMapper = JsonMapper.builder()
-            .configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, true)
-            .build();
-    private final RestTemplate geminiRestTemplate = buildGeminiRestTemplate();
 
     @Value("${tmdb.api.key}")
     private String tmdbApiKey;
 
-    private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=";
-
-    // Virtual-Thread safe rate limiter. Limits concurrent TMDB outbound requests
-    // strictly to 3 at a time.
-    private final Semaphore tmdbRateLimiter = new Semaphore(3);
+    private static final String GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
+    private final Semaphore tmdbRateLimiter = new Semaphore(4);
     private final ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
-    private RestTemplate buildGeminiRestTemplate() {
-        java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
-                .build();
-        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
-        factory.setReadTimeout(Duration.ofSeconds(60));
-        return new RestTemplate(factory);
-    }
-
-    // Returns cached DB recommendations when forceRefresh is false (the default).
-    // Only calls Gemini when refresh=true is explicitly requested.
+    // Returns the recommendations for the user, if they exist in the database. If
+    // they don't, it will generate new recommendations.
     public List<Recommendation> getRecommendations(UUID userId, boolean forceRefresh) {
         if (!forceRefresh) {
             List<Recommendation> existing = recommendationRepo.findByUserIdOrderByGeneratedAtDesc(userId);
@@ -84,199 +61,321 @@ public class RecommendationService {
             return existing;
         }
 
-        log.info("Generating new recommendations for user: {}", userId);
+        log.info("Generating new recommendations via RAG pipeline for user: {}", userId);
 
-        // Fetch Analytics Context
-        List<WatchHistory> fullHistory = historyRepo.findByUserIdOrderByWatchedAtDesc(userId, PageRequest.of(0, 5000));
-        List<Watchlist> topWatchlist = watchlistRepo.findByUserIdOrderByAddedAtDesc(userId, PageRequest.of(0, 8));
+        // Use a small, recent slice of history as seed items for TMDB /recommendations
+        List<WatchHistory> seedHistory = historyRepo.findByUserIdOrderByWatchedAtDesc(userId, PageRequest.of(0, 8));
+        List<Watchlist> recentWatchlist = watchlistRepo.findByUserIdOrderByAddedAtDesc(userId, PageRequest.of(0, 8));
 
-        // Build Gemini Prompt with rich context (entire history + watchlist)
-        String prompt = buildGeminiPrompt(fullHistory, topWatchlist);
-        String decryptedKey = apiKeyService.getDecryptedKeyForUser(userId);
-
-        // Call Gemini
-        List<GeminiRecommendationItem> geminiItems = callGeminiApi(prompt, decryptedKey);
-
-        if (geminiItems.isEmpty()) {
-            throw new RuntimeException("AI failed to generate recommendations");
+        if (seedHistory.isEmpty()) {
+            throw new RuntimeException("Watch a few titles first so we can tailor recommendations for you.");
         }
 
-        // Pass the virtualThreadExecutor as the second argument
-        List<CompletableFuture<Recommendation>> hydrationFutures = geminiItems.stream()
-                .map(item -> CompletableFuture.supplyAsync(() -> hydrateWithTmdbRateLimited(item, userId),
-                        virtualThreadExecutor))
-                .toList();
+        Map<Long, CandidateItem> candidatePool = buildCandidatePool(seedHistory);
 
-        // Collect all hydration results and log how many passed vs total so we can
-        // diagnose issues where fewer items than expected are hydrated.
-        List<Recommendation> hydrated = hydrationFutures.stream()
-                .map(CompletableFuture::join)
+        if (candidatePool.isEmpty()) {
+            throw new RuntimeException("Could not fetch recommendation candidates from TMDB. Please try again.");
+        }
+
+        log.info("Candidate pool built: {} unique items for user: {}", candidatePool.size(), userId);
+
+        String prompt = buildRagPrompt(seedHistory, recentWatchlist, candidatePool);
+        String decryptedKey = apiKeyService.getDecryptedKeyForUser(userId);
+        List<GeminiRecommendationItem> selections = callGeminiApi(prompt, decryptedKey);
+
+        if (selections.isEmpty()) {
+            throw new RuntimeException("AI failed to select recommendations. Please try again.");
+        }
+
+        List<Recommendation> results = selections.stream()
+                .map(sel -> {
+                    if (sel.getTmdbId() == null)
+                        return null;
+                    CandidateItem meta = candidatePool.get(sel.getTmdbId());
+                    if (meta == null) {
+                        log.warn("Gemini selected tmdb_id {} which is not in candidate pool — skipping",
+                                sel.getTmdbId());
+                        return null;
+                    }
+                    return Recommendation.builder()
+                            .userId(userId)
+                            .tmdbId(meta.tmdbId())
+                            .title(meta.title())
+                            .mediaType(meta.mediaType())
+                            .releaseDate(meta.releaseDate())
+                            .numberOfSeasons(meta.numberOfSeasons())
+                            .numberOfEpisodes(meta.numberOfEpisodes())
+                            .reason(sel.getReason())
+                            .build();
+                })
                 .filter(Objects::nonNull)
-                .filter(r -> r.getMediaType() != null)
-                .collect(Collectors.toList());
-
-        log.info("🎬 TMDB hydration complete: {}/{} items succeeded for user: {}",
-                hydrated.size(), geminiItems.size(), userId);
-
-        // De-duplicate by tmdbId — the composite PK is (userId, tmdbId), so a user
-        // can only hold one recommendation per TMDB entry regardless of type.
-        List<Recommendation> validRecommendations = hydrated.stream()
                 .collect(Collectors.collectingAndThen(
-                        Collectors.toMap(
-                                Recommendation::getTmdbId,
-                                r -> r,
-                                (existing, duplicate) -> existing,
+                        Collectors.toMap(Recommendation::getTmdbId, r -> r, (existing, dup) -> existing,
                                 LinkedHashMap::new),
                         m -> new ArrayList<>(m.values())));
 
-        // Background DB Save on virtual threads — fire-and-forget with full transaction
-        // integrity. A DataIntegrityViolationException here means a concurrent request
-        // for the same user already won the race; we log and skip silently.
-        if (!validRecommendations.isEmpty()) {
+        log.info("RAG pipeline complete: {}/{} selections enriched for user: {}",
+                results.size(), selections.size(), userId);
+
+        if (!results.isEmpty()) {
             CompletableFuture.runAsync(() -> {
                 try {
                     transactionTemplate.execute(status -> {
                         recommendationRepo.deleteByUserId(userId);
-                        recommendationRepo.saveAll(validRecommendations);
+                        recommendationRepo.saveAll(results);
                         return null;
                     });
-                    log.info("✅ Background DB save complete for user: {}", userId);
+                    log.info("Background DB save complete for user: {}", userId);
                 } catch (DataIntegrityViolationException e) {
-                    log.warn(
-                            "⚠️ Concurrent recommendation save detected for user: {} — skipping (another request already saved)",
-                            userId);
+                    log.warn("Concurrent recommendation save for user: {} — skipping", userId);
                 } catch (Exception e) {
-                    log.error("❌ Failed to save recommendations to DB in background", e);
+                    log.error("Failed to save recommendations in background", e);
                 }
             }, virtualThreadExecutor);
         }
 
-        return validRecommendations;
+        return results;
     }
 
-    // Builds a detailed prompt for Gemini using the user's entire watch history and
-    // top watchlist items to provide rich context for personalized recommendations.
-    private String buildGeminiPrompt(List<WatchHistory> history, List<Watchlist> watchlist) {
-        long totalWatchTimeSec = history.stream().mapToLong(h -> h.getDurationSec() != null ? h.getDurationSec() : 0)
-                .sum();
-        long totalHours = totalWatchTimeSec / 3600;
-        String lastWatched = history.isEmpty() ? "None" : history.get(0).getTitle();
+    // For each seed history item, fetches TMDB /recommendations in parallel.
+    private Map<Long, CandidateItem> buildCandidatePool(List<WatchHistory> seedHistory) {
+        List<CompletableFuture<List<CandidateItem>>> futures = seedHistory.stream()
+                .map(h -> CompletableFuture.supplyAsync(
+                        () -> fetchTmdbRecommendations(h.getTmdbId(), h.getMediaType()),
+                        virtualThreadExecutor))
+                .toList();
 
-        StringBuilder historyTitles = new StringBuilder();
-        for (WatchHistory h : history) {
-            long mins = (h.getDurationSec() != null ? h.getDurationSec() : 0) / 60;
-            historyTitles.append(h.getTitle()).append(" (").append(h.getMediaType().name().toLowerCase())
-                    .append(") - Watched for ").append(mins).append(" mins\n");
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .thenApply(ignored -> futures.stream()
+                        .flatMap(f -> {
+                            try {
+                                return f.join().stream();
+                            } catch (Exception e) {
+                                return java.util.stream.Stream.empty();
+                            }
+                        })
+                        .collect(Collectors.toMap(
+                                CandidateItem::tmdbId,
+                                c -> c,
+                                (existing, dup) -> existing,
+                                LinkedHashMap::new)))
+                .join();
+    }
+
+    // Calls TMDB /movie/{id}/recommendations or /tv/{id}/recommendations.
+    private List<CandidateItem> fetchTmdbRecommendations(long tmdbId, MediaType mediaType) {
+        String type = mediaType == MediaType.Movie ? "movie" : "tv";
+        String url = String.format(
+                "https://api.themoviedb.org/3/%s/%d/recommendations?api_key=%s&language=en-US&page=1",
+                type, tmdbId, tmdbApiKey);
+
+        int maxAttempts = 3;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                tmdbRateLimiter.acquire();
+                String raw;
+                try {
+                    raw = tmdbClient.fetchWithRetry(url, String.class);
+                } finally {
+                    tmdbRateLimiter.release();
+                }
+
+                JsonNode results = objectMapper.readTree(raw).path("results");
+                List<CandidateItem> items = new ArrayList<>();
+                for (JsonNode node : results) {
+                    CandidateItem item = parseTmdbNode(node, mediaType);
+                    if (item != null)
+                        items.add(item);
+                }
+                return items;
+
+            } catch (HttpClientErrorException.TooManyRequests e) {
+                long backoff = 1500L * attempt; // 1.5s, 3s, 4.5s
+                log.warn("TMDB 429 on /recommendations for id={} (attempt {}/{}) — backing off {}ms",
+                        tmdbId, attempt, maxAttempts, backoff);
+                if (attempt == maxAttempts)
+                    return Collections.emptyList();
+                sleepUninterruptibly(backoff);
+
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return Collections.emptyList();
+            } catch (Exception e) {
+                log.warn("TMDB /recommendations failed for id={}: {}", tmdbId, e.getMessage());
+                return Collections.emptyList();
+            }
+        }
+        return Collections.emptyList();
+    }
+
+    // Parses a single TMDB result node into a CandidateItem. Returns null if unfit.
+    private CandidateItem parseTmdbNode(JsonNode node, MediaType mediaType) {
+        long id = node.path("id").asLong(0);
+        if (id == 0)
+            return null;
+
+        String title = node.has("title") ? node.path("title").asText(null)
+                : node.path("name").asText(null);
+        if (title == null || title.isBlank())
+            return null;
+
+        String overview = node.path("overview").asText("");
+        String genreIds = "";
+        if (node.has("genre_ids")) {
+            List<String> ids = new ArrayList<>();
+            node.path("genre_ids").forEach(g -> ids.add(g.asText()));
+            genreIds = String.join(",", ids);
         }
 
-        String watchlistTitles = watchlist.stream()
+        String releaseDateStr = node.has("release_date")
+                ? node.path("release_date").asText(null)
+                : node.path("first_air_date").asText(null);
+        LocalDate releaseDate = null;
+        if (releaseDateStr != null && !releaseDateStr.isBlank() && !releaseDateStr.equals("null")) {
+            try {
+                releaseDate = LocalDate.parse(releaseDateStr);
+            } catch (Exception ignored) {
+            }
+        }
+
+        return new CandidateItem(id, title, mediaType, releaseDate, genreIds, overview, null, null);
+    }
+
+    // Builds the RAG prompt.
+    private String buildRagPrompt(List<WatchHistory> history, List<Watchlist> watchlist,
+            Map<Long, CandidateItem> pool) {
+
+        StringBuilder historyLines = new StringBuilder();
+        for (WatchHistory h : history) {
+            long mins = (h.getDurationSec() != null ? h.getDurationSec() : 0) / 60;
+            historyLines.append("- ").append(h.getTitle())
+                    .append(" (").append(h.getMediaType().name().toLowerCase())
+                    .append(", ").append(mins).append(" mins)\n");
+        }
+
+        String watchlistLine = watchlist.stream()
                 .map(w -> w.getTitle() + " (" + w.getMediaType().name().toLowerCase() + ")")
                 .collect(Collectors.joining(", "));
 
-        return String.format(
-                """
-                        You are an elite cinematic curator. Your goal is to provide highly personalized recommendations by analyzing the user's viewing history.
+        StringBuilder poolJson = new StringBuilder("[");
+        boolean first = true;
+        for (CandidateItem c : pool.values()) {
+            if (!first)
+                poolJson.append(",");
+            first = false;
+            int year = c.releaseDate() != null ? c.releaseDate().getYear() : 0;
+            poolJson.append(String.format(
+                    "{\"tmdb_id\":%d,\"title\":\"%s\",\"type\":\"%s\",\"year\":%d,\"genre_ids\":\"%s\"}",
+                    c.tmdbId(),
+                    c.title().replace("\"", "'"),
+                    c.mediaType().name().toLowerCase(),
+                    year,
+                    c.genreIds()));
+        }
+        poolJson.append("]");
 
-                        **USER ANALYTICS:**
-                        - Total Watch Time: ~%d hours
-                        - Recent Obsession: %s
-                        - Context: Evaluate the entirety of the provided history to find subtle psychographic patterns.
+        return String.format("""
+                You are a film and TV curator. Select exactly 8 recommendations from the CANDIDATE POOL for this user.
 
-                        **INPUT DATA (ENTIRE HISTORY):**
-                        %s
+                USER RECENTLY WATCHED:
+                %s
+                USER WATCHLIST: %s
 
-                        **WATCHLIST (TOP 8):**
-                        %s
+                CANDIDATE POOL (select ONLY from these — do not invent new items):
+                %s
 
-                        **OUTPUT REQUIREMENTS:**
-                        Generate EXACTLY 8 recommendations divided strictly as follows:
-                        - 3 Live-action Movies
-                        - 3 Live-action TV Shows
-                        - 2 Anime (Japanese Animation)
+                SELECTION RULES:
+                - Pick exactly 3 movies, 3 TV shows, and 2 anime (anime are TV type from Japan).
+                - Do NOT pick anything already in the user's watch history or watchlist.
+                - Prioritise variety of genres — avoid 8 items that are all the same genre.
+                - Write a concise, personalised reason (1 sentence) explaining why it suits this user.
 
-                        **FORMATTING RULES:**
-                        - Return ONLY a JSON array with exactly 8 items.
-                        - "type" MUST be exactly one of: "Movie" or "TV". (If recommending an Anime series, classify its type strictly as "TV". If an Anime film, classify as "Movie").
-                        - No markdown formatting. Just raw JSON.
-
-                        **JSON SCHEMA:**
-                        [{"title": "String", "type": "Movie|TV", "reason": "Specific psychological connection to history", "genre": "String"}]
-                        """,
-                totalHours, lastWatched, historyTitles.toString().trim(),
-                watchlistTitles.isEmpty() ? "None" : watchlistTitles);
+                Return ONLY a JSON array with exactly 8 objects. No markdown, no explanation.
+                Schema: [{"tmdb_id": <integer from pool>, "reason": "<string>"}]
+                """,
+                historyLines.toString().trim(),
+                watchlistLine.isEmpty() ? "None" : watchlistLine,
+                poolJson);
     }
 
-    // Calls Gemini API with the constructed prompt and returns a list of
-    // recommendation items. Retries up to 3 times with exponential backoff on all
-    // transient errors: 503 Service Unavailable, 429 Too Many Requests, and
-    // read timeouts. Hard client errors (400, 401, 403) are not retried.
+    // Calls Gemini via official SDK.
     private List<GeminiRecommendationItem> callGeminiApi(String prompt, String apiKey) {
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("contents", List.of(Map.of("parts", List.of(Map.of("text", prompt)))));
+        Schema responseSchema = Schema.builder()
+                .type(Type.Known.ARRAY)
+                .items(Schema.builder()
+                        .type(Type.Known.OBJECT)
+                        .properties(Map.of(
+                                "tmdb_id", Schema.builder().type(Type.Known.INTEGER).build(),
+                                "reason", Schema.builder().type(Type.Known.STRING).build()))
+                        .required(List.of("tmdb_id", "reason"))
+                        .build())
+                .build();
 
-        Map<String, Object> config = new HashMap<>();
-        config.put("temperature", 0.8);
-        config.put("responseMimeType", "application/json");
-        requestBody.put("generationConfig", config);
+        GenerateContentConfig config = GenerateContentConfig.builder()
+                .thinkingConfig(ThinkingConfig.builder()
+                        .thinkingBudget(0) // LOW thinking: fastest, 0 = disabled
+                        .build())
+                .responseMimeType("application/json")
+                .responseSchema(responseSchema)
+                .build();
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+        List<Content> contents = List.of(
+                Content.builder()
+                        .role("user")
+                        .parts(List.of(Part.fromText(prompt)))
+                        .build());
 
-        String url = GEMINI_API_URL + apiKey;
         int maxAttempts = 3;
-
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            try {
-                String responseStr = geminiRestTemplate.postForObject(url, entity, String.class);
+            try (Client client = Client.builder().apiKey(apiKey).build();
+                    ResponseStream<GenerateContentResponse> stream = client.models.generateContentStream(GEMINI_MODEL,
+                            contents, config)) {
 
-                JsonNode root = objectMapper.readTree(responseStr);
-                String rawJson = root.path("candidates").get(0).path("content").path("parts").get(0).path("text")
-                        .asText();
+                StringBuilder raw = new StringBuilder();
+                for (GenerateContentResponse res : stream) {
+                    if (res.candidates().isEmpty())
+                        continue;
+                    Optional<Content> content = res.candidates().get().get(0).content();
+                    if (content.isEmpty() || content.get().parts().isEmpty())
+                        continue;
+                    for (Part part : content.get().parts().get()) {
+                        part.text().ifPresent(raw::append);
+                    }
+                }
 
+                String rawJson = raw.toString().trim();
                 if (rawJson.startsWith("```")) {
                     rawJson = rawJson.replaceAll("```json", "").replaceAll("```", "").trim();
                 }
 
-                List<GeminiRecommendationItem> parsed = enumMapper.readValue(
-                        rawJson,
-                        new TypeReference<List<GeminiRecommendationItem>>() {
+                List<GeminiRecommendationItem> parsed = objectMapper.readValue(
+                        rawJson, new TypeReference<>() {
                         });
 
+                log.info("Gemini returned {} selections (attempt {})", parsed.size(), attempt);
                 return parsed.stream()
-                        .filter(item -> item.getType() != null)
-                        .filter(item -> item.getTitle() != null && !item.getTitle().isBlank())
+                        .filter(item -> item.getTmdbId() != null)
                         .toList();
 
-            } catch (HttpServerErrorException.ServiceUnavailable | HttpClientErrorException.TooManyRequests e) {
-                // 503 = Gemini overloaded; 429 = rate limited — both are transient, retry
+            } catch (HttpClientErrorException.TooManyRequests e) {
                 if (attempt < maxAttempts) {
-                    long backoffMs = 2000L * attempt; // 2s, 4s
-                    log.warn("Gemini transient error ({}) — retrying in {}ms (attempt {}/{})",
-                            e.getStatusCode(), backoffMs, attempt + 1, maxAttempts);
-                    sleepUninterruptibly(backoffMs);
-                    continue;
+                    long backoff = 2000L * attempt;
+                    log.warn("Gemini 429 — retrying in {}ms (attempt {}/{})", backoff, attempt + 1, maxAttempts);
+                    sleepUninterruptibly(backoff);
+                } else {
+                    throw new RuntimeException("AI service is temporarily unavailable. Please try again shortly.", e);
                 }
-                log.error("Gemini API unavailable after {} attempts: {}", maxAttempts, e.getMessage());
-                throw new RuntimeException("AI service is temporarily unavailable. Please try again shortly.", e);
-
-            } catch (ResourceAccessException e) {
-                boolean isTimeout = e.getCause() instanceof HttpTimeoutException
-                        || (e.getMessage() != null && e.getMessage().contains("Request cancelled"));
-                if (isTimeout && attempt < maxAttempts) {
-                    log.warn("Gemini request timed out, retrying (attempt {}/{})", attempt + 1, maxAttempts);
-                    continue;
-                }
-                log.error("Gemini API timeout/network error: {}", e.getMessage(), e);
-                throw new RuntimeException("AI request timed out. Please retry.", e);
-
             } catch (Exception e) {
-                log.error("Gemini API Error: {}", e.getMessage(), e);
-                throw new RuntimeException("AI processing failed", e);
+                if (attempt < maxAttempts) {
+                    log.warn("Gemini error (attempt {}/{}): {} — retrying", attempt, maxAttempts, e.getMessage());
+                    sleepUninterruptibly(2000L * attempt);
+                } else {
+                    log.error("Gemini API failed after {} attempts", maxAttempts, e);
+                    throw new RuntimeException("AI processing failed", e);
+                }
             }
         }
-
-        throw new RuntimeException("AI processing failed");
+        throw new RuntimeException("AI processing failed after retries");
     }
 
     private void sleepUninterruptibly(long millis) {
@@ -287,92 +386,15 @@ public class RecommendationService {
         }
     }
 
-    // Hydrates a Gemini recommendation item with TMDB data, respecting the rate
-    // limit. If TMDB returns 429, it will retry with exponential backoff up to 3
-    // attempts before giving up on that item.
-    private Recommendation hydrateWithTmdbRateLimited(GeminiRecommendationItem item, UUID userId) {
-        try {
-            tmdbRateLimiter.acquire(); // Strictly ensures only 3 requests happen at once
-            return performTmdbHydrationWith429Retry(item, userId);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.error("TMDB Rate Limiter thread interrupted");
-            return null;
-        } finally {
-            tmdbRateLimiter.release();
-        }
-    }
-
-    // Performs the actual TMDB hydration with built-in retry logic for handling 429
-    // Too Many Requests responses.
-    private Recommendation performTmdbHydrationWith429Retry(GeminiRecommendationItem item, UUID userId) {
-        int maxAttempts = 3;
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            try {
-                String searchType = item.getType() == MediaType.Movie ? "movie" : "tv";
-                String searchUrl = String.format(
-                        "https://api.themoviedb.org/3/search/%s?api_key=%s&query=%s",
-                        searchType, tmdbApiKey, java.net.URLEncoder.encode(item.getTitle(), "UTF-8"));
-
-                String searchResStr = tmdbClient.fetchWithRetry(searchUrl, String.class);
-                JsonNode searchRes = objectMapper.readTree(searchResStr);
-                JsonNode results = searchRes.path("results");
-
-                if (results.isEmpty()) {
-                    log.warn("TMDB 404 for AI Recommendation: {}", item.getTitle());
-                    return null;
-                }
-
-                JsonNode firstMatch = results.get(0);
-                Long tmdbId = firstMatch.path("id").asLong();
-
-                Recommendation.RecommendationBuilder builder = Recommendation.builder()
-                        .userId(userId)
-                        .tmdbId(tmdbId)
-                        .title(firstMatch.has("title") ? firstMatch.path("title").asText()
-                                : firstMatch.path("name").asText())
-                        .mediaType(item.getType())
-                        .posterPath(firstMatch.path("poster_path").asText(null))
-                        .voteAverage(firstMatch.path("vote_average").asDouble(0.0))
-                        .reason(item.getReason())
-                        .genre(item.getGenre());
-
-                String releaseDateStr = firstMatch.has("release_date") ? firstMatch.path("release_date").asText(null)
-                        : firstMatch.path("first_air_date").asText(null);
-                if (releaseDateStr != null && !releaseDateStr.isEmpty() && !releaseDateStr.equals("null")) {
-                    builder.releaseDate(LocalDate.parse(releaseDateStr));
-                }
-
-                if ("tv".equals(searchType)) {
-                    String detailsUrl = String.format(
-                            "https://api.themoviedb.org/3/tv/%d?api_key=%s",
-                            tmdbId, tmdbApiKey);
-                    try {
-                        String detailsResStr = tmdbClient.fetchWithRetry(detailsUrl, String.class);
-                        JsonNode detailsRes = objectMapper.readTree(detailsResStr);
-                        builder.numberOfSeasons(detailsRes.path("number_of_seasons").asInt(0));
-                        builder.numberOfEpisodes(detailsRes.path("number_of_episodes").asInt(0));
-                    } catch (Exception e) {
-                        log.warn("Failed to fetch extra TV details for {}", tmdbId);
-                    }
-                }
-                return builder.build();
-
-            } catch (HttpClientErrorException.TooManyRequests e) {
-                log.warn("TMDB 429 Too Many Requests. Retrying... (Attempt {}/{})", attempt, maxAttempts);
-                if (attempt == maxAttempts)
-                    return null; // Give up on this item to save the rest
-                try {
-                    Thread.sleep(800L * attempt); // Exponential backoff
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    return null;
-                }
-            } catch (Exception e) {
-                log.error("TMDB Hydration failed for title: {}", item.getTitle(), e);
-                return null;
-            }
-        }
-        return null;
+    // Represents one item in the TMDB candidate pool.
+    private record CandidateItem(
+            long tmdbId,
+            String title,
+            MediaType mediaType,
+            LocalDate releaseDate,
+            String genreIds,
+            String overview,
+            Integer numberOfSeasons,
+            Integer numberOfEpisodes) {
     }
 }

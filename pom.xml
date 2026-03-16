@@ -136,6 +136,13 @@
 			<artifactId>bucket4j_jdk17-lettuce</artifactId>
 			<version>8.16.1</version>
 		</dependency>
+
+		<!-- Google Gen AI SDK (Gemini) -->
+		<dependency>
+			<groupId>com.google.genai</groupId>
+			<artifactId>google-genai</artifactId>
+			<version>1.43.0</version>
+		</dependency>
 	</dependencies>
 
 	<build>

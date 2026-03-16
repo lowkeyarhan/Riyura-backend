@@ -11,25 +11,21 @@ public class RecommendationsResponse {
 
     Long tmdbId;
     String title;
-    MediaType mediaType;
-    String posterPath;
     Integer year;
+    MediaType mediaType;
+    String reason;
     Integer seasons;
     Integer episodes;
-    String genres;
-    String reason;
 
     public static RecommendationsResponse from(Recommendation r) {
         return RecommendationsResponse.builder()
                 .tmdbId(r.getTmdbId())
                 .title(r.getTitle())
-                .mediaType(r.getMediaType())
-                .posterPath(r.getPosterPath())
                 .year(r.getReleaseDate() != null ? r.getReleaseDate().getYear() : null)
+                .mediaType(r.getMediaType())
+                .reason(r.getReason())
                 .seasons(r.getNumberOfSeasons())
                 .episodes(r.getNumberOfEpisodes())
-                .genres(r.getGenre())
-                .reason(r.getReason())
                 .build();
     }
 }

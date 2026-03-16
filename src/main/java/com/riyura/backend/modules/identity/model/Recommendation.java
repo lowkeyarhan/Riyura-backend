@@ -37,12 +37,6 @@ public class Recommendation implements Persistable<RecommendationId> {
     @Column(name = "media_type", nullable = false, columnDefinition = "text")
     private MediaType mediaType;
 
-    @Column(name = "poster_path", columnDefinition = "text")
-    private String posterPath;
-
-    @Column(name = "vote_average")
-    private Double voteAverage;
-
     @Column(name = "release_date")
     private LocalDate releaseDate;
 
@@ -54,9 +48,6 @@ public class Recommendation implements Persistable<RecommendationId> {
 
     @Column(nullable = false, columnDefinition = "text")
     private String reason;
-
-    @Column(columnDefinition = "text")
-    private String genre;
 
     @CreationTimestamp
     @Column(name = "generated_at", updatable = false)
