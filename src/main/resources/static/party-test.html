@@ -350,12 +350,21 @@
       <h2>Playback Sync</h2>
       <div class="section">
         <div class="input-group">
-          <label>Current Time (Secs)</label>
+          <label>Host Push: Seek Position (Secs)</label>
           <div class="input-inline">
             <input type="number" id="videoTime" value="0.0" step="0.1" />
-            <button class="btn btn-secondary" onclick="sendSync()">Sync</button>
+            <button class="btn btn-secondary" onclick="sendSync()">
+              Push Sync
+            </button>
           </div>
         </div>
+        <button
+          class="btn btn-secondary"
+          onclick="requestSync()"
+          style="margin-bottom: 8px"
+        >
+          🔄 Request Sync (Participant)
+        </button>
         <div class="btn-group">
           <button class="btn btn-secondary" onclick="sendBuffering()">
             Buffer Wait
@@ -580,6 +589,14 @@
             log("Connection established.");
             updateConnectionStatus(true);
 
+            stompClient.subscribe(`/user/queue/sync`, (msg) => {
+              const parsed = JSON.parse(msg.body);
+              const p = parsed.payload;
+              log(
+                `[DIRECTED SYNC] startAt=${p.startAt}s, partyStartedAt=${p.partyStartedAt}`,
+              );
+            });
+
             stompClient.subscribe("/topic/party/" + partyId, (msg) => {
               const parsed = JSON.parse(msg.body);
               const eventPayload = parsed.payload;
@@ -639,9 +656,25 @@
         stompClient.send(
           `/app/party/${partyId}/sync`,
           {},
-          JSON.stringify({ startAt: time, clientTime: Date.now() }),
+          JSON.stringify({
+            startAt: time,
+            clientTime: Date.now(),
+            action: "SEEK",
+          }),
         );
-        log(`Emitted Sync Command: T=${time}s`);
+        log(`Emitted Host Push Sync: T=${time}s`);
+      }
+
+      function requestSync() {
+        const partyId = document.getElementById("partyId").value;
+        if (!stompClient || !stompClient.connected)
+          return log("Error: Sequence requires active connection");
+        stompClient.send(
+          `/app/party/${partyId}/request-sync`,
+          {},
+          JSON.stringify({}),
+        );
+        log("Emitted Participant Request Sync");
       }
 
       function sendBuffering() {

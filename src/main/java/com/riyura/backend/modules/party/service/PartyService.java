@@ -63,6 +63,12 @@ public class PartyService {
         return PartyStateResponse.from(state);
     }
 
+    // Returns the raw party state (e.g. for WebSocket sync broadcasts)
+    public PartyState getPartyState(String partyId) {
+        validatePartyId(partyId);
+        return load(partyId);
+    }
+
     // This is the method that is used to add a participant to a party
     public PartyState addParticipant(String partyId, String userId) {
         validatePartyId(partyId);

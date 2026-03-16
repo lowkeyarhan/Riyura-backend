@@ -51,6 +51,14 @@ public class PartyWebSocketController {
                 Map.of("userId", userId, "userName", userName, "participantIds", state.getParticipantIds()),
                 userId,
                 now()));
+
+        // Auto-sync the joining participant's player to the host's current position
+        messaging.convertAndSendToUser(userId, "/queue/sync",
+                new PartyMessage(
+                        PartyEvent.SYNC,
+                        Map.of("startAt", state.getStartAt(), "partyStartedAt", state.getPartyStartedAt()),
+                        "system",
+                        now()));
     }
 
     // Sync command from a client to update the party's playback position
@@ -71,6 +79,24 @@ public class PartyWebSocketController {
                         "partyStartedAt", state.getPartyStartedAt()),
                 userId,
                 now()));
+    }
+
+    // Participant-triggered sync: sends the current host position back to just
+    // the requesting user (failsafe "sync me to host" button)
+    @MessageMapping("/party/{partyId}/request-sync")
+    public void requestSync(@DestinationVariable String partyId,
+            SimpMessageHeaderAccessor headerAccessor) {
+
+        String userId = resolveUserId(headerAccessor);
+        PartyState state = partyService.getPartyState(partyId);
+
+        // Send the current party position only to the requesting participant
+        messaging.convertAndSendToUser(userId, "/queue/sync",
+                new PartyMessage(
+                        PartyEvent.SYNC,
+                        Map.of("startAt", state.getStartAt(), "partyStartedAt", state.getPartyStartedAt()),
+                        "system",
+                        now()));
     }
 
     // Chat message from a client to be appended to the party's chat history and
