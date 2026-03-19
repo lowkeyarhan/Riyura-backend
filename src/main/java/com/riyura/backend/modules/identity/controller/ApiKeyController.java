@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/ai/key") // Adjust path or configure Next.js rewrites
+@RequestMapping("/api/ai/key")
 @RequiredArgsConstructor
 public class ApiKeyController {
 

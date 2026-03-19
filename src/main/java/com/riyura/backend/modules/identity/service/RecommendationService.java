@@ -104,6 +104,7 @@ public class RecommendationService {
                             .mediaType(meta.mediaType())
                             .releaseDate(meta.releaseDate())
                             .reason(sel.getReason())
+                            .posterPath(meta.posterPath())
                             .build();
                 })
                 .filter(Objects::nonNull)
@@ -236,7 +237,12 @@ public class RecommendationService {
             }
         }
 
-        return new CandidateItem(id, title, mediaType, releaseDate, genreIds, overview);
+        String posterPath = node.path("poster_path").asText(null);
+        if (posterPath != null && posterPath.equals("null")) {
+            posterPath = null;
+        }
+
+        return new CandidateItem(id, title, mediaType, releaseDate, genreIds, overview, posterPath);
     }
 
     // Builds the RAG prompt.
@@ -391,6 +397,7 @@ public class RecommendationService {
             MediaType mediaType,
             LocalDate releaseDate,
             String genreIds,
-            String overview) {
+            String overview,
+            String posterPath) {
     }
 }

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.riyura.backend.common.dto.media.MediaGridResponse;
+import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.modules.identity.dto.watchlist.WatchlistRequest;
 import com.riyura.backend.modules.identity.service.WatchlistService;
 
@@ -92,6 +93,22 @@ public class WatchlistController {
             }
             throw e;
         }
+    }
+
+    // Check if a media item is in the user's watchlist
+    @GetMapping("/check")
+    public ResponseEntity<Map<String, Object>> checkWatchlist(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam Long tmdbId,
+            @RequestParam MediaType mediaType) {
+
+        UUID userId = UUID.fromString(jwt.getSubject());
+        boolean exists = watchlistService.isInWatchlist(userId, tmdbId, mediaType);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("isInWatchlist", exists);
+        return ResponseEntity.ok(response);
     }
 
 }

@@ -43,6 +43,9 @@ public class Recommendation implements Persistable<RecommendationId> {
     @Column(nullable = false, columnDefinition = "text")
     private String reason;
 
+    @Column(name = "poster_path")
+    private String posterPath;
+
     @CreationTimestamp
     @Column(name = "generated_at", updatable = false)
     private ZonedDateTime generatedAt;

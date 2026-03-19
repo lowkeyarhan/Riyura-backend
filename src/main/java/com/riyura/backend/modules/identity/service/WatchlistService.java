@@ -61,6 +61,12 @@ public class WatchlistService {
                 .collect(Collectors.toList());
     }
 
+    // Checks if a specific media item is in the user's watchlist
+    @Transactional(readOnly = true)
+    public boolean isInWatchlist(UUID userId, Long tmdbId, MediaType mediaType) {
+        return watchlistRepository.findByUserIdAndTmdbIdAndMediaType(userId, tmdbId, mediaType).isPresent();
+    }
+
     // Adds a media item to the user's watchlist
     @Transactional
     @CacheEvict(value = "watchlist", allEntries = true)
