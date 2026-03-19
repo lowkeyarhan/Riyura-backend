@@ -77,6 +77,7 @@ public class MovieDetailService {
                                     : Collections.emptyList());
                             // Set the anime flag
                             details.setAnime(TmdbUtils.isAnime(details.getOriginalLanguage(), details.getGenres()));
+                            details.setMaturityRating(details.isAdult() ? "A" : "U/A");
                         }
                         return details;
                     } catch (Exception e) {

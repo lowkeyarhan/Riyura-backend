@@ -29,6 +29,8 @@ public class TvShowDetails {
 
     private boolean adult;
 
+    private String maturityRating;
+
     private List<Genre> genres;
 
     @JsonProperty("created_by")

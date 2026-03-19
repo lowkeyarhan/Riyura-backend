@@ -25,6 +25,8 @@ public class MovieDetail {
     private Long budget;
     private boolean adult;
 
+    private String maturityRating;
+
     private List<Genre> genres;
 
     @JsonProperty("production_companies")
