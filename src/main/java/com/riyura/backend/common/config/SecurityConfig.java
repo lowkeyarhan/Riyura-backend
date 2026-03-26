@@ -40,6 +40,12 @@ public class SecurityConfig {
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .csrf(AbstractHttpConfigurer::disable)
                                 .authorizeHttpRequests(auth -> auth
+                                                // Protected stream endpoints (history-based resume needs user context)
+                                                .requestMatchers(
+                                                                "/api/movies/stream",
+                                                                "/api/tv/stream")
+                                                .authenticated()
+
                                                 // Public Endpoints
                                                 .requestMatchers(
                                                                 "/v3/api-docs/**",

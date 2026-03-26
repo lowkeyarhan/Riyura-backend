@@ -17,12 +17,15 @@ import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Validated
 @RestController
@@ -92,8 +95,10 @@ public class MovieController {
     // Build fully-constructed stream URLs for a specific movie
     @PostMapping("/stream")
     public ResponseEntity<List<StreamUrlResponse>> getMovieStream(
+            @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody StreamProviderRequest request) {
-        return ResponseEntity.ok(streamUrlService.buildStreamUrls(request, MediaType.Movie));
+        UUID userId = jwt != null ? UUID.fromString(jwt.getSubject()) : null;
+        return ResponseEntity.ok(streamUrlService.buildStreamUrls(request, MediaType.Movie, userId));
     }
 
     // Helper method to wrap the list in a response map

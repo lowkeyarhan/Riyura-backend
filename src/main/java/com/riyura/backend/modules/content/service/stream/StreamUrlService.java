@@ -10,7 +10,9 @@ import com.riyura.backend.modules.content.dto.stream.StreamProviderRequest;
 import com.riyura.backend.modules.content.dto.stream.StreamProviderResponse;
 import com.riyura.backend.modules.content.dto.stream.StreamUrlResponse;
 import com.riyura.backend.modules.content.repository.StreamProviderRepository;
-
+import com.riyura.backend.modules.identity.model.WatchHistory;
+import com.riyura.backend.modules.identity.repository.WatchHistoryRepository;
+import org.springframework.cache.annotation.Cacheable;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
@@ -19,12 +21,15 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class StreamUrlService {
 
     private final StreamProviderRepository streamProviderRepository;
+    private final WatchHistoryRepository watchHistoryRepository;
     private final TmdbClient tmdbClient;
 
     @Value("${tmdb.api-key}")
@@ -33,11 +38,12 @@ public class StreamUrlService {
     @Value("${tmdb.base-url}")
     private String baseUrl;
 
-    @org.springframework.cache.annotation.Cacheable(value = "streamUrls", sync = true)
-    public List<StreamUrlResponse> buildStreamUrls(StreamProviderRequest request, MediaType mediaType) {
+    @Cacheable(value = "streamUrls", key = "#mediaType.name() + ':' + #request.tmdbId + ':' + #request.seasonNo + ':' + #request.episodeNo + ':' + #request.startAt", condition = "#userId == null", sync = true)
+    public List<StreamUrlResponse> buildStreamUrls(StreamProviderRequest request, MediaType mediaType, UUID userId) {
         List<StreamProviderResponse> providers = streamProviderRepository.findByIsActiveTrueOrderByPriorityAsc();
         List<StreamUrlResponse> results = new ArrayList<>();
         boolean isAnime = detectIsAnime(request.getTmdbId(), mediaType);
+        Integer effectiveStartAt = resolveStartAt(request, mediaType, userId);
 
         for (StreamProviderResponse provider : providers) {
             String template = resolveTemplate(provider, mediaType, isAnime);
@@ -47,12 +53,34 @@ public class StreamUrlService {
             StreamUrlResponse response = new StreamUrlResponse();
             response.setId(provider.getProviderId());
             response.setName(provider.getProviderName());
-            response.setUrl(substituteParams(template, request, mediaType));
+            response.setUrl(substituteParams(template, request, mediaType, effectiveStartAt));
             response.setQuality(provider.getQuality());
             results.add(response);
         }
 
         return results;
+    }
+
+    private Integer resolveStartAt(StreamProviderRequest request, MediaType mediaType, UUID userId) {
+        if (userId != null) {
+            Integer historyStartAt = watchHistoryRepository
+                    .findByUserIdAndTmdbIdAndMediaType(userId, request.getTmdbId(), mediaType)
+                    .filter(history -> mediaType != MediaType.TV || isSameEpisode(history, request))
+                    .map(WatchHistory::getDurationSec)
+                    .filter(duration -> duration != null && duration >= 0)
+                    .orElse(null);
+            if (historyStartAt != null) {
+                return historyStartAt;
+            }
+        }
+
+        return request.getStartAt();
+    }
+
+    private boolean isSameEpisode(WatchHistory history, StreamProviderRequest request) {
+        int season = request.getSeasonNo() > 0 ? request.getSeasonNo() : 1;
+        int episode = request.getEpisodeNo() > 0 ? request.getEpisodeNo() : 1;
+        return Objects.equals(history.getSeasonNumber(), season) && Objects.equals(history.getEpisodeNumber(), episode);
     }
 
     private boolean detectIsAnime(long tmdbId, MediaType mediaType) {
@@ -74,7 +102,8 @@ public class StreamUrlService {
         return mediaType == MediaType.Movie ? provider.getMovieTemplate() : provider.getTvTemplate();
     }
 
-    private String substituteParams(String template, StreamProviderRequest request, MediaType mediaType) {
+    private String substituteParams(String template, StreamProviderRequest request, MediaType mediaType,
+            Integer startAt) {
         String url = template;
         String tmdbIdStr = String.valueOf(request.getTmdbId());
         url = url.replace("{id}", tmdbIdStr).replace("{tmdbId}", tmdbIdStr);
@@ -86,13 +115,30 @@ public class StreamUrlService {
                     .replace("{s}", String.valueOf(season)).replace("{e}", String.valueOf(episode));
         }
 
-        if (request.getStartAt() != null) {
-            url = url.replace("{startAt}", String.valueOf(request.getStartAt()));
+        boolean hasStartAtPlaceholder = url.contains("{startAt}");
+        if (startAt != null) {
+            url = url.replace("{startAt}", String.valueOf(startAt));
+            if (!hasStartAtPlaceholder) {
+                url = upsertQueryParam(url, "startAt", String.valueOf(startAt));
+            }
         } else {
             url = stripQueryParam(url, "{startAt}");
         }
 
         return stripRemainingPlaceholders(url);
+    }
+
+    private String upsertQueryParam(String url, String paramName, String value) {
+        int fragmentIndex = url.indexOf('#');
+        String base = fragmentIndex >= 0 ? url.substring(0, fragmentIndex) : url;
+        String fragment = fragmentIndex >= 0 ? url.substring(fragmentIndex) : "";
+
+        if (base.contains("?" + paramName + "=") || base.contains("&" + paramName + "=")) {
+            return base.replaceAll("([?&]" + paramName + "=)[^&#]*", "$1" + value) + fragment;
+        }
+
+        String separator = base.contains("?") ? "&" : "?";
+        return base + separator + paramName + "=" + value + fragment;
     }
 
     private String stripQueryParam(String url, String placeholder) {
