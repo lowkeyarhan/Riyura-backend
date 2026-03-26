@@ -49,6 +49,18 @@ public class ProfileController {
         return ResponseEntity.ok(response);
     }
 
+    // Fetch the user's onboarding status
+    @GetMapping("/onboard")
+    public ResponseEntity<Map<String, Object>> getOnboardStatus(@AuthenticationPrincipal Jwt jwt) {
+        UserProfile profile = profileService.getProfile(jwt);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("onboarded", profile.getOnboarded());
+        response.put("photoUrl", profile.getPhotoUrl());
+        return ResponseEntity.ok(response);
+    }
+
     // Update the user's onboarding status
     @PatchMapping("/onboard")
     public ResponseEntity<Map<String, Object>> updateOnboard(

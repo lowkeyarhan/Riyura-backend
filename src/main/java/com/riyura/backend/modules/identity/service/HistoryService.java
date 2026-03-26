@@ -4,8 +4,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -57,7 +55,7 @@ public class HistoryService {
     private String baseUrl;
 
     // Fetch the user's watch history with pagination
-    @Cacheable(value = "history", key = "#userId + ':' + #page", sync = true)
+    // @Cacheable(value = "history", key = "#userId + ':' + #page", sync = true)
     @Transactional(readOnly = true)
     public List<HistoryResponse> getUserWatchHistory(UUID userId, int page) {
         Pageable pageable = PageRequest.of(page, DEFAULT_PAGE_SIZE);
@@ -69,7 +67,7 @@ public class HistoryService {
 
     // Add or update a watch history item
     @Transactional
-    @CacheEvict(value = "history", allEntries = true)
+    // @CacheEvict(value = "history", allEntries = true)
     public WatchHistory addOrUpdateHistory(UUID userId, HistoryRequest request) {
         try {
             Optional<WatchHistory> existing = watchHistoryRepository.findByUserIdAndTmdbIdAndMediaType(
@@ -122,7 +120,7 @@ public class HistoryService {
 
     // Delete a watch history item
     @Transactional
-    @CacheEvict(value = "history", allEntries = true)
+    // @CacheEvict(value = "history", allEntries = true)
     public void deleteWatchHistory(UUID userId, DeleteWatchHistoryRequest request) {
         try {
             Optional<WatchHistory> existing = watchHistoryRepository.findByUserIdAndTmdbIdAndMediaType(
