@@ -34,14 +34,8 @@ public class WatchHistory {
     @Enumerated(EnumType.STRING)
     private MediaType mediaType;
 
-    @Column(name = "stream_id")
-    private String streamId;
-
     @Column(name = "provider_id")
     private String providerId;
-
-    @Column(name = "poster_path")
-    private String posterPath;
 
     @Column(name = "backdrop_path")
     private String backdropPath;

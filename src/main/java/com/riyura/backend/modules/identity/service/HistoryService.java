@@ -97,7 +97,6 @@ public class HistoryService {
                 applyMetadata(history, request, metadata);
             }
 
-            history.setStreamId(request.getStreamId());
             history.setProviderId(request.getProviderId());
             history.setDurationSec(request.getDurationSec());
             history.setWatchedAt(OffsetDateTime.now());
@@ -203,8 +202,13 @@ public class HistoryService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to fetch metadata from TMDB");
         }
 
-        history.setPosterPath(metadata.getPosterPath());
-        history.setBackdropPath(metadata.getBackdropPath());
+        String backdropPath = metadata.getBackdropPath();
+        if ((backdropPath == null || backdropPath.isBlank())
+                && metadata.getPosterPath() != null
+                && !metadata.getPosterPath().isBlank()) {
+            backdropPath = metadata.getPosterPath();
+        }
+        history.setBackdropPath(backdropPath);
         if (request.getMediaType() == MediaType.Movie) {
             history.setTitle(metadata.getTitle());
             history.setReleaseDate(parseDate(metadata.getReleaseDate()));

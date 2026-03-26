@@ -22,10 +22,6 @@ public class HistoryRequest {
     @JsonProperty("media_type")
     private MediaType mediaType;
 
-    @Size(max = 255, message = "stream_id must not exceed 255 characters")
-    @JsonProperty("stream_id")
-    private String streamId;
-
     @NotBlank(message = "provider_id is required")
     @Size(max = 255, message = "provider_id must not exceed 255 characters")
     @JsonProperty("provider_id")
