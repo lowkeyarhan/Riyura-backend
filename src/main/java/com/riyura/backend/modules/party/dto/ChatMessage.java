@@ -25,6 +25,8 @@ public class ChatMessage implements Serializable {
     @NotBlank
     @Size(max = 500)
     private String text;
-    
+
+    private String senderProfilePhoto;
+
     private long serverTime;
 }

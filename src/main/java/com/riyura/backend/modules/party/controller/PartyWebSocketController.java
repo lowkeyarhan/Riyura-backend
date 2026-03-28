@@ -109,10 +109,15 @@ public class PartyWebSocketController {
         String userId = resolveUserId(headerAccessor);
         incomingMessage.setSenderId(userId);
 
-        // Retrieve optional display name from session attributes set during CONNECT
+        // Retrieve optional display name and photo from session attributes set during CONNECT
         Map<String, Object> attrs = headerAccessor.getSessionAttributes();
-        if (attrs != null && attrs.containsKey("userName")) {
-            incomingMessage.setSenderDisplayName((String) attrs.get("userName"));
+        if (attrs != null) {
+            if (attrs.containsKey("userName")) {
+                incomingMessage.setSenderDisplayName((String) attrs.get("userName"));
+            }
+            if (attrs.containsKey("userPhoto")) {
+                incomingMessage.setSenderProfilePhoto((String) attrs.get("userPhoto"));
+            }
         }
 
         incomingMessage.setServerTime(now());

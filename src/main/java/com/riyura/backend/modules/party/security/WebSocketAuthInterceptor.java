@@ -59,16 +59,32 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                 if (sessionAttributes != null) {
                     sessionAttributes.put(SESSION_USER_ID, userId);
 
-                    // Try to extract user name from Supabase JWT claims
+                    // Try to extract user name and profile photo from Supabase JWT claims
                     try {
                         Map<String, Object> userMetadata = jwt.getClaimAsMap("user_metadata");
-                        if (userMetadata != null && userMetadata.containsKey("name")) {
-                            sessionAttributes.put("userName", userMetadata.get("name"));
-                        } else if (jwt.hasClaim("name")) {
+                        if (userMetadata != null) {
+                            if (userMetadata.containsKey("name")) {
+                                sessionAttributes.put("userName", userMetadata.get("name"));
+                            }
+                            if (userMetadata.containsKey("full_name") && !sessionAttributes.containsKey("userName")) {
+                                sessionAttributes.put("userName", userMetadata.get("full_name"));
+                            }
+                            if (userMetadata.containsKey("avatar_url")) {
+                                sessionAttributes.put("userPhoto", userMetadata.get("avatar_url"));
+                            }
+                            if (userMetadata.containsKey("picture") && !sessionAttributes.containsKey("userPhoto")) {
+                                sessionAttributes.put("userPhoto", userMetadata.get("picture"));
+                            }
+                        }
+
+                        if (!sessionAttributes.containsKey("userName") && jwt.hasClaim("name")) {
                             sessionAttributes.put("userName", jwt.getClaimAsString("name"));
                         }
+                        if (!sessionAttributes.containsKey("userPhoto") && jwt.hasClaim("picture")) {
+                            sessionAttributes.put("userPhoto", jwt.getClaimAsString("picture"));
+                        }
                     } catch (Exception ex) {
-                        log.debug("Could not extract user name from JWT: {}", ex.getMessage());
+                        log.debug("Could not extract user info from JWT: {}", ex.getMessage());
                     }
                 }
 

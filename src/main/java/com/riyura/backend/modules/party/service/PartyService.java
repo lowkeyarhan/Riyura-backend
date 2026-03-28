@@ -185,6 +185,10 @@ public class PartyService {
         if (message.getSenderDisplayName() != null) {
             message.setSenderDisplayName(HtmlUtils.htmlEscape(message.getSenderDisplayName()));
         }
+        if (message.getSenderProfilePhoto() != null) {
+            // It's a URL, but we will escape it just to be safe
+            message.setSenderProfilePhoto(HtmlUtils.htmlEscape(message.getSenderProfilePhoto(), "UTF-8"));
+        }
 
         PartyState state = load(partyId);
         var chat = state.getRecentChat();
