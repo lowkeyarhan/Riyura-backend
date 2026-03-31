@@ -13,6 +13,7 @@
 - [Security & Authentication](#security--authentication)
 - [Rate Limiting](#rate-limiting)
 - [Health Check](#health-check)
+- [Observability & Resilience](#observability--resilience)
 - [Performance](#performance)
 
 ---
@@ -445,6 +446,45 @@ async function checkHealth(): Promise<boolean> {
   }
 }
 ```
+
+---
+
+## Observability & Resilience
+
+Riyura integrates an enterprise-grade observability and resilience stack to ensure high availability, proactive monitoring, and comprehensive debugging capabilities.
+
+### Metrics & Dashboarding (Prometheus + Grafana)
+
+Internal application metrics are automatically exposed via Spring Boot Actuator and scraped by **Prometheus**. **Grafana** is used to translate this time-series data into visual dashboards.
+
+- **Actuator Endpoint**: `/actuator/prometheus` (Exposes JVM memory, GC pauses, HTTP request latencies, and thread pool statuses).
+- **Access Prometheus**: Available locally at `http://localhost:9090`.
+- **Access Grafana**: Available locally at `http://localhost:3000` (Default login is `admin` / `admin`).
+
+You can configure alerts in Grafana to notify your team when API error rates spike or cache hit rates drop.
+
+### Centralized Logging (Loki)
+
+Standard application logs are streamed in real-time directly into a local **Grafana Loki** instance via the `loki-logback-appender`.
+
+- **Direct Push**: The backend batches and pushes logs directly to Loki via HTTP without needing a heavy Promtail sidecar.
+- **Log Querying**: Logs can be explored dynamically alongside metrics inside the Grafana UI (`http://localhost:3000`).
+
+### Code Quality (SonarQube)
+
+Static code analysis and security scans are available on-demand using a containerized **SonarQube** server.
+
+- **Launch SonarQube**: Run `docker compose -f docker-compose.sonarqube.yml up -d`.
+- **Run Scan**: Execute `mvn clean verify sonar:sonar -Dsonar.host.url=http://localhost:9000`.
+- **View Results**: Access the SonarQube dashboard at `http://localhost:9000` (Default login is `admin` / `admin`).
+
+### Circuit Breakers (Resilience4j)
+
+All external API calls (e.g., fetching TMDB metadata) are wrapped in **Resilience4j Circuit Breakers** to prevent cascading failures.
+
+- **Behavior**: If the external API's failure rate exceeds **50%** over the last 10 calls, the circuit opens.
+- **Fail-Fast**: While the circuit is open, subsequent calls fail fast, immediately returning a structured `503 Service Unavailable` error instead of exhausting Tomcat worker threads by waiting for external timeouts.
+- **Recovery**: The circuit automatically transitions to a half-open state after 10 seconds to test if the external service has recovered.
 
 ---
 

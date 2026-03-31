@@ -112,3 +112,36 @@ server:
     max-connections: 50000
     accept-count: 2000
     connection-timeout: 60000
+
+# Actuator & Prometheus Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics,caches
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: Riyura
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+# Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+    instances:
+      tmdb:
+        baseConfig: default

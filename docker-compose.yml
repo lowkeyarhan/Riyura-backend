@@ -9,5 +9,54 @@ services:
     volumes:
       - redis_data:/data
 
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: riyura_redis_exporter
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    container_name: riyura_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d" # 7 Day retention for metrics
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: riyura_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/datasources/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+    depends_on:
+      - prometheus
+      - loki
+
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: riyura_loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/loki-config.yaml
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml
+      - loki_data:/tmp/loki
+
 volumes:
   redis_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:

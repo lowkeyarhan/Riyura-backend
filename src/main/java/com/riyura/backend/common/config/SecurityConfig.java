@@ -59,6 +59,7 @@ public class SecurityConfig {
                                                                 "/api/anime/**",
                                                                 "/api/explore/**",
                                                                 "/api/test/**",
+                                                                "/actuator/**",
                                                                 "/ws/**")
                                                 .permitAll()
 

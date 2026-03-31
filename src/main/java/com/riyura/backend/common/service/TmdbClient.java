@@ -1,11 +1,16 @@
 package com.riyura.backend.common.service;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TmdbClient {
@@ -15,6 +20,7 @@ public class TmdbClient {
 
     private final RestTemplate restTemplate;
 
+    @CircuitBreaker(name = "tmdb", fallbackMethod = "fallbackFetchWithRetry")
     public <T> T fetchWithRetry(String url, Class<T> type) {
         ResourceAccessException lastException = null;
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -34,8 +40,23 @@ public class TmdbClient {
         throw new IllegalStateException("fetchWithRetry: should not reach here");
     }
 
+    @CircuitBreaker(name = "tmdb", fallbackMethod = "fallbackFetch")
     public <T> T fetch(String url, Class<T> type) {
         return restTemplate.getForObject(url, type);
+    }
+
+    // Fallback logic for Resilience4j
+    public <T> T fallbackFetchWithRetry(String url, Class<T> type, Throwable t) {
+        log.error("CircuitBreaker fallback triggered for TMDB fetchWithRetry. URL: {} | Error: {}", url,
+                rootMessage(t));
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "TMDB service is currently unavailable. Please try again later.", t);
+    }
+
+    public <T> T fallbackFetch(String url, Class<T> type, Throwable t) {
+        log.error("CircuitBreaker fallback triggered for TMDB fetch. URL: {} | Error: {}", url, rootMessage(t));
+        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "TMDB service is currently unavailable. Please try again later.", t);
     }
 
     private void sleepBeforeRetry() {
@@ -47,6 +68,8 @@ public class TmdbClient {
     }
 
     public static String rootMessage(Throwable throwable) {
+        if (throwable == null)
+            return "Unknown Error";
         Throwable current = throwable;
         while (current.getCause() != null)
             current = current.getCause();
