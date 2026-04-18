@@ -17,34 +17,34 @@ import java.time.Duration;
 @Configuration
 public class RateLimitConfig {
 
-    // Create a ProxyManager for the rate limit filter
-    @Bean
-    public LettuceBasedProxyManager<String> rateLimitProxyManager(LettuceConnectionFactory factory) {
-        Object nativeClient = factory.getNativeClient();
-        RedisCodec<String, byte[]> codec = RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE);
-        ExpirationAfterWriteStrategy expiry = ExpirationAfterWriteStrategy
-                .basedOnTimeForRefillingBucketUpToMax(Duration.ofSeconds(10));
+        // Create a ProxyManager for the rate limit filter
+        @Bean
+        public LettuceBasedProxyManager<String> rateLimitProxyManager(LettuceConnectionFactory factory) {
+                Object nativeClient = factory.getNativeClient();
+                RedisCodec<String, byte[]> codec = RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE);
+                ExpirationAfterWriteStrategy expiry = ExpirationAfterWriteStrategy
+                                .basedOnTimeForRefillingBucketUpToMax(Duration.ofSeconds(10));
 
-        // If the native client is a RedisClusterClient, create a ProxyManager for the
-        // rate limit filter
-        if (nativeClient instanceof RedisClusterClient clusterClient) {
-            return LettuceBasedProxyManager.builderFor(clusterClient.connect(codec))
-                    .withExpirationStrategy(expiry)
-                    .build();
+                // If the native client is a RedisClusterClient, create a ProxyManager for the
+                // rate limit filter
+                if (nativeClient instanceof RedisClusterClient clusterClient) {
+                        return LettuceBasedProxyManager.builderFor(clusterClient.connect(codec))
+                                        .withExpirationStrategy(expiry)
+                                        .build();
+                }
+
+                // If the native client is a RedisClient, create a ProxyManager for the rate
+                // limit filter
+                if (nativeClient instanceof RedisClient standaloneClient) {
+                        return LettuceBasedProxyManager.builderFor(standaloneClient.connect(codec))
+                                        .withExpirationStrategy(expiry)
+                                        .build();
+                }
+
+                // If the native client is not a RedisClient or RedisClusterClient, throw an
+                // exception
+                throw new IllegalStateException(
+                                "Unsupported Lettuce native client type [" + nativeClient.getClass().getName()
+                                                + "]. Expected RedisClient (standalone) or RedisClusterClient (cluster).");
         }
-
-        // If the native client is a RedisClient, create a ProxyManager for the rate
-        // limit filter
-        if (nativeClient instanceof RedisClient standaloneClient) {
-            return LettuceBasedProxyManager.builderFor(standaloneClient.connect(codec))
-                    .withExpirationStrategy(expiry)
-                    .build();
-        }
-
-        // If the native client is not a RedisClient or RedisClusterClient, throw an
-        // exception
-        throw new IllegalStateException(
-                "Unsupported Lettuce native client type [" + nativeClient.getClass().getName()
-                        + "]. Expected RedisClient (standalone) or RedisClusterClient (cluster).");
-    }
 }
