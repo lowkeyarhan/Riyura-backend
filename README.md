@@ -30,6 +30,10 @@ From managing trending banners and multi-provider stream URL resolution to synch
 
 The application follows a **Modular Monolith** architecture that emphasizes high cohesion and loose coupling. Internal structure is organized into distinct, feature-driven modules — each owning its own controllers, services, repositories, models, and DTOs — making the platform highly maintainable, testable, and primed for a seamless migration to microservices if scale demands it.
 
+### Dependency Inversion Principle (DIP)
+
+The backend strictly enforces the Dependency Inversion Principle (DIP) through **Port Interfaces**. Controllers never inject concrete service instances directly; they inject `*ServicePort` interfaces (e.g., `MovieServicePort`, `RecommendationServicePort`). This decoupling makes replacing service implementations and writing isolated unit tests nearly frictionless.
+
 ### Core Modules
 
 | Module       | Responsibility                                                                                                                                                                       |
@@ -62,6 +66,10 @@ The application follows a **Modular Monolith** architecture that emphasizes high
 ## Database & Persistence
 
 Riyura uses PostgreSQL as its primary relational store, managed through Spring Data JPA with Hibernate. The schema covers three core entities: **stream providers** (configures available streaming providers with per-media-type URL templates, quality, priority, and an active toggle), **watchlist** (persists user-saved content with a metadata snapshot including title, poster, release date, and vote), and **watch history** (records full playback events with streaming context — provider used, stream ID, episode info, watch duration, and an anime flag for UI hints).
+
+### Schema Safety (Production Hardening)
+
+To prevent accidental destructive changes in production environments, Hibernate is explicitly configured with `ddl-auto: validate`. Automated database migrations (e.g., via Flyway/Liquibase) or manual DBA overrides handle schema changes safely without allowing the ORM to drop tables automatically.
 
 ### Data Integrity
 
@@ -111,6 +119,10 @@ Content caches use `CacheStampedeGuard` and are keyed by their natural discrimin
 
 Beyond Spring Cache, Redis is also used directly for **watch party state** (via `RedisTemplate`). Party objects are serialized as JSON and stored with a fixed party TTL constant defined in `RedisConfig`. This keeps party state distributed and resilient without requiring an in-memory server-side session.
 
+### Redis Operational Safety (SCAN)
+
+Internal admin monitoring avoids using the blocking O(N) `KEYS *` command. Key iterations (e.g., in `CacheMonitorController`) use `SCAN` with `ScanOptions` to lazily and non-blockingly evaluate the data store, protecting the single-threaded Redis core from stalling under high capacity instances.
+
 ---
 
 ## Concurrency
@@ -140,7 +152,7 @@ This ensures WebSocket message handling inherits the same non-blocking scalabili
 
 ### Dedicated Virtual Thread Executors
 
-All services that use `CompletableFuture` for parallel API calls supply a **dedicated virtual thread executor** (`Executors.newVirtualThreadPerTaskExecutor()`) rather than relying on the `ForkJoinPool.commonPool()`. This prevents content API I/O from starving the shared pool used by framework internals and other CompletableFuture operations.
+All services that use `CompletableFuture` for parallel API calls supply a **dedicated virtual thread executor** (`Executors.newVirtualThreadPerTaskExecutor()`) rather than relying on the `ForkJoinPool.commonPool()`. This prevents content API I/O from starving the shared pool used by framework internals and other CompletableFuture operations. Manual thread pools are entirely stripped out. Furthermore, anywhere execution needs to pause (e.g. wait-loops inside `CacheStampedeGuard`), we use `Thread.sleep(Duration)` instead of `Thread.sleep(long)`. This explicitly instructs the JVM to park the virtual thread appropriately without pinning its underlying OS carrier thread.
 
 ### Parallel Content Fetching (CompletableFuture)
 
@@ -253,7 +265,7 @@ All controllers are annotated with `@Validated` to enable Jakarta Bean Validatio
 
 ### Global Exception Handling
 
-A centralized `@RestControllerAdvice` (`GlobalExceptionHandler`) intercepts all exceptions and returns a consistent JSON error response — preventing stack traces, internal class names, and other sensitive details from leaking to clients.
+Controllers are absolutely devoid of local `try-catch` blocks and manual error JSON constructions. A centralized `@RestControllerAdvice` (`GlobalExceptionHandler`) intercepts all exceptions and returns a consistent JSON `ApiErrorResponse` — seamlessly preventing stack traces, internal class names, and other sensitive details from leaking to clients while ensuring uniformity across the entire API.
 
 | Exception Type                        | HTTP Status | Behavior                                          |
 | ------------------------------------- | ----------- | ------------------------------------------------- |
@@ -431,6 +443,10 @@ The `errorMessage` field is omitted from JSON when `null` (healthy components) s
 
 The health endpoint falls under the **DEFAULT** rate-limit tier (100 req/min per client). It is exempt from the Redis fail-open concern because the health check itself reports Redis availability — a design that avoids a circular dependency where the rate limiter silently passes through while health falsely reports `UP`.
 
+### Actuator Lockdown
+
+To avoid inadvertently exposing internal infrastructure information, metrics, or JVM details, the Spring Boot Actuator is heavily restricted. In environments other than local dev, `management.endpoints.web.exposure.include` is hardcoded to `health` only.
+
 ### Frontend Integration (Conceptual)
 
 ```ts
@@ -520,6 +536,10 @@ server:
 ```
 
 This reduces payload sizes significantly for API responses, especially list-heavy endpoints like explore and search.
+
+### Centralized Configuration Properties
+
+Legacy scattered `@Value` injections are eradicated. Properties interact with `application.yaml` strictly through typesafe `@ConfigurationProperties` classes (like `TmdbProperties`). URL constructions and TMDB parameter concatenations are isolated inside structural builders such as `TmdbUrlBuilder` acting to replace vulnerable and messy `String.format()` blocks.
 
 ### SQL Logging Disabled
 
