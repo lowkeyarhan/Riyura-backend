@@ -3,7 +3,6 @@ package com.riyura.backend.modules.identity.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -13,7 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.riyura.backend.common.config.TmdbProperties;
+
 import com.riyura.backend.common.model.MediaType;
+import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.identity.dto.history.DeleteWatchHistoryRequest;
 import com.riyura.backend.modules.identity.dto.history.HistoryResponse;
@@ -30,29 +32,19 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class HistoryService {
+public class HistoryService implements com.riyura.backend.modules.identity.port.HistoryServicePort {
 
     private static final int MAX_HISTORY_SIZE = 1000;
     private static final int DEFAULT_PAGE_SIZE = 10;
 
     private final RestTemplate restTemplate;
     private final WatchHistoryRepository watchHistoryRepository;
-
-    // Dedicated virtual thread executor for TMDB API calls
-    private final Executor tmdbExecutor = Executors.newVirtualThreadPerTaskExecutor();
-
-    @Value("${tmdb.api-key}")
-    private String apiKey;
-
-    @Value("${tmdb.base-url}")
-    private String baseUrl;
+    private final TmdbProperties tmdbProperties;
 
     // Fetch the user's watch history with pagination
     // @Cacheable(value = "history", key = "#userId + ':' + #page", sync = true)
@@ -140,7 +132,9 @@ public class HistoryService {
             Integer episodeNumber) {
         try {
             if (type == MediaType.Movie) {
-                String url = String.format("%s/movie/%d?api_key=%s", baseUrl, id, apiKey);
+                String url = TmdbUrlBuilder.from(tmdbProperties)
+                        .path("/movie/" + id)
+                        .build();
                 return restTemplate.getForObject(url, TmdbMetadataDTO.class);
             } else {
                 if (seasonNumber == null || episodeNumber == null) {
@@ -148,14 +142,17 @@ public class HistoryService {
                             "season_number and episode_number are required for TV history");
                 }
 
-                String showUrl = String.format("%s/tv/%d?api_key=%s", baseUrl, id, apiKey);
-                String episodeUrl = String.format("%s/tv/%d/season/%d/episode/%d?api_key=%s",
-                        baseUrl, id, seasonNumber, episodeNumber, apiKey);
+                String showUrl = TmdbUrlBuilder.from(tmdbProperties)
+                        .path("/tv/" + id)
+                        .build();
+                String episodeUrl = TmdbUrlBuilder.from(tmdbProperties)
+                        .path("/tv/" + id + "/season/" + seasonNumber + "/episode/" + episodeNumber)
+                        .build();
 
                 CompletableFuture<TmdbMetadataDTO> showFuture = CompletableFuture
-                        .supplyAsync(() -> restTemplate.getForObject(showUrl, TmdbMetadataDTO.class), tmdbExecutor);
+                        .supplyAsync(() -> restTemplate.getForObject(showUrl, TmdbMetadataDTO.class));
                 CompletableFuture<TmdbMetadataDTO> episodeFuture = CompletableFuture
-                        .supplyAsync(() -> restTemplate.getForObject(episodeUrl, TmdbMetadataDTO.class), tmdbExecutor);
+                        .supplyAsync(() -> restTemplate.getForObject(episodeUrl, TmdbMetadataDTO.class));
 
                 TmdbMetadataDTO showData = showFuture.orTimeout(8, TimeUnit.SECONDS).join();
                 TmdbMetadataDTO episodeData = episodeFuture.orTimeout(8, TimeUnit.SECONDS).join();

@@ -3,20 +3,21 @@ package com.riyura.backend.modules.content.service.stream;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.riyura.backend.common.model.MediaType;
+import com.riyura.backend.common.config.TmdbProperties;
 import com.riyura.backend.common.service.TmdbClient;
+import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.common.util.GenreLike;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.stream.StreamProviderRequest;
-import com.riyura.backend.modules.content.dto.stream.StreamProviderResponse;
 import com.riyura.backend.modules.content.dto.stream.StreamUrlResponse;
+import com.riyura.backend.modules.content.model.StreamProvider;
+import com.riyura.backend.modules.content.port.StreamUrlServicePort;
 import com.riyura.backend.modules.content.repository.StreamProviderRepository;
 import com.riyura.backend.modules.identity.model.WatchHistory;
 import com.riyura.backend.modules.identity.repository.WatchHistoryRepository;
 import org.springframework.cache.annotation.Cacheable;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -26,26 +27,22 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class StreamUrlService {
+public class StreamUrlService implements StreamUrlServicePort {
 
     private final StreamProviderRepository streamProviderRepository;
     private final WatchHistoryRepository watchHistoryRepository;
     private final TmdbClient tmdbClient;
+    private final TmdbProperties tmdbProperties;
 
-    @Value("${tmdb.api-key}")
-    private String apiKey;
-
-    @Value("${tmdb.base-url}")
-    private String baseUrl;
-
+    @Override
     @Cacheable(value = "streamUrls", key = "#mediaType.name() + ':' + #request.tmdbId + ':' + #request.seasonNo + ':' + #request.episodeNo + ':' + #request.startAt", condition = "#userId == null", sync = true)
     public List<StreamUrlResponse> buildStreamUrls(StreamProviderRequest request, MediaType mediaType, UUID userId) {
-        List<StreamProviderResponse> providers = streamProviderRepository.findByIsActiveTrueOrderByPriorityAsc();
+        List<StreamProvider> providers = streamProviderRepository.findByIsActiveTrueOrderByPriorityAsc();
         List<StreamUrlResponse> results = new ArrayList<>();
         boolean isAnime = detectIsAnime(request.getTmdbId(), mediaType);
         Integer effectiveStartAt = resolveStartAt(request, mediaType, userId);
 
-        for (StreamProviderResponse provider : providers) {
+        for (StreamProvider provider : providers) {
             String template = resolveTemplate(provider, mediaType, isAnime);
             if (template == null)
                 continue;
@@ -86,7 +83,10 @@ public class StreamUrlService {
     private boolean detectIsAnime(long tmdbId, MediaType mediaType) {
         try {
             String path = mediaType == MediaType.Movie ? "movie" : "tv";
-            String url = String.format("%s/%s/%d?api_key=%s&language=en-US", baseUrl, path, tmdbId, apiKey);
+            String url = TmdbUrlBuilder.from(tmdbProperties)
+                    .path("/" + path + "/" + tmdbId)
+                    .param("language", "en-US")
+                    .build();
             TmdbMediaDetails details = tmdbClient.fetch(url, TmdbMediaDetails.class);
             return details != null && TmdbUtils.isAnime(details.getOriginalLanguage(), details.getGenres());
         } catch (Exception e) {
@@ -94,7 +94,7 @@ public class StreamUrlService {
         }
     }
 
-    private String resolveTemplate(StreamProviderResponse provider, MediaType mediaType, boolean isAnime) {
+    private String resolveTemplate(StreamProvider provider, MediaType mediaType, boolean isAnime) {
         if (isAnime) {
             String animeTemplate = provider.getAnimeTemplate();
             return animeTemplate != null ? animeTemplate : provider.getTvTemplate();

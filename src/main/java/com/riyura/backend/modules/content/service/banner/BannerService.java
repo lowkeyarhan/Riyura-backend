@@ -1,16 +1,18 @@
 package com.riyura.backend.modules.content.service.banner;
 
 import com.riyura.backend.common.config.CacheStampedeGuard;
+import com.riyura.backend.common.config.TmdbProperties;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.util.GenreMapper;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.common.service.TmdbClient;
+import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.modules.content.dto.banner.BannerResponse;
+import com.riyura.backend.modules.content.port.BannerServicePort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -21,21 +23,13 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class BannerService {
+public class BannerService implements BannerServicePort {
 
     private final TmdbClient tmdbClient;
     private final CacheStampedeGuard cacheStampedeGuard;
+    private final TmdbProperties tmdbProperties;
 
-    @Value("${tmdb.api-key}")
-    private String apiKey;
-
-    @Value("${tmdb.base-url}")
-    private String baseUrl;
-
-    @Value("${tmdb.image-base-url}")
-    private String imageBaseUrl;
-
-    // Fetches banner data for both movies and TV shows.
+    @Override
     public List<BannerResponse> getBannerData() {
         return cacheStampedeGuard.staleWhileRevalidate(
                 "banners",
@@ -52,17 +46,16 @@ public class BannerService {
                 });
     }
 
-    // Fetches top trending movies from TMDb and maps them to BannerResponse DTOs
     private List<BannerResponse> fetchTopMovies() {
-        return fetchAndMap(String.format("%s/trending/movie/week?api_key=%s", baseUrl, apiKey), MediaType.Movie);
+        String url = TmdbUrlBuilder.from(tmdbProperties).path("/trending/movie/week").build();
+        return fetchAndMap(url, MediaType.Movie);
     }
 
-    // Fetches top trending TV shows from TMDb and maps them to BannerResponse DTOs
     private List<BannerResponse> fetchTopTV() {
-        return fetchAndMap(String.format("%s/trending/tv/week?api_key=%s", baseUrl, apiKey), MediaType.TV);
+        String url = TmdbUrlBuilder.from(tmdbProperties).path("/trending/tv/week").build();
+        return fetchAndMap(url, MediaType.TV);
     }
 
-    // Helper method to fetch data from TMDb and map it to BannerResponse DTOs
     private List<BannerResponse> fetchAndMap(String url, MediaType type) {
         try {
             TmdbTrendingResponse response = tmdbClient.fetchWithRetry(url, TmdbTrendingResponse.class);
@@ -78,7 +71,6 @@ public class BannerService {
         }
     }
 
-    // Maps a TMDb item to a BannerResponse DTO, handling both movies and TV shows
     private BannerResponse mapItemToBanner(TmdbTrendingResponse.TmdbItem item, MediaType type) {
         BannerResponse model = new BannerResponse();
         model.setTmdbId(item.getId());
@@ -95,7 +87,7 @@ public class BannerService {
         model.setMediaType(type);
 
         if (item.getBackdropPath() != null)
-            model.setBackdropUrl(imageBaseUrl + item.getBackdropPath());
+            model.setBackdropUrl(tmdbProperties.imageBaseUrl() + item.getBackdropPath());
 
         List<Integer> ids = item.getGenreIds() != null ? item.getGenreIds() : Collections.emptyList();
         List<String> genreNames = ids.stream()

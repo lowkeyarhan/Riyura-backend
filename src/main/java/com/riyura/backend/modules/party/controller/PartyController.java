@@ -3,7 +3,7 @@ package com.riyura.backend.modules.party.controller;
 import com.riyura.backend.modules.party.dto.PartyCreateRequest;
 import com.riyura.backend.modules.party.dto.PartyStateResponse;
 import com.riyura.backend.modules.party.model.PartyState;
-import com.riyura.backend.modules.party.service.PartyService;
+import com.riyura.backend.modules.party.port.PartyServicePort;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +18,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PartyController {
 
-    private final PartyService partyService;
+    private final PartyServicePort partyService;
 
     // Create a new party. The creator becomes the host.
     @PostMapping("/create")

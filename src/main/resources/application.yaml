@@ -33,7 +33,7 @@ spring:
   # JPA Settings
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
@@ -48,7 +48,7 @@ tmdb:
 # Supabase Security Configuration
 supabase:
   jwt-secret: ${SUPABASE_JWT_SECRET}
-
+  issuer-uri: ${SUPABASE_ISSUER_URI:https://placeholder.supabase.co/auth/v1}
 # Application security configuration
 riyura:
   security:
@@ -118,7 +118,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus,metrics,caches
+        include: health
   endpoint:
     health:
       show-details: always

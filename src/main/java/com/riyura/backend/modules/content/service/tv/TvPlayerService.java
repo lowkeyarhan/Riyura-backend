@@ -3,20 +3,21 @@ package com.riyura.backend.modules.content.service.tv;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.riyura.backend.common.config.TmdbProperties;
 import com.riyura.backend.common.service.TmdbClient;
+import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.tv.TvPlayerResponse;
 import com.riyura.backend.modules.content.dto.tv.TvShowDetails;
 import com.riyura.backend.modules.content.model.Episode;
 import com.riyura.backend.modules.content.model.Season;
+import com.riyura.backend.modules.content.port.TvPlayerServicePort;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -25,26 +26,24 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class TvPlayerService {
+public class TvPlayerService implements TvPlayerServicePort {
 
     private final TmdbClient tmdbClient;
-    private final Executor tmdbExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    private final TmdbProperties tmdbProperties;
 
-    @Value("${tmdb.api-key}")
-    private String apiKey;
-
-    @Value("${tmdb.base-url}")
-    private String baseUrl;
-
-    @org.springframework.cache.annotation.Cacheable(value = "tvPlayer", key = "#id", sync = true)
+    @Override
+    @Cacheable(value = "tvPlayer", key = "#id", sync = true)
     public TvPlayerResponse getTvPlayer(String id) {
-        String detailsUrl = String.format("%s/tv/%s?api_key=%s&language=en-US", baseUrl, id, apiKey);
+        String detailsUrl = TmdbUrlBuilder.from(tmdbProperties)
+                .path("/tv/" + id)
+                .param("language", "en-US")
+                .build();
 
         try {
             TvShowDetails details = tmdbClient.fetchWithRetry(detailsUrl, TvShowDetails.class);
             return details == null ? null : mapToPlayerResponse(id, details);
         } catch (Exception e) {
-            log.error("Error fetching TV player payload for ID {}: {}", id, TmdbClient.rootMessage(e));
+            log.error("Error fetching TV player payload for ID {}: {}", id, e.getMessage());
             return null;
         }
     }
@@ -61,8 +60,6 @@ public class TvPlayerService {
         return response;
     }
 
-    // Fetch each season's episodes in parallel and merge them into the Season
-    // models.
     private List<Season> fetchSeasonsWithEpisodes(String tvId, List<Season> seasons) {
         if (seasons == null)
             return List.of();
@@ -74,7 +71,7 @@ public class TvPlayerService {
 
         List<CompletableFuture<Season>> futures = filteredSeasons.stream()
                 .map(season -> CompletableFuture
-                        .supplyAsync(() -> fetchSeasonWithEpisodes(tvId, season), tmdbExecutor)
+                        .supplyAsync(() -> fetchSeasonWithEpisodes(tvId, season))
                         .orTimeout(8, TimeUnit.SECONDS))
                 .toList();
 
@@ -83,21 +80,20 @@ public class TvPlayerService {
 
     private Season fetchSeasonWithEpisodes(String tvId, Season season) {
         try {
-            String url = String.format("%s/tv/%s/season/%d?api_key=%s&language=en-US",
-                    baseUrl, tvId, season.getSeasonNumber(), apiKey);
+            String url = TmdbUrlBuilder.from(tmdbProperties)
+                    .path("/tv/" + tvId + "/season/" + season.getSeasonNumber())
+                    .param("language", "en-US")
+                    .build();
             SeasonDetails fetched = tmdbClient.fetchWithRetry(url, SeasonDetails.class);
             if (fetched != null && fetched.getEpisodes() != null) {
                 season.setEpisodes(fetched.getEpisodes());
             }
         } catch (Exception e) {
-            // Non-critical — season returns without episodes rather than failing the whole
-            // request
             log.warn("Could not fetch episodes for season {}: {}", season.getSeasonNumber(), e.getMessage());
         }
         return season;
     }
 
-    // Minimal response shape from TMDB's /tv/{id}/season/{season_number} endpoint.
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
     private static class SeasonDetails {

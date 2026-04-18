@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class PartyService {
+public class PartyService implements com.riyura.backend.modules.party.port.PartyServicePort {
 
     private static final String KEY_PREFIX = "party:";
     private static final int MAX_CHAT_HISTORY = 50;

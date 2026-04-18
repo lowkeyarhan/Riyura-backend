@@ -1,7 +1,7 @@
 package com.riyura.backend.modules.content.controller;
 
 import com.riyura.backend.modules.content.dto.banner.BannerResponse;
-import com.riyura.backend.modules.content.service.banner.BannerService;
+import com.riyura.backend.modules.content.port.BannerServicePort;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +17,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class BannerController {
 
-    private final BannerService bannerService;
+    private final BannerServicePort bannerService;
 
     // Fetch banner content (trending movies + TV shows) and return as JSON
     @GetMapping

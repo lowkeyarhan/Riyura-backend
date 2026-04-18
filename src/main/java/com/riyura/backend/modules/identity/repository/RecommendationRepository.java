@@ -16,9 +16,6 @@ import java.util.UUID;
 public interface RecommendationRepository extends JpaRepository<Recommendation, RecommendationId> {
     List<Recommendation> findByUserIdOrderByGeneratedAtDesc(UUID userId);
 
-    // Bulk JPQL DELETE — avoids the load-then-remove pattern of derived deletes.
-    // clearAutomatically = true flushes the EntityManager cache so the subsequent
-    // saveAll() starts with a clean session.
     @Modifying(clearAutomatically = true)
     @Transactional
     @Query("DELETE FROM Recommendation r WHERE r.userId = :userId")

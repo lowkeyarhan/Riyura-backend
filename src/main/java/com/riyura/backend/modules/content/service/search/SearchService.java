@@ -2,16 +2,18 @@ package com.riyura.backend.modules.content.service.search;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.riyura.backend.common.config.CacheStampedeGuard;
+import com.riyura.backend.common.config.TmdbProperties;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
+import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.search.SearchResponse;
 import com.riyura.backend.modules.content.dto.search.SearchSortOrder;
+import com.riyura.backend.modules.content.port.SearchServicePort;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URLEncoder;
@@ -19,33 +21,20 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class SearchService {
+public class SearchService implements SearchServicePort {
 
     private static final int PAGE_SIZE = 15;
 
     private final TmdbClient tmdbClient;
     private final CacheStampedeGuard cacheStampedeGuard;
+    private final TmdbProperties tmdbProperties;
 
-    private final Executor searchExecutor = Executors.newVirtualThreadPerTaskExecutor();
-
-    @Value("${tmdb.api-key}")
-    private String apiKey;
-
-    @Value("${tmdb.base-url}")
-    private String baseUrl;
-
-    @Value("${tmdb.image-base-url}")
-    private String imageBaseUrl;
-
-    // Performs a search across movies, TV shows, and companies, combining results
-    // and sorting by rating. Returns a paginated slice.
+    @Override
     public List<SearchResponse> search(String query, int page, SearchSortOrder sortOrder) {
         if (query == null || query.trim().isEmpty())
             return Collections.emptyList();
@@ -53,16 +42,14 @@ public class SearchService {
         String normalizedQuery = query.trim().toLowerCase();
         String encodedQuery = URLEncoder.encode(query.trim(), StandardCharsets.UTF_8);
 
-        // Fetch the search results from the cache
         List<SearchResponse> allResults = cacheStampedeGuard.xfetch(
                 "searchResults:" + normalizedQuery, Duration.ofDays(1), 1.0,
                 () -> {
                     CompletableFuture<List<ScoredSearchResult>> multiTask = CompletableFuture
-                            .supplyAsync(() -> searchMulti(encodedQuery), searchExecutor);
+                            .supplyAsync(() -> searchMulti(encodedQuery));
                     CompletableFuture<List<ScoredSearchResult>> companyTask = CompletableFuture
-                            .supplyAsync(() -> searchByCompany(encodedQuery), searchExecutor);
+                            .supplyAsync(() -> searchByCompany(encodedQuery));
 
-                    // Combine the results from the company and multi search
                     Map<String, ScoredSearchResult> uniqueResults = new LinkedHashMap<>();
                     companyTask.orTimeout(8, TimeUnit.SECONDS).join()
                             .forEach(item -> uniqueResults.put(genKey(item.getResponse()), item));
@@ -80,8 +67,6 @@ public class SearchService {
             return Collections.emptyList();
         }
 
-        // Apply sort order before pagination (default to popularity desc if not
-        // specified)
         SearchSortOrder effectiveSort = sortOrder != null ? sortOrder : SearchSortOrder.POPULARITY_DESC;
         Comparator<SearchResponse> comparator = switch (effectiveSort) {
             case POPULARITY_ASC -> Comparator.comparingDouble(
@@ -97,7 +82,6 @@ public class SearchService {
         };
         List<SearchResponse> sorted = allResults.stream().sorted(comparator).toList();
 
-        // Paginate the sorted results
         int start = page * PAGE_SIZE;
         if (start >= sorted.size()) {
             return Collections.emptyList();
@@ -106,11 +90,14 @@ public class SearchService {
         return sorted.subList(start, end);
     }
 
-    // Performs a multi-search on TMDb and processes results to extract movies, TV
-    // shows, and top person for further discovery
     private List<ScoredSearchResult> searchMulti(String encodedQuery) {
-        String url = String.format("%s/search/multi?api_key=%s&language=en-US&query=%s&page=1&include_adult=false",
-                baseUrl, apiKey, encodedQuery);
+        String url = TmdbUrlBuilder.from(tmdbProperties)
+                .path("/search/multi")
+                .param("language", "en-US")
+                .param("query", encodedQuery)
+                .param("page", 1)
+                .param("include_adult", "false")
+                .build();
         try {
             TmdbTrendingResponse response = tmdbClient.fetchWithRetry(url, TmdbTrendingResponse.class);
             if (response == null || response.getResults() == null)
@@ -137,10 +124,12 @@ public class SearchService {
         }
     }
 
-    // Performs a search for companies matching the query and discovers content
-    // associated with the top company result
     private List<ScoredSearchResult> searchByCompany(String encodedQuery) {
-        String url = String.format("%s/search/company?api_key=%s&query=%s&page=1", baseUrl, apiKey, encodedQuery);
+        String url = TmdbUrlBuilder.from(tmdbProperties)
+                .path("/search/company")
+                .param("query", encodedQuery)
+                .param("page", 1)
+                .build();
         try {
             TmdbCompanySearchResponse response = tmdbClient.fetchWithRetry(url, TmdbCompanySearchResponse.class);
             if (response != null && response.getResults() != null && !response.getResults().isEmpty()) {
@@ -152,38 +141,39 @@ public class SearchService {
         return Collections.emptyList();
     }
 
-    // Helper methods to discover content based on person or company ID, fetching
-    // both movies and TV shows and combining results
     private List<ScoredSearchResult> discoverContentByPerson(Long personId) {
         return discoverContent("with_people", personId);
     }
 
-    // Helper method to discover content based on company ID
     private List<ScoredSearchResult> discoverContentByCompany(Long companyId) {
         return discoverContent("with_companies", companyId);
     }
 
-    // Core method to discover content based on a specific filter parameter (either
-    // person or company), fetching and mapping results to DTOs
     private List<ScoredSearchResult> discoverContent(String filterParam, Long id) {
         CompletableFuture<List<ScoredSearchResult>> movies = CompletableFuture.supplyAsync(() -> {
-            String url = String.format("%s/discover/movie?api_key=%s&language=en-US&sort_by=popularity.desc&%s=%d",
-                    baseUrl, apiKey, filterParam, id);
+            String url = TmdbUrlBuilder.from(tmdbProperties)
+                    .path("/discover/movie")
+                    .param("language", "en-US")
+                    .param("sort_by", "popularity.desc")
+                    .param(filterParam, id)
+                    .build();
             return fetchAndMap(url, MediaType.Movie);
-        }, searchExecutor);
+        });
         CompletableFuture<List<ScoredSearchResult>> tvShows = CompletableFuture.supplyAsync(() -> {
-            String url = String.format("%s/discover/tv?api_key=%s&language=en-US&sort_by=popularity.desc&%s=%d",
-                    baseUrl, apiKey, filterParam, id);
+            String url = TmdbUrlBuilder.from(tmdbProperties)
+                    .path("/discover/tv")
+                    .param("language", "en-US")
+                    .param("sort_by", "popularity.desc")
+                    .param(filterParam, id)
+                    .build();
             return fetchAndMap(url, MediaType.TV);
-        }, searchExecutor);
+        });
 
         List<ScoredSearchResult> combined = new ArrayList<>(movies.orTimeout(8, TimeUnit.SECONDS).join());
         combined.addAll(tvShows.orTimeout(8, TimeUnit.SECONDS).join());
         return combined;
     }
 
-    // Helper method to fetch data from TMDb and map it to ScoredSearchResult DTOs
-    // based on media type
     private List<ScoredSearchResult> fetchAndMap(String url, MediaType forcedType) {
         try {
             TmdbTrendingResponse response = tmdbClient.fetchWithRetry(url, TmdbTrendingResponse.class);
@@ -198,14 +188,10 @@ public class SearchService {
         }
     }
 
-    // Validates that a TMDb item has the necessary data (like poster path) to be
-    // considered a valid search result
     private boolean isValidItem(TmdbTrendingResponse.TmdbItem item) {
         return item.getPosterPath() != null && !item.getPosterPath().isEmpty();
     }
 
-    // Maps a TMDb item to a SearchResponse DTO, handling both movies and TV shows
-    // and applying the forced media type if provided
     private ScoredSearchResult mapItemToDto(TmdbTrendingResponse.TmdbItem item, MediaType forcedType) {
         SearchResponse dto = new SearchResponse();
         dto.setTmdbId(item.getId());
@@ -214,7 +200,7 @@ public class SearchService {
         dto.setPopularity(item.getVoteAverage());
 
         if (item.getPosterPath() != null)
-            dto.setPosterPath(imageBaseUrl + item.getPosterPath());
+            dto.setPosterPath(tmdbProperties.imageBaseUrl() + item.getPosterPath());
 
         MediaType type = forcedType;
         if (type == null && item.getMediaType() != null) {
@@ -236,22 +222,16 @@ public class SearchService {
         return new ScoredSearchResult(dto, item.getVoteAverage());
     }
 
-    // Generates a unique key for a SearchResponse based on its media type and TMDb
-    // ID to help with deduplication
     private String genKey(SearchResponse item) {
         return item.getMediaType() + "_" + item.getTmdbId();
     }
 
-    // Helper class to hold a SearchResponse along with its rating for sorting
-    // purposes
     @Data
     private static class ScoredSearchResult {
         private final SearchResponse response;
         private final Double rating;
     }
 
-    // Inner class to represent the company search response from TMDb, containing a
-    // list of company items
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
     private static class TmdbCompanySearchResponse {

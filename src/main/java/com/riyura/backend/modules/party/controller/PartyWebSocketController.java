@@ -6,7 +6,7 @@ import com.riyura.backend.modules.party.dto.SyncCommand;
 import com.riyura.backend.modules.party.model.PartyEvent;
 import com.riyura.backend.modules.party.model.PartyState;
 import com.riyura.backend.modules.party.security.WebSocketAuthInterceptor;
-import com.riyura.backend.modules.party.service.PartyService;
+import com.riyura.backend.modules.party.port.PartyServicePort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -24,7 +24,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PartyWebSocketController {
 
-    private final PartyService partyService;
+    private final PartyServicePort partyService;
     private final SimpMessagingTemplate messaging;
 
     // Join a party and broadcast the updated participant list to all members

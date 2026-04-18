@@ -3,13 +3,16 @@ package com.riyura.backend.modules.content.service.movie;
 import java.util.List;
 import java.util.Objects;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.riyura.backend.common.config.TmdbProperties;
 import com.riyura.backend.common.service.TmdbClient;
+import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.movie.MovieDetail;
 import com.riyura.backend.modules.content.dto.movie.MoviePlayerResponse;
+import org.springframework.cache.annotation.Cacheable;
+import com.riyura.backend.modules.content.port.MoviePlayerServicePort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,33 +20,28 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class MoviePlayerService {
+public class MoviePlayerService implements MoviePlayerServicePort {
 
     private final TmdbClient tmdbClient;
+    private final TmdbProperties tmdbProperties;
 
-    @Value("${tmdb.api-key}")
-    private String apiKey;
-
-    @Value("${tmdb.base-url}")
-    private String baseUrl;
-
-    // Fetches the necessary information to play a movie, including its title,
-    // overview,
-    @org.springframework.cache.annotation.Cacheable(value = "moviePlayer", key = "#id", sync = true)
+    @Override
+    @Cacheable(value = "moviePlayer", key = "#id", sync = true)
     public MoviePlayerResponse getMoviePlayer(String id) {
-        String detailsUrl = String.format("%s/movie/%s?api_key=%s&language=en-US", baseUrl, id, apiKey);
+        String detailsUrl = TmdbUrlBuilder.from(tmdbProperties)
+                .path("/movie/" + id)
+                .param("language", "en-US")
+                .build();
 
         try {
             MovieDetail details = tmdbClient.fetchWithRetry(detailsUrl, MovieDetail.class);
             return details == null ? null : mapToPlayerResponse(details);
         } catch (Exception e) {
-            log.error("Error fetching movie player payload for ID {}: {}", id, TmdbClient.rootMessage(e));
+            log.error("Error fetching movie player payload for ID {}: {}", id, e.getMessage());
             return null;
         }
     }
 
-    // Maps MovieDetail to MoviePlayerResponse, extracting genres and determining if
-    // it's an anime
     private MoviePlayerResponse mapToPlayerResponse(MovieDetail details) {
         MoviePlayerResponse response = new MoviePlayerResponse();
         response.setTmdbId(details.getTmdbId());

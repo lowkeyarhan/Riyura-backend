@@ -19,7 +19,7 @@ import java.util.Map;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class HealthService {
+public class HealthService implements com.riyura.backend.common.port.HealthServicePort {
 
     private static final String DB_PROBE_QUERY = "SELECT 1";
     private static final String REDIS_PING_RESPONSE = "PONG";

@@ -21,7 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.modules.identity.dto.watchlist.WatchlistRequest;
-import com.riyura.backend.modules.identity.service.WatchlistService;
+import com.riyura.backend.modules.identity.port.WatchlistServicePort;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +31,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class WatchlistController {
 
-    private final WatchlistService watchlistService;
+    private final WatchlistServicePort watchlistService;
 
     // Fetch the user's watchlist, ordered by most recent
     @GetMapping

@@ -1,7 +1,7 @@
 package com.riyura.backend.modules.content.controller;
 
 import com.riyura.backend.modules.content.dto.explore.ExploreResponse;
-import com.riyura.backend.modules.content.service.explore.ExploreService;
+import com.riyura.backend.modules.content.port.ExploreServicePort;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -20,7 +20,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ExploreController {
 
-    private final ExploreService exploreService;
+    private final ExploreServicePort exploreService;
 
     // Handle explore requests from the frontend
     @GetMapping

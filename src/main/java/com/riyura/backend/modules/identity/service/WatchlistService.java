@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class WatchlistService {
+public class WatchlistService implements com.riyura.backend.modules.identity.port.WatchlistServicePort {
 
     private static final int MAX_WATCHLIST_SIZE = 500;
     private static final int DEFAULT_PAGE_SIZE = 10;

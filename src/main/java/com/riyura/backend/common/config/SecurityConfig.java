@@ -3,6 +3,7 @@ package com.riyura.backend.common.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -13,14 +14,11 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import javax.crypto.spec.SecretKeySpec;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 
@@ -31,8 +29,17 @@ public class SecurityConfig {
         @Value("${supabase.jwt-secret}")
         private String jwtSecret;
 
+        @Value("${supabase.issuer-url}")
+        private String issuerUrl;
+
         @Value("${app.frontend-url}")
         private String frontendUrl;
+
+        private final Environment environment;
+
+        public SecurityConfig(Environment environment) {
+                this.environment = environment;
+        }
 
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -58,10 +65,18 @@ public class SecurityConfig {
                                                                 "/api/search/**",
                                                                 "/api/anime/**",
                                                                 "/api/explore/**",
-                                                                "/api/test/**",
-                                                                "/actuator/**",
                                                                 "/ws/**")
                                                 .permitAll()
+
+                                                // Testing endpoints — only in dev profile
+                                                .requestMatchers("/api/test/**")
+                                                .permitAll()
+
+                                                // Actuator — allow health, restrict the rest
+                                                .requestMatchers("/actuator/health", "/actuator/health/**")
+                                                .permitAll()
+                                                .requestMatchers("/actuator/**")
+                                                .authenticated()
 
                                                 // Protected Endpoints
                                                 .requestMatchers(
@@ -92,42 +107,28 @@ public class SecurityConfig {
 
         @Bean
         public JwtDecoder jwtDecoder() {
-                // 1. Supabase JWT secret - use it directly as bytes
                 byte[] keyBytes = jwtSecret.getBytes();
-
-                // 2. Create the SecretKeySpec using HMAC SHA256
                 SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "HmacSHA256");
 
-                // 3. Build the decoder with HS256 algorithm
                 NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(secretKey)
                                 .macAlgorithm(MacAlgorithm.HS256)
                                 .build();
 
-                // 4. For Supabase, only validate signature and timestamps, skip issuer
-                // validation
-                OAuth2TokenValidator<Jwt> validator = JwtValidators
-                                .createDefaultWithIssuer("https://jlfcixnfwvyyltasemke.supabase.co/auth/v1");
+                // Issuer URL is now configurable via application.yaml
+                OAuth2TokenValidator<Jwt> validator = JwtValidators.createDefaultWithIssuer(issuerUrl);
                 decoder.setJwtValidator(validator);
 
                 return decoder;
         }
 
-        @Bean
-        public RestTemplate restTemplate() {
-                java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
-                                .connectTimeout(Duration.ofSeconds(5))
-                                .build();
-                JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
-                factory.setReadTimeout(Duration.ofSeconds(10));
-                return new RestTemplate(factory);
-        }
-
         private List<String> buildAllowedOrigins() {
-                // Always allow localhost for development
-                if (frontendUrl.contains("localhost")) {
+                boolean isDev = Arrays.asList(environment.getActiveProfiles()).contains("dev")
+                                || frontendUrl.contains("localhost");
+
+                if (isDev) {
                         return Arrays.asList("http://localhost:3000", "http://localhost:8080");
                 }
-                // In production, allow both the configured frontend URL and localhost for dev
-                return Arrays.asList(frontendUrl, "http://localhost:3000", "http://localhost:8080");
+                // Production: only the configured frontend URL
+                return List.of(frontendUrl);
         }
 }

@@ -1,18 +1,20 @@
 package com.riyura.backend.modules.content.service.tv;
 
 import com.riyura.backend.common.config.CacheStampedeGuard;
+import com.riyura.backend.common.config.TmdbProperties;
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
+import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.global.CastResponse;
 import com.riyura.backend.modules.content.dto.tv.TvShowDetails;
+import com.riyura.backend.modules.content.port.TvDetailsServicePort;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -20,51 +22,43 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class TvDetailsService {
+public class TvDetailsService implements TvDetailsServicePort {
 
     private static final int SIMILAR_LIMIT = 6;
 
     private final TmdbClient tmdbClient;
     private final CacheStampedeGuard cacheStampedeGuard;
-    private final Executor tmdbExecutor = Executors.newVirtualThreadPerTaskExecutor();
+    private final TmdbProperties tmdbProperties;
 
-    @Value("${tmdb.api-key}")
-    private String apiKey;
-
-    @Value("${tmdb.base-url}")
-    private String baseUrl;
-
-    @Value("${tmdb.image-base-url}")
-    private String imageBaseUrl;
-
-    // Fetches detailed information about a TV show, including its cast and whether
-    // it's an anime.
+    @Override
     public TvShowDetails getTvDetails(String id) {
         return cacheStampedeGuard.xfetch(
                 "tvDetails:" + id, Duration.ofDays(7), 1.5,
                 () -> {
-                    String detailsUrl = String.format(
-                            "%s/tv/%s?api_key=%s&language=en-US", baseUrl, id, apiKey);
-                    String creditsUrl = String.format(
-                            "%s/tv/%s/credits?api_key=%s&language=en-US", baseUrl, id, apiKey);
+                    String detailsUrl = TmdbUrlBuilder.from(tmdbProperties)
+                            .path("/tv/" + id)
+                            .param("language", "en-US")
+                            .build();
+                    String creditsUrl = TmdbUrlBuilder.from(tmdbProperties)
+                            .path("/tv/" + id + "/credits")
+                            .param("language", "en-US")
+                            .build();
                     try {
                         CompletableFuture<TvShowDetails> detailsTask = CompletableFuture
-                                .supplyAsync(() -> tmdbClient.fetchWithRetry(detailsUrl, TvShowDetails.class),
-                                        tmdbExecutor);
+                                .supplyAsync(() -> tmdbClient.fetchWithRetry(detailsUrl, TvShowDetails.class));
                         CompletableFuture<CreditsResponse> creditsTask = CompletableFuture.supplyAsync(() -> {
                             try {
                                 return tmdbClient.fetchWithRetry(creditsUrl, CreditsResponse.class);
                             } catch (Exception e) {
                                 return null;
                             }
-                        }, tmdbExecutor);
+                        });
+
                         TvShowDetails details = detailsTask.orTimeout(8, TimeUnit.SECONDS).join();
                         CreditsResponse credits = creditsTask.orTimeout(8, TimeUnit.SECONDS).join();
                         if (details != null) {
@@ -76,25 +70,28 @@ public class TvDetailsService {
                         }
                         return details;
                     } catch (Exception e) {
-                        log.error("Error fetching TV details for ID {}: {}", id, TmdbClient.rootMessage(e));
+                        log.error("Error fetching TV details for ID {}: {}", id, e.getMessage());
                         return null;
                     }
                 });
     }
 
-    // Fetches similar TV shows based on a given TV show ID, sorted by rating and
-    // limited to a certain number
+    @Override
     public List<MediaGridResponse> getSimilarTvShows(String id) {
         return cacheStampedeGuard.xfetch(
                 "tvSimilar:" + id, Duration.ofDays(7), 1.0,
                 () -> {
-                    String similarUrl = String.format(
-                            "%s/tv/%s/similar?api_key=%s&language=en-US&page=1", baseUrl, id, apiKey);
+                    String similarUrl = TmdbUrlBuilder.from(tmdbProperties)
+                            .path("/tv/" + id + "/similar")
+                            .param("language", "en-US")
+                            .param("page", 1)
+                            .build();
                     try {
                         TmdbTrendingResponse response = tmdbClient.fetchWithRetry(similarUrl,
                                 TmdbTrendingResponse.class);
                         if (response == null || response.getResults() == null)
                             return Collections.emptyList();
+
                         return response.getResults().stream()
                                 .sorted(Comparator.comparing(TmdbTrendingResponse.TmdbItem::getVoteAverage,
                                         Comparator.nullsLast(Comparator.reverseOrder())))
@@ -102,13 +99,12 @@ public class TvDetailsService {
                                 .map(this::mapSimilarTvToDTO)
                                 .toList();
                     } catch (Exception e) {
-                        log.error("Error fetching similar TV shows for ID {}: {}", id, TmdbClient.rootMessage(e));
+                        log.error("Error fetching similar TV shows for ID {}: {}", id, e.getMessage());
                         return Collections.emptyList();
                     }
                 });
     }
 
-    // Maps a TMDb item to a MediaGridResponse DTO for similar TV shows
     private MediaGridResponse mapSimilarTvToDTO(TmdbTrendingResponse.TmdbItem item) {
         MediaGridResponse dto = new MediaGridResponse();
         dto.setTmdbId(item.getId());
@@ -116,13 +112,11 @@ public class TvDetailsService {
         dto.setYear(TmdbUtils.extractYear(item.getFirstAirDate()));
         dto.setMediaType(MediaType.TV);
         if (item.getPosterPath() != null && !item.getPosterPath().isEmpty()) {
-            dto.setPosterUrl(imageBaseUrl + item.getPosterPath());
+            dto.setPosterUrl(tmdbProperties.imageBaseUrl() + item.getPosterPath());
         }
         return dto;
     }
 
-    // Fetches search results for a TV show by its ID, including both movies and TV
-    // shows that match the ID as a filter
     @Data
     private static class CreditsResponse {
         private List<CastResponse> cast;

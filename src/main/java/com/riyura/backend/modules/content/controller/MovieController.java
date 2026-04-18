@@ -6,10 +6,10 @@ import com.riyura.backend.modules.content.dto.movie.MovieDetail;
 import com.riyura.backend.modules.content.dto.movie.MoviePlayerResponse;
 import com.riyura.backend.modules.content.dto.stream.StreamProviderRequest;
 import com.riyura.backend.modules.content.dto.stream.StreamUrlResponse;
-import com.riyura.backend.modules.content.service.movie.MovieDetailService;
-import com.riyura.backend.modules.content.service.movie.MoviePlayerService;
-import com.riyura.backend.modules.content.service.movie.MovieService;
-import com.riyura.backend.modules.content.service.stream.StreamUrlService;
+import com.riyura.backend.modules.content.port.MovieServicePort;
+import com.riyura.backend.modules.content.port.MovieDetailServicePort;
+import com.riyura.backend.modules.content.port.MoviePlayerServicePort;
+import com.riyura.backend.modules.content.port.StreamUrlServicePort;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -33,10 +33,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class MovieController {
 
-    private final MovieService movieService;
-    private final MovieDetailService movieDetailsService;
-    private final MoviePlayerService moviePlayerService;
-    private final StreamUrlService streamUrlService;
+    private final MovieServicePort movieService;
+    private final MovieDetailServicePort movieDetailsService;
+    private final MoviePlayerServicePort moviePlayerService;
+    private final StreamUrlServicePort streamUrlService;
 
     // Get Now Playing Movies with a limit (e.g., top 12)
     @GetMapping("/now-playing")

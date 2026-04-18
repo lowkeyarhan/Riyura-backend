@@ -87,7 +87,7 @@ public class CacheStampedeGuard {
 
             // Another thread won the lock — wait and retry until the cache is populated
             try {
-                Thread.sleep(50);
+                Thread.sleep(java.time.Duration.ofMillis(50));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return null;
@@ -137,7 +137,7 @@ public class CacheStampedeGuard {
 
             // Another thread won the lock — wait and retry until the cache is populated
             try {
-                Thread.sleep(50);
+                Thread.sleep(java.time.Duration.ofMillis(50));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return null;

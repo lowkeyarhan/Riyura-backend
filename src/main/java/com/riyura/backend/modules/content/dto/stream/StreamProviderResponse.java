@@ -1,53 +1,39 @@
 package com.riyura.backend.modules.content.dto.stream;
 
-import jakarta.persistence.*;
+import com.riyura.backend.modules.content.model.StreamProvider;
+import lombok.Builder;
 import lombok.Data;
-import java.time.OffsetDateTime;
 
+/**
+ * API DTO for stream provider data.
+ * Stripped of JPA annotations — the entity is {@link StreamProvider}.
+ */
 @Data
-@Entity
-@Table(name = "stream_providers")
+@Builder
 public class StreamProviderResponse {
 
-    @Id
-    @Column(name = "provider_id", unique = true, nullable = false)
     private String providerId;
-
-    @Column(name = "provider_name", nullable = false)
     private String providerName;
-
-    @Column(name = "movie_template")
     private String movieTemplate;
-
-    @Column(name = "tv_template")
     private String tvTemplate;
-
-    @Column(name = "anime_template")
     private String animeTemplate;
-
-    @Column(nullable = false)
     private String quality;
-
-    @Column(nullable = false)
     private Integer priority;
-
-    @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 
-    @Column(name = "created_at")
-    private OffsetDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private OffsetDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = OffsetDateTime.now();
-        updatedAt = OffsetDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = OffsetDateTime.now();
+    /**
+     * Maps the JPA entity to this DTO.
+     */
+    public static StreamProviderResponse from(StreamProvider entity) {
+        return StreamProviderResponse.builder()
+                .providerId(entity.getProviderId())
+                .providerName(entity.getProviderName())
+                .movieTemplate(entity.getMovieTemplate())
+                .tvTemplate(entity.getTvTemplate())
+                .animeTemplate(entity.getAnimeTemplate())
+                .quality(entity.getQuality())
+                .priority(entity.getPriority())
+                .isActive(entity.getIsActive())
+                .build();
     }
 }

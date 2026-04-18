@@ -6,10 +6,10 @@ import com.riyura.backend.modules.content.dto.stream.StreamProviderRequest;
 import com.riyura.backend.modules.content.dto.stream.StreamUrlResponse;
 import com.riyura.backend.modules.content.dto.tv.TvPlayerResponse;
 import com.riyura.backend.modules.content.dto.tv.TvShowDetails;
-import com.riyura.backend.modules.content.service.stream.StreamUrlService;
-import com.riyura.backend.modules.content.service.tv.TvDetailsService;
-import com.riyura.backend.modules.content.service.tv.TvPlayerService;
-import com.riyura.backend.modules.content.service.tv.TvService;
+import com.riyura.backend.modules.content.port.StreamUrlServicePort;
+import com.riyura.backend.modules.content.port.TvDetailsServicePort;
+import com.riyura.backend.modules.content.port.TvPlayerServicePort;
+import com.riyura.backend.modules.content.port.TvServicePort;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -32,10 +32,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TvController {
 
-    private final TvService tvService;
-    private final TvDetailsService tvDetailsService;
-    private final TvPlayerService tvPlayerService;
-    private final StreamUrlService streamUrlService;
+    private final TvServicePort tvService;
+    private final TvDetailsServicePort tvDetailsService;
+    private final TvPlayerServicePort tvPlayerService;
+    private final StreamUrlServicePort streamUrlService;
 
     // Get Airing Today TV Shows (Now Playing) with a limit (e.g., top 12)
     @GetMapping("/now-playing")

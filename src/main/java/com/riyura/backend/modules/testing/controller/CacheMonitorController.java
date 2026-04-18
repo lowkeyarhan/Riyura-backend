@@ -8,7 +8,9 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.ScanOptions;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -36,7 +38,7 @@ public class CacheMonitorController {
 
     @GetMapping(value = "/stats", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> getCacheStats() {
-        Set<String> allKeys = redisTemplate.keys("*");
+        Set<String> allKeys = scanKeys("*");
         if (allKeys == null)
             allKeys = Collections.emptySet();
 
@@ -69,7 +71,7 @@ public class CacheMonitorController {
 
     @DeleteMapping("/all")
     public ResponseEntity<Map<String, Object>> clearAll() {
-        Set<String> keys = redisTemplate.keys("*");
+        Set<String> keys = scanKeys("*");
         long cleared = 0;
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);
@@ -95,7 +97,7 @@ public class CacheMonitorController {
 
     @DeleteMapping("/pattern")
     public ResponseEntity<Map<String, Object>> clearPattern(@RequestParam String pattern) {
-        Set<String> keys = redisTemplate.keys(pattern);
+        Set<String> keys = scanKeys(pattern);
         long cleared = 0;
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);
@@ -107,8 +109,8 @@ public class CacheMonitorController {
     @GetMapping(value = "/value", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> getCacheValue(@RequestParam String key) {
         try {
-            byte[] rawBytes = redisTemplate.execute((RedisCallback<byte[]>) connection ->
-                    connection.stringCommands().get(key.getBytes(StandardCharsets.UTF_8)));
+            byte[] rawBytes = redisTemplate.execute((RedisCallback<byte[]>) connection -> connection.stringCommands()
+                    .get(key.getBytes(StandardCharsets.UTF_8)));
 
             if (rawBytes == null) {
                 return ResponseEntity.ok(Map.of("key", key, "found", false));
@@ -215,5 +217,22 @@ public class CacheMonitorController {
         if (ttlSeconds > 300L)
             return "warm";
         return "stale";
+    }
+
+    /**
+     * Uses Redis SCAN instead of KEYS to avoid blocking the server.
+     * SCAN iterates in batches, making it safe for production use.
+     */
+    private Set<String> scanKeys(String pattern) {
+        return redisTemplate.execute((RedisCallback<Set<String>>) connection -> {
+            Set<String> result = new LinkedHashSet<>();
+            ScanOptions options = ScanOptions.scanOptions().match(pattern).count(200).build();
+            try (Cursor<byte[]> cursor = connection.keyCommands().scan(options)) {
+                while (cursor.hasNext()) {
+                    result.add(new String(cursor.next(), StandardCharsets.UTF_8));
+                }
+            }
+            return result;
+        });
     }
 }

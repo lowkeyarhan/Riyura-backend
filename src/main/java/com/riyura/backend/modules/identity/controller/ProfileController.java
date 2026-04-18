@@ -21,8 +21,8 @@ import com.riyura.backend.modules.identity.dto.history.HistoryResponse;
 import com.riyura.backend.modules.identity.dto.history.HistoryRequest;
 import com.riyura.backend.modules.identity.dto.profile.OnboardRequest;
 import com.riyura.backend.modules.identity.model.UserProfile;
-import com.riyura.backend.modules.identity.service.HistoryService;
-import com.riyura.backend.modules.identity.service.ProfileService;
+import com.riyura.backend.modules.identity.port.HistoryServicePort;
+import com.riyura.backend.modules.identity.port.ProfileServicePort;
 
 import java.util.HashMap;
 import java.util.List;
@@ -35,8 +35,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProfileController {
 
-    private final HistoryService historyService;
-    private final ProfileService profileService;
+    private final HistoryServicePort historyService;
+    private final ProfileServicePort profileService;
 
     // Fetch the user's profile
     @GetMapping

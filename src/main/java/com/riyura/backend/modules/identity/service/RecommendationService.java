@@ -6,8 +6,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.genai.Client;
 import com.google.genai.ResponseStream;
 import com.google.genai.types.*;
+import com.riyura.backend.common.config.TmdbProperties;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
+import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.modules.identity.dto.recomendation.GeminiRecommendationItem;
 import com.riyura.backend.modules.identity.model.Recommendation;
 import com.riyura.backend.modules.identity.model.WatchHistory;
@@ -17,25 +19,23 @@ import com.riyura.backend.modules.identity.repository.WatchHistoryRepository;
 import com.riyura.backend.modules.identity.repository.WatchlistRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.HttpClientErrorException;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class RecommendationService {
+public class RecommendationService implements com.riyura.backend.modules.identity.port.RecommendationServicePort {
 
     private final RecommendationRepository recommendationRepo;
     private final WatchHistoryRepository historyRepo;
@@ -43,14 +43,11 @@ public class RecommendationService {
     private final GeminiApiKeyService apiKeyService;
     private final TmdbClient tmdbClient;
     private final TransactionTemplate transactionTemplate;
+    private final TmdbProperties tmdbProperties;
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    @Value("${tmdb.api.key}")
-    private String tmdbApiKey;
 
     private static final String GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
     private final Semaphore tmdbRateLimiter = new Semaphore(4);
-    private final ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     // Returns the recommendations for the user, if they exist in the database. If
     // they don't, it will generate new recommendations.
@@ -130,7 +127,7 @@ public class RecommendationService {
                 } catch (Exception e) {
                     log.error("Failed to save recommendations in background", e);
                 }
-            }, virtualThreadExecutor);
+            });
         }
 
         return results;
@@ -140,8 +137,7 @@ public class RecommendationService {
     private Map<Long, CandidateItem> buildCandidatePool(List<WatchHistory> seedHistory) {
         List<CompletableFuture<List<CandidateItem>>> futures = seedHistory.stream()
                 .map(h -> CompletableFuture.supplyAsync(
-                        () -> fetchTmdbRecommendations(h.getTmdbId(), h.getMediaType()),
-                        virtualThreadExecutor))
+                        () -> fetchTmdbRecommendations(h.getTmdbId(), h.getMediaType())))
                 .toList();
 
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
@@ -164,9 +160,11 @@ public class RecommendationService {
     // Calls TMDB /movie/{id}/recommendations or /tv/{id}/recommendations.
     private List<CandidateItem> fetchTmdbRecommendations(long tmdbId, MediaType mediaType) {
         String type = mediaType == MediaType.Movie ? "movie" : "tv";
-        String url = String.format(
-                "https://api.themoviedb.org/3/%s/%d/recommendations?api_key=%s&language=en-US&page=1",
-                type, tmdbId, tmdbApiKey);
+        String url = TmdbUrlBuilder.from(tmdbProperties)
+                .path("/" + type + "/" + tmdbId + "/recommendations")
+                .param("language", "en-US")
+                .param("page", 1)
+                .build();
 
         int maxAttempts = 3;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -384,7 +382,7 @@ public class RecommendationService {
 
     private void sleepUninterruptibly(long millis) {
         try {
-            Thread.sleep(millis);
+            Thread.sleep(Duration.ofMillis(millis));
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
         }

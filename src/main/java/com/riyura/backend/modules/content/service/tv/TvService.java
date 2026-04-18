@@ -1,15 +1,17 @@
 package com.riyura.backend.modules.content.service.tv;
 
 import com.riyura.backend.common.config.CacheStampedeGuard;
+import com.riyura.backend.common.config.TmdbProperties;
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
+import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.common.util.TmdbUtils;
+import com.riyura.backend.modules.content.port.TvServicePort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -19,63 +21,61 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class TvService {
+public class TvService implements TvServicePort {
 
     private final TmdbClient tmdbClient;
     private final CacheStampedeGuard cacheStampedeGuard;
+    private final TmdbProperties tmdbProperties;
     private static final int MAX_PAGES = 5;
 
-    @Value("${tmdb.api-key}")
-    private String apiKey;
-
-    @Value("${tmdb.base-url}")
-    private String baseUrl;
-
-    @Value("${tmdb.image-base-url}")
-    private String imageBaseUrl;
-
-    // Fetch the "Airing Today" TV shows, applying filters and caching results to
-    // prevent stampedes
+    @Override
     public List<MediaGridResponse> getAiringToday(int limit) {
         return cacheStampedeGuard.xfetch(
                 "tvAiringToday:" + limit, Duration.ofDays(1), 1.0,
                 () -> fetchAndMap(
-                        String.format("%s/tv/airing_today?api_key=%s&language=en-US", baseUrl, apiKey),
+                        TmdbUrlBuilder.from(tmdbProperties)
+                                .path("/tv/airing_today")
+                                .param("language", "en-US")
+                                .build(),
                         limit));
     }
 
-    // Fetch the "Trending This Week" TV shows, applying filters and caching results
-    // to prevent stampedes
+    @Override
     public List<MediaGridResponse> getTrendingTv(int limit) {
         return cacheStampedeGuard.xfetch(
                 "tvTrending:" + limit, Duration.ofDays(1), 1.0,
                 () -> fetchAndMap(
-                        String.format("%s/trending/tv/week?api_key=%s&language=en-US", baseUrl, apiKey),
+                        TmdbUrlBuilder.from(tmdbProperties)
+                                .path("/trending/tv/week")
+                                .param("language", "en-US")
+                                .build(),
                         limit));
     }
 
-    // Fetch the "Top Rated" TV shows, applying filters and caching results to
-    // prevent stampedes
+    @Override
     public List<MediaGridResponse> getPopularTv(int limit) {
         return cacheStampedeGuard.xfetch(
                 "tvPopular:" + limit, Duration.ofDays(1), 1.0,
                 () -> fetchAndMap(
-                        String.format("%s/tv/popular?api_key=%s&language=en-US", baseUrl, apiKey),
+                        TmdbUrlBuilder.from(tmdbProperties)
+                                .path("/tv/popular")
+                                .param("language", "en-US")
+                                .build(),
                         limit));
     }
 
-    // Fetch the "On The Air" TV shows, applying filters and caching results to
-    // prevent stampedes
+    @Override
     public List<MediaGridResponse> getOnTheAir(int limit) {
         return cacheStampedeGuard.xfetch(
                 "tvOnTheAir:" + limit, Duration.ofDays(1), 1.0,
                 () -> fetchAndMap(
-                        String.format("%s/tv/on_the_air?api_key=%s&language=en-US", baseUrl, apiKey),
+                        TmdbUrlBuilder.from(tmdbProperties)
+                                .path("/tv/on_the_air")
+                                .param("language", "en-US")
+                                .build(),
                         limit));
     }
 
-    // Helper method to fetch TV data from TMDB, apply filters, and map results to
-    // DTOs
     private List<MediaGridResponse> fetchAndMap(String baseEndpointUrl, int limit) {
         List<TmdbTrendingResponse.TmdbItem> collected = new ArrayList<>();
         int page = 1;
@@ -94,7 +94,6 @@ public class TvService {
                         .filter(item -> !TmdbUtils.isSoapOpera(item.getGenreIds()))
                         .forEach(collected::add);
 
-                // No more pages available from TMDB
                 if (page >= response.getTotalPages())
                     break;
 
@@ -117,7 +116,7 @@ public class TvService {
         dto.setTitle(item.getName());
         dto.setYear(TmdbUtils.extractYear(item.getFirstAirDate()));
         if (item.getPosterPath() != null)
-            dto.setPosterUrl(imageBaseUrl + item.getPosterPath());
+            dto.setPosterUrl(tmdbProperties.imageBaseUrl() + item.getPosterPath());
         dto.setMediaType(MediaType.TV);
         return dto;
     }

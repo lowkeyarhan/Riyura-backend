@@ -4,11 +4,6 @@ import com.riyura.backend.common.model.MediaType;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
-/**
- * Persists MediaType enum values as lowercase strings (e.g. "movie", "tv")
- * to satisfy the DB check constraint on all media_type columns.
- * Not auto-applied — must be declared explicitly with @Convert.
- */
 @Converter(autoApply = false)
 public class MediaTypeLowerCaseConverter implements AttributeConverter<MediaType, String> {
 

@@ -1,7 +1,7 @@
 package com.riyura.backend.modules.content.controller;
 
 import com.riyura.backend.common.dto.media.MediaGridResponse;
-import com.riyura.backend.modules.content.service.anime.AnimeService;
+import com.riyura.backend.modules.content.port.AnimeServicePort;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -20,7 +20,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AnimeController {
 
-    private final AnimeService animeService;
+    private final AnimeServicePort animeService;
 
     // Fetch Trending Anime (TV + Movies) - Combined & Sorted by Rating
     @GetMapping("/trending")

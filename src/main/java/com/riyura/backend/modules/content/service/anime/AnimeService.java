@@ -1,15 +1,17 @@
 package com.riyura.backend.modules.content.service.anime;
 
 import com.riyura.backend.common.config.CacheStampedeGuard;
+import com.riyura.backend.common.config.TmdbProperties;
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.dto.tmdb.TmdbTrendingResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
+import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.common.util.TmdbUtils;
+import com.riyura.backend.modules.content.port.AnimeServicePort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -23,21 +25,13 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class AnimeService {
+public class AnimeService implements AnimeServicePort {
 
     private final TmdbClient tmdbClient;
     private final CacheStampedeGuard cacheStampedeGuard;
+    private final TmdbProperties tmdbProperties;
 
-    @Value("${tmdb.api-key}")
-    private String apiKey;
-
-    @Value("${tmdb.base-url}")
-    private String baseUrl;
-
-    @Value("${tmdb.image-base-url}")
-    private String imageBaseUrl;
-
-    // Fetches trending anime and returns a list of MediaGridResponse DTOs
+    @Override
     public List<MediaGridResponse> getTrendingAnime(int limit) {
         return cacheStampedeGuard.xfetch(
                 "animeTrending:" + limit, Duration.ofDays(1), 1.0,
@@ -59,23 +53,30 @@ public class AnimeService {
                 });
     }
 
-    // Fetches trending anime TV shows from TMDb
     private List<AnimeHelper> fetchAnimeTv() {
-        String url = String.format(
-                "%s/discover/tv?api_key=%s&sort_by=popularity.desc&vote_count.gte=50&with_genres=16&with_original_language=ja&page=1",
-                baseUrl, apiKey);
+        String url = TmdbUrlBuilder.from(tmdbProperties)
+                .path("/discover/tv")
+                .param("sort_by", "popularity.desc")
+                .param("vote_count.gte", "50")
+                .param("with_genres", "16")
+                .param("with_original_language", "ja")
+                .param("page", 1)
+                .build();
         return fetchAndWrap(url, MediaType.TV);
     }
 
-    // Fetches anime movies from TMDb
     private List<AnimeHelper> fetchAnimeMovies() {
-        String url = String.format(
-                "%s/discover/movie?api_key=%s&sort_by=popularity.desc&vote_count.gte=50&with_genres=16&with_original_language=ja&page=1",
-                baseUrl, apiKey);
+        String url = TmdbUrlBuilder.from(tmdbProperties)
+                .path("/discover/movie")
+                .param("sort_by", "popularity.desc")
+                .param("vote_count.gte", "50")
+                .param("with_genres", "16")
+                .param("with_original_language", "ja")
+                .param("page", 1)
+                .build();
         return fetchAndWrap(url, MediaType.Movie);
     }
 
-    // Helper method to fetch data from TMDb and wrap it in AnimeHelper objects
     private List<AnimeHelper> fetchAndWrap(String url, MediaType type) {
         try {
             TmdbTrendingResponse response = tmdbClient.fetchWithRetry(url, TmdbTrendingResponse.class);
@@ -91,7 +92,6 @@ public class AnimeService {
         }
     }
 
-    // Maps an AnimeHelper object to a MediaGridResponse DTO
     private MediaGridResponse mapToDTO(AnimeHelper helper) {
         TmdbTrendingResponse.TmdbItem item = helper.tmdbItem;
         MediaGridResponse dto = new MediaGridResponse();
@@ -106,12 +106,11 @@ public class AnimeService {
         }
 
         if (item.getPosterPath() != null)
-            dto.setPosterUrl(imageBaseUrl + item.getPosterPath());
+            dto.setPosterUrl(tmdbProperties.imageBaseUrl() + item.getPosterPath());
         dto.setMediaType(helper.type);
         return dto;
     }
 
-    // Helper record to hold TMDb item and its media type for easier processing
     private record AnimeHelper(TmdbTrendingResponse.TmdbItem tmdbItem, MediaType type) {
     }
 }

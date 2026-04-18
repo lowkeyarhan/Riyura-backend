@@ -1,9 +1,9 @@
 package com.riyura.backend.modules.identity.controller;
 
+import com.riyura.backend.common.config.TmdbProperties;
 import com.riyura.backend.modules.identity.dto.recomendation.RecommendationsResponse;
-import com.riyura.backend.modules.identity.service.RecommendationService;
+import com.riyura.backend.modules.identity.port.RecommendationServicePort;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -18,10 +18,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RecommendationController {
 
-    private final RecommendationService recommendationService;
-
-    @Value("${tmdb.image-base-url}")
-    private String imageBaseUrl;
+    private final RecommendationServicePort recommendationService;
+    private final TmdbProperties tmdbProperties;
 
     @GetMapping
     public ResponseEntity<?> getRecommendations(
@@ -34,7 +32,7 @@ public class RecommendationController {
             List<RecommendationsResponse> recommendations = recommendationService
                     .getRecommendations(userId, refresh)
                     .stream()
-                    .map(r -> RecommendationsResponse.from(r, imageBaseUrl))
+                    .map(r -> RecommendationsResponse.from(r, tmdbProperties.imageBaseUrl()))
                     .toList();
 
             return ResponseEntity.ok(Map.of(

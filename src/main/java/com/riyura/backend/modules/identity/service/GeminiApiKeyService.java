@@ -13,7 +13,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class GeminiApiKeyService {
+public class GeminiApiKeyService implements com.riyura.backend.modules.identity.port.GeminiApiKeyServicePort {
 
     private final GeminiApiKeyRepository repository;
     private final EncryptionUtils encryptionUtils;

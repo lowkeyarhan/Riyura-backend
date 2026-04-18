@@ -1,6 +1,6 @@
 package com.riyura.backend.modules.identity.controller;
 
-import com.riyura.backend.modules.identity.service.GeminiApiKeyService;
+import com.riyura.backend.modules.identity.port.GeminiApiKeyServicePort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ApiKeyController {
 
-    private final GeminiApiKeyService apiKeyService;
+    private final GeminiApiKeyServicePort apiKeyService;
 
     // Retrieves the status of the API key for the authenticated user, including
     // whether it exists and a preview of the key.
