@@ -29,7 +29,7 @@ public class SecurityConfig {
         @Value("${supabase.jwt-secret}")
         private String jwtSecret;
 
-        @Value("${supabase.issuer-url}")
+        @Value("${supabase.issuer-uri}")
         private String issuerUrl;
 
         @Value("${app.frontend-url}")

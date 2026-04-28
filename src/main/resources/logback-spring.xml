@@ -5,26 +5,43 @@
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
     <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
 
-    <!-- Loki Appender -->
-    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
-        <http>
-            <url>http://localhost:3100/loki/api/v1/push</url>
-        </http>
-        <format>
-            <label>
-                <pattern>app=riyura-backend,host=${HOSTNAME},level=%level</pattern>
-            </label>
-            <message>
-                <pattern>${CONSOLE_LOG_PATTERN}</pattern>
-            </message>
-            <sortByTime>true</sortByTime>
-        </format>
-    </appender>
+    <!-- Loki Appender — only activated when LOKI_ENABLED=true (or profile "observability" is active).
+         If Loki is not running, omitting this appender prevents connection errors on every log line.
+         Set LOKI_URL to override the default (useful in Docker when Loki runs as a named service). -->
+    <springProperty scope="context" name="lokiEnabled"  source="loki.enabled"  defaultValue="false"/>
+    <springProperty scope="context" name="lokiUrl"      source="loki.url"      defaultValue="http://localhost:3100/loki/api/v1/push"/>
 
-    <!-- Root Logger -->
-    <root level="INFO">
-        <appender-ref ref="CONSOLE" />
-        <appender-ref ref="LOKI" />
-    </root>
+    <if condition='property("lokiEnabled").equalsIgnoreCase("true")'>
+        <then>
+            <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+                <http>
+                    <url>${lokiUrl}</url>
+                    <!-- Don't block the app if Loki is unavailable -->
+                    <connectionTimeoutMs>3000</connectionTimeoutMs>
+                    <requestTimeoutMs>5000</requestTimeoutMs>
+                </http>
+                <format>
+                    <label>
+                        <pattern>app=riyura-backend,host=${HOSTNAME},level=%level</pattern>
+                    </label>
+                    <message>
+                        <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+                    </message>
+                    <sortByTime>true</sortByTime>
+                </format>
+            </appender>
+
+            <root level="INFO">
+                <appender-ref ref="CONSOLE"/>
+                <appender-ref ref="LOKI"/>
+            </root>
+        </then>
+        <else>
+            <!-- Loki not enabled — log to console only -->
+            <root level="INFO">
+                <appender-ref ref="CONSOLE"/>
+            </root>
+        </else>
+    </if>
 
 </configuration>
