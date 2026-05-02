@@ -88,7 +88,7 @@ User-specific list endpoints (watchlist, watch history) are paginated using Spri
 
 ### Connection Pooling (HikariCP)
 
-Database connections are managed by HikariCP with a maximum pool size of **30**, minimum idle of **5**, a connection timeout of **5 s**, and a max lifetime of **30 min**. The pool is intentionally sized to complement virtual thread concurrency — virtual threads park during I/O rather than blocking OS threads, so the pool doesn't need to match thread counts, but is still tuned to prevent connection exhaustion under high parallelism.
+Database connections are managed by HikariCP with a maximum pool size of **10**, minimum idle of **5**, a connection timeout of **5 s**, and a max lifetime of **30 min**. The pool is intentionally downsized to fit low-spec VPS environments while complementing virtual thread concurrency. Additionally, core tables like `watchlist` and `watch_history` are optimized with B-Tree indexes on `user_id` to ensure O(log N) query performance as the user base grows.
 
 ---
 
@@ -109,11 +109,11 @@ Riyura uses **Redis** as its distributed cache, combining Spring's `@Cacheable` 
 
 ### Cache Strategy
 
-- **Serialization**: String keys with JSON values (`GenericJackson2JsonRedisSerializer`)
+- **Serialization**: String keys with JSON values. Uses `BasicPolymorphicTypeValidator` to strictly allowlist classes for safe polymorphic deserialization, mitigating RCE vulnerabilities.
 - **Null caching**: Disabled — absent values are never cached so transient errors don't poison the cache
-- **Background refresh pool**: Dedicated `cacheRefreshExecutor` (4–16 threads) for SWR background refreshes; `CallerRunsPolicy` provides back-pressure if the queue is full
+- **Background refresh pool**: Dedicated `cacheRefreshExecutor` (4–16 threads) for SWR background refreshes, explicitly using **Virtual Threads** to prevent carrier thread pinning. `CallerRunsPolicy` provides back-pressure if the queue is full
 
-Content caches use `CacheStampedeGuard` and are keyed by their natural discriminator (e.g. `limit`, `query`, `id`). User-specific caches (`watchlist`, `history`) use `@Cacheable` with `sync = true` and are keyed by `userId + ':' + page` for pagination-aware caching. Writes trigger `@CacheEvict(allEntries = true)` to invalidate all pages for the affected user, ensuring consistency after additions or deletions.
+Content caches use `CacheStampedeGuard` and are keyed by their natural discriminator (e.g. `limit`, `query`, `id`). User-specific caches (`watchlist`, `history`) use `@Cacheable` with `sync = true` and are keyed by `userId + ':' + page`. Writes trigger targeted `@CacheEvict` using specific user keys to invalidate only the affected user's data without wiping the entire cache.
 
 ### Redis Party State
 
@@ -181,23 +181,21 @@ Riyura features an intelligent, personalized recommendation engine powered by Go
 
 ### RAG Pipeline
 
-```
-1. RETRIEVE  — Fetch TMDB /recommendations for each of the user's 8 seed history items (parallel)
-               → builds a ~50-item candidate pool with full metadata (tmdb_id, title, year, etc.)
+1. RETRIEVE — Fetch TMDB /recommendations for each of the user's **3** seed history items in parallel using a dedicated virtual thread executor.
+   → builds a ~60-item candidate pool with full metadata (tmdb_id, title, year, etc.)
 
-2. AUGMENT   — Build a compact prompt: user's recent 8 watches + watchlist + the candidate pool
+2. AUGMENT — Build a compact prompt: user's recent watches + watchlist + the candidate pool
 
-3. GENERATE  — Gemini selects exactly 8 items from the pool and returns [{ tmdb_id, reason }]
-               Structured output schema enforces valid integer tmdb_ids — no hallucinations possible
+3. GENERATE — Gemini selects exactly 8 items from the pool and returns [{ tmdb_id, reason }]
+   Structured output schema enforces valid integer tmdb_ids — no hallucinations possible
 
-4. ENRICH    — Look up chosen tmdb_ids in the already-fetched pool map (O(1), zero extra calls)
+4. ENRICH — Look up chosen tmdb_ids in the already-fetched pool map (O(1), zero extra calls)
 
-5. SAVE      — Persist to PostgreSQL in the background (fire-and-forget)
-```
+5. SAVE — Persist to PostgreSQL in the background using virtual threads (fire-and-forget)
 
 ### Resilience & Rate Limit Protection
 
-- **TMDB rate limiting**: Candidate pool fetch is gated by `Semaphore(4)` — safe for personal API keys. 429 errors retry 3× with 1.5s/3s/4.5s exponential backoff per seed item; one failure doesn't block the rest.
+- **TMDB rate limiting**: Candidate pool fetch is gated by `Semaphore(20)` — optimized for high-concurrency fetching on virtual threads. 429 errors retry 3× with exponential backoff.
 - **Gemini retries**: Catches `503`, `429`, and read timeouts — retries 3× with exponential backoff. Hard client errors (400, 401, 403) are not retried.
 - **Hallucination-proof**: Gemini can only return `tmdb_id` values present in the pool. Any ID not found in the pool is silently skipped rather than crashing the batch.
 
@@ -248,7 +246,7 @@ Riyura uses **Spring Security** configured as an **OAuth2 Resource Server** with
 - **JWT subject**: Used as `userId` throughout the system (UUID format)
 - **CORS**: Configured globally via `SecurityConfig` using the `APP_FRONTEND_URL` environment variable — no per-controller `@CrossOrigin` annotations. Allowed headers are narrowed to `Authorization`, `Content-Type`, and `Accept`
 
-Content discovery endpoints (`/api/movies/**`, `/api/tv/**`, `/api/anime/**`, `/api/search/**`, `/api/banner/**`, `/api/explore/**`) are fully public. User-specific endpoints (`/api/profile/**`, `/api/watchlist/**`, `/api/party/**`) require a valid Supabase-issued JWT in the `Authorization` header. The WebSocket endpoint (`/ws/**`) is publicly reachable at the HTTP level, but authentication is enforced at the STOMP CONNECT frame by `WebSocketAuthInterceptor`.
+Content discovery endpoints (`/api/movies/**`, `/api/tv/**`, `/api/anime/**`, `/api/search/**`, `/api/banner/**`, `/api/explore/**`) are fully public. User-specific endpoints (`/api/profile/**`, `/api/watchlist/**`, `/api/party/**`) require a valid Supabase-issued JWT. Observability and testing endpoints (`/api/test/**`) are strictly restricted to `ROLE_ADMIN` in production, with the exception of `/api/test/health` which remains public for frontend status checks. The WebSocket endpoint (`/ws/**`) is publicly reachable at the HTTP level, but authentication is enforced at the STOMP CONNECT frame by `WebSocketAuthInterceptor`.
 
 ### Input Validation
 
@@ -374,7 +372,7 @@ Bucket4J's Lettuce integration issues async Redis commands via Lettuce's non-blo
 
 ## Health Check
 
-Riyura exposes a lightweight, **unauthenticated** liveness endpoint at `GET /api/health`. It is designed to be polled by the frontend immediately after a user lands on the login page — if the backend is unreachable or returns `503`, a downtime modal is shown before any auth flow is attempted.
+Riyura exposes a lightweight, **unauthenticated** liveness endpoint at `GET /api/test/health`. It is designed to be polled by the frontend immediately after a user lands on the login page — if the backend is unreachable or returns `503`, a downtime modal is shown before any auth flow is attempted.
 
 ### Probe Strategy
 
