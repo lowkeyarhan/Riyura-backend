@@ -17,7 +17,6 @@ import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
 @EnableCaching
@@ -132,11 +131,10 @@ public class CacheConfig {
     @Bean(name = "cacheRefreshExecutor")
     public Executor cacheRefreshExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(4);
-        executor.setMaxPoolSize(16);
-        executor.setQueueCapacity(200);
-        executor.setThreadNamePrefix("cache-refresh-");
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setThreadFactory(Thread.ofVirtual().name("cache-refresh-", 0).factory());
+        executor.setCorePoolSize(0);
+        executor.setMaxPoolSize(Integer.MAX_VALUE);
+        executor.setQueueCapacity(0);
         executor.initialize();
         return executor;
     }

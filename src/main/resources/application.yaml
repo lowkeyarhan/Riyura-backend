@@ -27,7 +27,7 @@ spring:
     # HikariCP Settings
     hikari:
       maximum-pool-size: 15
-      minimum-idle: 5
+      minimum-idle: 2
       idle-timeout: 30000
       max-lifetime: 1800000
       connection-timeout: 5000
@@ -115,8 +115,8 @@ server:
     mime-types: application/json,application/xml,text/html,text/plain
     min-response-size: 1024
   tomcat:
-    max-connections: 50000
-    accept-count: 2000
+    max-connections: 8192
+    accept-count: 100
     connection-timeout: 60000
 
 # Actuator & Prometheus Configuration

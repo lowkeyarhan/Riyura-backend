@@ -16,10 +16,12 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import com.riyura.backend.common.port.HealthServicePort;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class HealthService implements com.riyura.backend.common.port.HealthServicePort {
+public class HealthService implements HealthServicePort {
 
     private static final String DB_PROBE_QUERY = "SELECT 1";
     private static final String REDIS_PING_RESPONSE = "PONG";
@@ -73,11 +75,10 @@ public class HealthService implements com.riyura.backend.common.port.HealthServi
     // Probes Redis for liveness.
     private HealthComponentDetail probeRedis() {
         long start = System.currentTimeMillis();
-        try {
+        try (org.springframework.data.redis.connection.RedisConnection connection = stringRedisTemplate
+                .getConnectionFactory().getConnection()) {
             // If the Redis is reachable, the ping will return "PONG".
-            String pong = stringRedisTemplate.getConnectionFactory()
-                    .getConnection()
-                    .ping();
+            String pong = connection.ping();
             long latency = System.currentTimeMillis() - start;
             if (REDIS_PING_RESPONSE.equalsIgnoreCase(pong)) {
                 log.debug("Redis probe OK – {}ms", latency);

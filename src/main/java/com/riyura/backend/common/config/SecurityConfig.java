@@ -68,9 +68,11 @@ public class SecurityConfig {
                                                                 "/ws/**")
                                                 .permitAll()
 
-                                                // Testing endpoints — only in dev profile
-                                                .requestMatchers("/api/test/**")
+                                                // Testing endpoints — only for admins in production
+                                                .requestMatchers("/api/test/health")
                                                 .permitAll()
+                                                .requestMatchers("/api/test/**")
+                                                .hasAuthority("ROLE_ADMIN")
 
                                                 // Actuator — allow health, restrict the rest
                                                 .requestMatchers("/actuator/health", "/actuator/health/**")

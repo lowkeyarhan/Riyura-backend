@@ -6,26 +6,27 @@ import com.riyura.backend.modules.identity.dto.history.TmdbMetadataDTO;
 import com.riyura.backend.modules.identity.dto.watchlist.WatchlistRequest;
 import com.riyura.backend.modules.identity.model.Watchlist;
 import com.riyura.backend.modules.identity.repository.WatchlistRepository;
-
+import com.riyura.backend.modules.identity.port.WatchlistServicePort;
+import com.riyura.backend.common.config.TmdbProperties;
+import com.riyura.backend.common.service.TmdbClient;
+import com.riyura.backend.common.service.TmdbUrlBuilder;
+import com.riyura.backend.common.util.TmdbUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -33,22 +34,14 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class WatchlistService implements com.riyura.backend.modules.identity.port.WatchlistServicePort {
+public class WatchlistService implements WatchlistServicePort {
 
     private static final int MAX_WATCHLIST_SIZE = 500;
     private static final int DEFAULT_PAGE_SIZE = 10;
 
-    private final RestTemplate restTemplate;
     private final WatchlistRepository watchlistRepository;
-
-    @Value("${tmdb.api-key}")
-    private String apiKey;
-
-    @Value("${tmdb.base-url}")
-    private String baseUrl;
-
-    @Value("${tmdb.image-base-url}")
-    private String imageBaseUrl;
+    private final TmdbClient tmdbClient;
+    private final TmdbProperties tmdbProperties;
 
     // Fetches the user's watchlist, ordered by most recent first
     @Cacheable(value = "watchlist", key = "#userId + ':' + #page", sync = true)
@@ -69,7 +62,10 @@ public class WatchlistService implements com.riyura.backend.modules.identity.por
 
     // Adds a media item to the user's watchlist
     @Transactional
-    @CacheEvict(value = "watchlist", allEntries = true)
+    @Caching(evict = {
+            @CacheEvict(value = "watchlist", key = "#userId + ':0'"),
+            @CacheEvict(value = "watchlist", key = "#userId + ':1'")
+    })
     public Watchlist addToWatchlist(UUID userId, WatchlistRequest request) {
         try {
             // Check if already exists
@@ -106,7 +102,10 @@ public class WatchlistService implements com.riyura.backend.modules.identity.por
 
     // Deletes a media item from the user's watchlist
     @Transactional
-    @CacheEvict(value = "watchlist", allEntries = true)
+    @Caching(evict = {
+            @CacheEvict(value = "watchlist", key = "#userId + ':0'"),
+            @CacheEvict(value = "watchlist", key = "#userId + ':1'")
+    })
     public void deleteFromWatchlist(UUID userId, WatchlistRequest request) {
         try {
             Watchlist watchlist = watchlistRepository.findByUserIdAndTmdbIdAndMediaType(
@@ -125,9 +124,11 @@ public class WatchlistService implements com.riyura.backend.modules.identity.por
     private TmdbMetadataDTO fetchTmdbMetadata(Long tmdbId, MediaType mediaType) {
         try {
             String endpoint = mediaType == MediaType.Movie ? "movie" : "tv";
-            String url = String.format("%s/%s/%d?api_key=%s", baseUrl, endpoint, tmdbId, apiKey);
+            String url = TmdbUrlBuilder.from(tmdbProperties)
+                    .path("/" + endpoint + "/" + tmdbId)
+                    .build();
 
-            TmdbMetadataDTO response = restTemplate.getForObject(url, TmdbMetadataDTO.class);
+            TmdbMetadataDTO response = tmdbClient.fetchWithRetry(url, TmdbMetadataDTO.class);
             if (response == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Unable to fetch metadata from TMDB");
             }
@@ -152,7 +153,7 @@ public class WatchlistService implements com.riyura.backend.modules.identity.por
 
         watchlist.setTitle(title);
         watchlist.setPosterPath(metadata.getPosterPath());
-        watchlist.setReleaseDate(parseDate(releaseDateValue));
+        watchlist.setReleaseDate(TmdbUtils.parseDate(releaseDateValue));
         watchlist.setVote(metadata.getVoteAverage() != null
                 ? BigDecimal.valueOf(metadata.getVoteAverage())
                 : null);
@@ -177,22 +178,10 @@ public class WatchlistService implements com.riyura.backend.modules.identity.por
 
         String posterPath = watchlist.getPosterPath();
         if (posterPath != null && !posterPath.isBlank()) {
-            response.setPosterUrl(posterPath.startsWith("http") ? posterPath : imageBaseUrl + posterPath);
+            response.setPosterUrl(
+                    posterPath.startsWith("http") ? posterPath : tmdbProperties.imageBaseUrl() + posterPath);
         }
 
         return response;
-    }
-
-    // Parses a date string safely, returning null on invalid formats
-    private LocalDate parseDate(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return LocalDate.parse(value);
-        } catch (DateTimeParseException e) {
-            log.warn("Failed to parse date: {}", value);
-            return null;
-        }
     }
 }

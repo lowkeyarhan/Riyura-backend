@@ -11,9 +11,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import org.springframework.validation.annotation.Validated;
+
 @RestController
 @RequestMapping("/api/search")
 @RequiredArgsConstructor
+@Validated
 public class SearchController {
 
     private final SearchServicePort searchService;
@@ -21,8 +28,8 @@ public class SearchController {
     // Handle search requests from the frontend
     @GetMapping
     public ResponseEntity<Map<String, Object>> search(
-            @RequestParam("q") String query,
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam("q") @NotBlank @Size(min = 1, max = 200) String query,
+            @RequestParam(defaultValue = "0") @Min(0) @Max(500) int page,
             @RequestParam(name = "sort_by", required = false) SearchSortOrder sortBy) {
         // Fetch the search results from the service
         List<SearchResponse> results = searchService.search(query, page, sortBy);

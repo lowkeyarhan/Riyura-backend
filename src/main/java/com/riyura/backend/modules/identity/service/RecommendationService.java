@@ -29,13 +29,18 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
+
+import com.riyura.backend.modules.identity.port.RecommendationServicePort;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class RecommendationService implements com.riyura.backend.modules.identity.port.RecommendationServicePort {
+public class RecommendationService implements RecommendationServicePort {
 
     private final RecommendationRepository recommendationRepo;
     private final WatchHistoryRepository historyRepo;
@@ -45,9 +50,17 @@ public class RecommendationService implements com.riyura.backend.modules.identit
     private final TransactionTemplate transactionTemplate;
     private final TmdbProperties tmdbProperties;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final Executor virtualThreadExecutor = Executors
+            .newVirtualThreadPerTaskExecutor();
 
     private static final String GEMINI_MODEL = "gemini-3.1-flash-lite-preview";
-    private final Semaphore tmdbRateLimiter = new Semaphore(4);
+    private final Semaphore tmdbRateLimiter = new Semaphore(20);
+
+    private final ConcurrentHashMap<String, Client> clientCache = new ConcurrentHashMap<>();
+
+    private Client getOrCreateClient(String apiKey) {
+        return clientCache.computeIfAbsent(apiKey, k -> Client.builder().apiKey(k).build());
+    }
 
     // Returns the recommendations for the user, if they exist in the database. If
     // they don't, it will generate new recommendations.
@@ -133,11 +146,14 @@ public class RecommendationService implements com.riyura.backend.modules.identit
         return results;
     }
 
+    private static final int MAX_SEED_ITEMS = 3;
+
     // For each seed history item, fetches TMDB /recommendations in parallel.
     private Map<Long, CandidateItem> buildCandidatePool(List<WatchHistory> seedHistory) {
         List<CompletableFuture<List<CandidateItem>>> futures = seedHistory.stream()
+                .limit(MAX_SEED_ITEMS)
                 .map(h -> CompletableFuture.supplyAsync(
-                        () -> fetchTmdbRecommendations(h.getTmdbId(), h.getMediaType())))
+                        () -> fetchTmdbRecommendations(h.getTmdbId(), h.getMediaType()), virtualThreadExecutor))
                 .toList();
 
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
@@ -259,22 +275,24 @@ public class RecommendationService implements com.riyura.backend.modules.identit
                 .map(w -> w.getTitle() + " (" + w.getMediaType().name().toLowerCase() + ")")
                 .collect(Collectors.joining(", "));
 
-        StringBuilder poolJson = new StringBuilder("[");
-        boolean first = true;
+        com.fasterxml.jackson.databind.node.ArrayNode poolArray = objectMapper.createArrayNode();
         for (CandidateItem c : pool.values()) {
-            if (!first)
-                poolJson.append(",");
-            first = false;
             int year = c.releaseDate() != null ? c.releaseDate().getYear() : 0;
-            poolJson.append(String.format(
-                    "{\"tmdb_id\":%d,\"title\":\"%s\",\"type\":\"%s\",\"year\":%d,\"genre_ids\":\"%s\"}",
-                    c.tmdbId(),
-                    c.title().replace("\"", "'"),
-                    c.mediaType().name().toLowerCase(),
-                    year,
-                    c.genreIds()));
+            com.fasterxml.jackson.databind.node.ObjectNode node = objectMapper.createObjectNode();
+            node.put("tmdb_id", c.tmdbId());
+            node.put("title", c.title());
+            node.put("type", c.mediaType().name().toLowerCase());
+            node.put("year", year);
+            node.put("genre_ids", c.genreIds());
+            poolArray.add(node);
         }
-        poolJson.append("]");
+
+        String poolJsonStr;
+        try {
+            poolJsonStr = objectMapper.writeValueAsString(poolArray);
+        } catch (Exception e) {
+            poolJsonStr = "[]";
+        }
 
         return String.format("""
                 You are a film and TV curator. Select exactly 8 recommendations from the CANDIDATE POOL for this user.
@@ -297,7 +315,7 @@ public class RecommendationService implements com.riyura.backend.modules.identit
                 """,
                 historyLines.toString().trim(),
                 watchlistLine.isEmpty() ? "None" : watchlistLine,
-                poolJson);
+                poolJsonStr);
     }
 
     // Calls Gemini via official SDK.
@@ -329,9 +347,9 @@ public class RecommendationService implements com.riyura.backend.modules.identit
 
         int maxAttempts = 3;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            try (Client client = Client.builder().apiKey(apiKey).build();
-                    ResponseStream<GenerateContentResponse> stream = client.models.generateContentStream(GEMINI_MODEL,
-                            contents, config)) {
+            Client client = getOrCreateClient(apiKey);
+            try (ResponseStream<GenerateContentResponse> stream = client.models.generateContentStream(GEMINI_MODEL,
+                    contents, config)) {
 
                 StringBuilder raw = new StringBuilder();
                 for (GenerateContentResponse res : stream) {

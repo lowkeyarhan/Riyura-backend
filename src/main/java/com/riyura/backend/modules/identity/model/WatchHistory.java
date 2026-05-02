@@ -3,16 +3,21 @@ package com.riyura.backend.modules.identity.model;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import com.riyura.backend.common.model.MediaType;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "watch_history", uniqueConstraints = {
         @UniqueConstraint(columnNames = { "user_id", "tmdb_id", "media_type" })
+}, indexes = {
+        @Index(name = "idx_watch_history_user_id", columnList = "user_id"),
+        @Index(name = "idx_watch_history_user_watched", columnList = "user_id, watched_at DESC")
 })
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class WatchHistory {
@@ -63,4 +68,18 @@ public class WatchHistory {
 
     @Column(name = "is_anime")
     private Boolean isAnime;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (!(o instanceof WatchHistory w))
+            return false;
+        return id != null && id.equals(w.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }

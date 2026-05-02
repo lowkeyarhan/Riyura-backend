@@ -4,16 +4,21 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import com.riyura.backend.common.model.MediaType;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "watchlist", uniqueConstraints = {
         @UniqueConstraint(columnNames = { "user_id", "tmdb_id", "media_type" })
+}, indexes = {
+        @Index(name = "idx_watchlist_user_id", columnList = "user_id"),
+        @Index(name = "idx_watchlist_user_added", columnList = "user_id, added_at DESC")
 })
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class Watchlist {
@@ -52,4 +57,18 @@ public class Watchlist {
 
     @Column(name = "number_of_episodes")
     private Integer numberOfEpisodes;
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (!(o instanceof Watchlist w))
+            return false;
+        return id != null && id.equals(w.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return getClass().hashCode();
+    }
 }

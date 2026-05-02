@@ -23,6 +23,17 @@ public final class TmdbUtils {
         }
     }
 
+    public static LocalDate parseDate(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(value);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
     public static boolean isJapanese(String lang) {
         return "ja".equalsIgnoreCase(lang);
     }

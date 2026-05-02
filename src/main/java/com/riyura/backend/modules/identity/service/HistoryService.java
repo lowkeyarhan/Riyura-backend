@@ -9,7 +9,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.riyura.backend.common.config.TmdbProperties;
@@ -23,10 +22,12 @@ import com.riyura.backend.modules.identity.dto.history.TmdbMetadataDTO;
 import com.riyura.backend.modules.identity.dto.history.HistoryRequest;
 import com.riyura.backend.modules.identity.model.WatchHistory;
 import com.riyura.backend.modules.identity.repository.WatchHistoryRepository;
+import com.riyura.backend.modules.identity.port.HistoryServicePort;
+import com.riyura.backend.common.service.TmdbClient;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -37,12 +38,12 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class HistoryService implements com.riyura.backend.modules.identity.port.HistoryServicePort {
+public class HistoryService implements HistoryServicePort {
 
     private static final int MAX_HISTORY_SIZE = 1000;
     private static final int DEFAULT_PAGE_SIZE = 10;
 
-    private final RestTemplate restTemplate;
+    private final TmdbClient tmdbClient;
     private final WatchHistoryRepository watchHistoryRepository;
     private final TmdbProperties tmdbProperties;
 
@@ -59,7 +60,10 @@ public class HistoryService implements com.riyura.backend.modules.identity.port.
 
     // Add or update a watch history item
     @Transactional
-    // @CacheEvict(value = "history", allEntries = true)
+    @Caching(evict = {
+            @CacheEvict(value = "history", key = "#userId + ':0'"),
+            @CacheEvict(value = "history", key = "#userId + ':1'")
+    })
     public WatchHistory addOrUpdateHistory(UUID userId, HistoryRequest request) {
         try {
             Optional<WatchHistory> existing = watchHistoryRepository.findByUserIdAndTmdbIdAndMediaType(
@@ -111,7 +115,10 @@ public class HistoryService implements com.riyura.backend.modules.identity.port.
 
     // Delete a watch history item
     @Transactional
-    // @CacheEvict(value = "history", allEntries = true)
+    @Caching(evict = {
+            @CacheEvict(value = "history", key = "#userId + ':0'"),
+            @CacheEvict(value = "history", key = "#userId + ':1'")
+    })
     public void deleteWatchHistory(UUID userId, DeleteWatchHistoryRequest request) {
         try {
             Optional<WatchHistory> existing = watchHistoryRepository.findByUserIdAndTmdbIdAndMediaType(
@@ -135,7 +142,7 @@ public class HistoryService implements com.riyura.backend.modules.identity.port.
                 String url = TmdbUrlBuilder.from(tmdbProperties)
                         .path("/movie/" + id)
                         .build();
-                return restTemplate.getForObject(url, TmdbMetadataDTO.class);
+                return tmdbClient.fetchWithRetry(url, TmdbMetadataDTO.class);
             } else {
                 if (seasonNumber == null || episodeNumber == null) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -150,9 +157,9 @@ public class HistoryService implements com.riyura.backend.modules.identity.port.
                         .build();
 
                 CompletableFuture<TmdbMetadataDTO> showFuture = CompletableFuture
-                        .supplyAsync(() -> restTemplate.getForObject(showUrl, TmdbMetadataDTO.class));
+                        .supplyAsync(() -> tmdbClient.fetchWithRetry(showUrl, TmdbMetadataDTO.class));
                 CompletableFuture<TmdbMetadataDTO> episodeFuture = CompletableFuture
-                        .supplyAsync(() -> restTemplate.getForObject(episodeUrl, TmdbMetadataDTO.class));
+                        .supplyAsync(() -> tmdbClient.fetchWithRetry(episodeUrl, TmdbMetadataDTO.class));
 
                 TmdbMetadataDTO showData = showFuture.orTimeout(8, TimeUnit.SECONDS).join();
                 TmdbMetadataDTO episodeData = episodeFuture.orTimeout(8, TimeUnit.SECONDS).join();
@@ -208,13 +215,13 @@ public class HistoryService implements com.riyura.backend.modules.identity.port.
         history.setBackdropPath(backdropPath);
         if (request.getMediaType() == MediaType.Movie) {
             history.setTitle(metadata.getTitle());
-            history.setReleaseDate(parseDate(metadata.getReleaseDate()));
+            history.setReleaseDate(TmdbUtils.parseDate(metadata.getReleaseDate()));
             history.setSeasonNumber(null);
             history.setEpisodeNumber(null);
             history.setEpisodeName(null);
         } else {
             history.setTitle(metadata.getTitle());
-            history.setReleaseDate(parseDate(
+            history.setReleaseDate(TmdbUtils.parseDate(
                     metadata.getAirDate() != null ? metadata.getAirDate() : metadata.getReleaseDate()));
             history.setSeasonNumber(request.getSeasonNumber());
             history.setEpisodeNumber(request.getEpisodeNumber());
@@ -223,19 +230,6 @@ public class HistoryService implements com.riyura.backend.modules.identity.port.
 
         Integer runtimeMinutes = metadata.resolveRuntime();
         history.setEpisodeLength(runtimeMinutes != null ? runtimeMinutes * 60 : null);
-    }
-
-    // Parses a date string safely, returning null on invalid formats
-    private LocalDate parseDate(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return LocalDate.parse(value);
-        } catch (DateTimeParseException e) {
-            log.warn("Failed to parse date: {}", value);
-            return null;
-        }
     }
 
     // Convert the watch history to a history response
