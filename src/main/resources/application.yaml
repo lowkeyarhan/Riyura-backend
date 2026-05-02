@@ -105,13 +105,8 @@ springdoc:
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
 
-# Observability stack (Loki, Prometheus, Grafana) — all OPTIONAL.
-# On a minimal VPS set these to false/empty; only enable them if the full
-# observability stack is actually running alongside the app.
 loki:
-  # Set to true (or env LOKI_ENABLED=true) to activate the Loki log shipper.
   enabled: ${LOKI_ENABLED:false}
-  # Override when Loki runs as a Docker service (e.g. http://loki:3100/loki/api/v1/push)
   url: ${LOKI_URL:http://localhost:3100/loki/api/v1/push}
 
 server:

@@ -1,15 +1,5 @@
 version: "3.8"
 # ─── Observability overlay ────────────────────────────────────────────────────
-# Start with: docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
-#
-# This overlay adds Prometheus, Grafana, Loki and the Redis exporter.
-# DO NOT start this file on resource-constrained VPS deployments.
-# The core app runs perfectly without it.
-#
-# When starting with observability, also set these env vars (or add to .env):
-#   LOKI_ENABLED=true
-#   LOKI_URL=http://loki:3100/loki/api/v1/push
-# ─────────────────────────────────────────────────────────────────────────────
 
 services:
   redis-exporter:
