@@ -57,6 +57,7 @@ public class TvPlayerService implements TvPlayerServicePort {
                 : details.getGenres().stream().map(TvShowDetails.Genre::getName).filter(Objects::nonNull).toList());
         response.setSeasons(fetchSeasonsWithEpisodes(tvId, details.getSeasons()));
         response.setAnime(TmdbUtils.isAnime(details.getOriginalLanguage(), details.getGenres()));
+        response.setBackdropPath(details.getBackdropPath());
         return response;
     }
 

@@ -13,6 +13,9 @@ public class MoviePlayerResponse {
     private List<String> genres;
     private String overview;
 
+    @JsonProperty("backdrop_path")
+    private String backdropPath;
+
     @JsonProperty("is_anime")
     private boolean anime;
 }

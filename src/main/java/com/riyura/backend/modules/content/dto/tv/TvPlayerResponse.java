@@ -17,6 +17,9 @@ public class TvPlayerResponse {
     private List<String> genres;
     private List<Season> seasons;
 
+    @JsonProperty("backdrop_path")
+    private String backdropPath;
+
     @JsonProperty("is_anime")
     private boolean anime;
 }

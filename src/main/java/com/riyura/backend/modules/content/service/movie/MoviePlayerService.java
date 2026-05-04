@@ -50,6 +50,7 @@ public class MoviePlayerService implements MoviePlayerServicePort {
         response.setGenres(details.getGenres() == null ? List.of()
                 : details.getGenres().stream().map(MovieDetail.Genre::getName).filter(Objects::nonNull).toList());
         response.setAnime(TmdbUtils.isAnime(details.getOriginalLanguage(), details.getGenres()));
+        response.setBackdropPath(details.getBackdropPath());
         return response;
     }
 }
