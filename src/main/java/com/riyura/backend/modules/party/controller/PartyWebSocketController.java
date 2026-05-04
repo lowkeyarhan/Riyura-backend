@@ -53,7 +53,7 @@ public class PartyWebSocketController {
                 now()));
 
         // Auto-sync the joining participant's player to the host's current position
-        messaging.convertAndSendToUser(userId, "/queue/sync",
+        messaging.convertAndSendToUser(headerAccessor.getUser().getName(), "/queue/sync",
                 new PartyMessage(
                         PartyEvent.SYNC,
                         Map.of("startAt", state.getStartAt(), "partyStartedAt", state.getPartyStartedAt()),
@@ -90,8 +90,14 @@ public class PartyWebSocketController {
         String userId = resolveUserId(headerAccessor);
         PartyState state = partyService.getPartyState(partyId);
 
+        if (userId.equals(state.getHostId())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN,
+                    "The request sync is only for participants, host cannot do it");
+        }
+
         // Send the current party position only to the requesting participant
-        messaging.convertAndSendToUser(userId, "/queue/sync",
+        messaging.convertAndSendToUser(headerAccessor.getUser().getName(), "/queue/sync",
                 new PartyMessage(
                         PartyEvent.SYNC,
                         Map.of("startAt", state.getStartAt(), "partyStartedAt", state.getPartyStartedAt()),
@@ -189,8 +195,29 @@ public class PartyWebSocketController {
         partyService.evictZombies(partyId);
 
         // Send an ack back to the specific user to confirm the heartbeat was received
-        messaging.convertAndSendToUser(userId, "/queue/heartbeat-ack",
+        messaging.convertAndSendToUser(headerAccessor.getUser().getName(), "/queue/heartbeat-ack",
                 new PartyMessage(PartyEvent.HEARTBEAT_ACK, Map.of("ack", now()), "system", now()));
+    }
+
+    @org.springframework.messaging.handler.annotation.MessageExceptionHandler
+    public void handleException(Exception ex, SimpMessageHeaderAccessor headerAccessor) {
+        try {
+            String userId = resolveUserId(headerAccessor);
+            String errorMessage = ex.getMessage();
+            if (ex instanceof org.springframework.web.server.ResponseStatusException rse) {
+                errorMessage = rse.getReason();
+            } else {
+                // For unexpected exceptions, log them. (We skip logging for
+                // ResponseStatusException to keep terminal clean as requested)
+                log.error("Unhandled websocket exception", ex);
+            }
+            messaging.convertAndSendToUser(headerAccessor.getUser().getName(), "/queue/error",
+                    new PartyMessage(PartyEvent.ERROR,
+                            Map.of("message", errorMessage != null ? errorMessage : "An error occurred"), "system",
+                            now()));
+        } catch (Exception ignored) {
+            log.error("Failed to handle websocket exception", ex);
+        }
     }
 
     // Helper method to broadcast a message to all members of a party

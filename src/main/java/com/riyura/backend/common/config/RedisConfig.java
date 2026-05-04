@@ -29,6 +29,8 @@ public class RedisConfig {
                 .allowIfSubType("com.riyura.backend")
                 .allowIfSubType("java.util.ArrayList")
                 .allowIfSubType("java.util.LinkedHashMap")
+                .allowIfSubType("java.util.HashMap")
+                .allowIfSubType("java.util.ImmutableCollections")
                 .build();
 
         mapper.activateDefaultTyping(ptv, ObjectMapper.DefaultTyping.NON_FINAL,

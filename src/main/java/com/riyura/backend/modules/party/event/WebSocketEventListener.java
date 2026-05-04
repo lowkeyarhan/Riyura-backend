@@ -1,19 +1,14 @@
 package com.riyura.backend.modules.party.event;
 
-import com.riyura.backend.modules.party.dto.PartyMessage;
-import com.riyura.backend.modules.party.model.PartyEvent;
-import com.riyura.backend.modules.party.model.PartyState;
 import com.riyura.backend.modules.party.security.WebSocketAuthInterceptor;
 import com.riyura.backend.modules.party.service.PartyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
-import java.time.Instant;
 import java.util.Map;
 
 @Slf4j
@@ -22,7 +17,6 @@ import java.util.Map;
 public class WebSocketEventListener {
 
     private final PartyService partyService;
-    private final SimpMessagingTemplate messagingTemplate;
 
     // This is the event listener that is used to handle the disconnect event
     @EventListener
@@ -44,37 +38,6 @@ public class WebSocketEventListener {
         }
 
         log.info("Disconnect detected — user [{}] leaving party [{}]", userId, partyId);
-
-        // Handle the disconnect
-        PartyState updated = partyService.handleDisconnect(partyId, userId);
-
-        String topic = "/topic/party/" + partyId;
-
-        if (updated == null) {
-            // Party was destroyed, broadcast the party closed event
-            messagingTemplate.convertAndSend(topic, new PartyMessage(
-                    PartyEvent.PARTY_CLOSED,
-                    Map.of("reason", "All participants left"),
-                    userId,
-                    Instant.now().toEpochMilli()));
-            return;
-        }
-
-        // Broadcast the user left event
-        messagingTemplate.convertAndSend(topic, new PartyMessage(
-                PartyEvent.USER_LEFT,
-                Map.of("userId", userId, "participantIds", updated.getParticipantIds()),
-                userId,
-                Instant.now().toEpochMilli()));
-
-        // If the leaving user was the host, a new host was assigned, broadcast the new
-        // host assigned event to all members
-        if (!userId.equals(updated.getHostId())) {
-            messagingTemplate.convertAndSend(topic, new PartyMessage(
-                    PartyEvent.NEW_HOST_ASSIGNED,
-                    Map.of("newHostId", updated.getHostId()),
-                    "system",
-                    Instant.now().toEpochMilli()));
-        }
+        partyService.handleDisconnect(partyId, userId);
     }
 }

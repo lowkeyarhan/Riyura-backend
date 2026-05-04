@@ -32,6 +32,7 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
     private static final Pattern PARTY_ID_PATTERN = Pattern.compile("^[A-Za-z0-9]{1,20}$");
 
     private final RedisTemplate<String, Object> redisTemplate;
+    private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
     // This is the method that is used to create a new party
     public PartyState createParty(String hostId, PartyCreateRequest request) {
@@ -99,18 +100,36 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
         state.getLastHeartbeat().remove(userId);
         log.info("User [{}] left party [{}]. Remaining: {}", userId, partyId, state.getParticipantIds().size());
 
+        String topic = "/topic/party/" + partyId;
+
         if (state.getParticipantIds().isEmpty()) {
             // Last participant — destroy the party
             delete(partyId);
             log.info("Party [{}] destroyed — no participants remaining.", partyId);
+            messagingTemplate.convertAndSend(topic, new com.riyura.backend.modules.party.dto.PartyMessage(
+                    com.riyura.backend.modules.party.model.PartyEvent.PARTY_CLOSED,
+                    java.util.Map.of("reason", "All participants left"),
+                    userId,
+                    Instant.now().toEpochMilli()));
             return null;
         }
+
+        messagingTemplate.convertAndSend(topic, new com.riyura.backend.modules.party.dto.PartyMessage(
+                com.riyura.backend.modules.party.model.PartyEvent.USER_LEFT,
+                java.util.Map.of("userId", userId, "participantIds", state.getParticipantIds()),
+                userId,
+                Instant.now().toEpochMilli()));
 
         // Host migration
         if (userId.equals(state.getHostId())) {
             String newHost = state.getParticipantIds().get(0);
             state.setHostId(newHost);
             log.info("Party [{}] host migrated from [{}] to [{}]", partyId, userId, newHost);
+            messagingTemplate.convertAndSend(topic, new com.riyura.backend.modules.party.dto.PartyMessage(
+                    com.riyura.backend.modules.party.model.PartyEvent.NEW_HOST_ASSIGNED,
+                    java.util.Map.of("newHostId", newHost),
+                    "system",
+                    Instant.now().toEpochMilli()));
         }
 
         save(state);

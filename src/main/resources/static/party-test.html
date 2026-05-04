@@ -480,7 +480,7 @@
       }
 
       function sendChatMain() {
-        const partyId = document.getElementById("partyId").value;
+        const partyId = document.getElementById("partyId").value.trim();
         const input = document.getElementById("chatMsgMain");
         const text = input.value;
         if (!stompClient || !stompClient.connected)
@@ -514,7 +514,7 @@
       }
 
       async function createParty() {
-        const jwt = document.getElementById("jwtToken").value;
+        const jwt = document.getElementById("jwtToken").value.trim();
         if (!jwt) {
           log("Error: Authorization token missing.");
           return;
@@ -530,11 +530,18 @@
             },
             body: JSON.stringify({
               tmdbId: 100,
-              mediaType: "movie",
+              mediaType: "Movie",
               providerId: "vidsrc",
               startAt: 0,
             }),
           });
+
+          if (!res.ok) {
+            const rawText = await res.text();
+            log(`Failed HTTP ${res.status}: ${rawText}`);
+            return;
+          }
+
           const data = await res.json();
           if (data.success) {
             document.getElementById("partyId").value = data.partyId;
@@ -543,7 +550,7 @@
             log(`Failed: ${JSON.stringify(data)}`);
           }
         } catch (e) {
-          log(`Error: ${e.message}`);
+          log(`Error: ${e.message} \n ${e.stack}`);
         }
       }
 
@@ -552,33 +559,50 @@
           const res = await fetch(`/api/party/${partyId}/state`, {
             headers: { Authorization: "Bearer " + jwt },
           });
-          const data = await res.json();
-          if (data.success && data.data && data.data.recentChat) {
-            document.getElementById("chatBox").innerHTML = "";
-            data.data.recentChat.forEach((msg) => {
-              const isLocal = msg.senderId === jwtDecoder(jwt);
-              appendChatBubble(
-                msg.text || "",
-                msg.senderDisplayName || msg.senderId,
-                isLocal,
-              );
-            });
+
+          if (!res.ok) {
+            const txt = await res.text();
+            log(`Failed to fetch state (HTTP ${res.status}): ${txt}`);
+            return false;
           }
+
+          const data = await res.json();
+          if (data.success && data.data) {
+            if (data.data.recentChat) {
+              document.getElementById("chatBox").innerHTML = "";
+              data.data.recentChat.forEach((msg) => {
+                const isLocal = msg.senderId === jwtDecoder(jwt);
+                appendChatBubble(
+                  msg.text || "",
+                  msg.senderDisplayName || msg.senderId,
+                  isLocal,
+                );
+              });
+            }
+            return true;
+          }
+          return false;
         } catch (e) {
           log(`Error fetching state: ${e.message}`);
+          return false;
         }
       }
 
-      function connectWS() {
-        const jwt = document.getElementById("jwtToken").value;
-        const partyId = document.getElementById("partyId").value;
+      async function connectWS() {
+        const jwt = document.getElementById("jwtToken").value.trim();
+        const partyId = document.getElementById("partyId").value.trim();
         if (!jwt || !partyId) {
           log("Error: Token and Party ID are required for connection.");
           return;
         }
 
         log(`Connecting to session ${partyId}...`);
-        fetchStateAndRenderChat(partyId, jwt);
+        const isValid = await fetchStateAndRenderChat(partyId, jwt);
+        if (!isValid) {
+          log("Error: Party not found. Cannot connect.");
+          return;
+        }
+
         const socket = new SockJS("/ws");
         stompClient = Stomp.over(socket);
         stompClient.debug = null; // Disable noisy stomp logs
@@ -597,21 +621,42 @@
               );
             });
 
+            stompClient.subscribe(`/user/queue/error`, (msg) => {
+              const parsed = JSON.parse(msg.body);
+              log(`[ERROR] ${parsed.payload.message}`);
+            });
+
             stompClient.subscribe("/topic/party/" + partyId, (msg) => {
               const parsed = JSON.parse(msg.body);
               const eventPayload = parsed.payload;
 
-              log(
-                `[EVENT: ${parsed.event}] \n  -> ${JSON.stringify(eventPayload)}`,
-              );
-
-              // Render chat bubble if it's a chat event
-              if (parsed.event === "CHAT") {
+              if (parsed.event === "USER_JOINED") {
+                log(`[INFO] User ${eventPayload.userId} joined the party`);
+              } else if (parsed.event === "USER_LEFT") {
+                log(`[INFO] User ${eventPayload.userId} disconnected`);
+              } else if (parsed.event === "NEW_HOST_ASSIGNED") {
+                log(`[INFO] User ${eventPayload.newHostId} is the new host`);
+              } else if (parsed.event === "PARTY_CLOSED") {
+                log(`[INFO] Party closed: ${eventPayload.reason}`);
+              } else if (parsed.event === "FORCE_PAUSE") {
+                log(`[INFO] Party paused: ${eventPayload.reason}`);
+              } else if (parsed.event === "RESUME") {
+                log(`[INFO] Party resumed: ${eventPayload.reason}`);
+              } else if (parsed.event === "STRICT_SYNC_TOGGLED") {
+                log(
+                  `[INFO] Strict sync is now ${eventPayload.strictSync ? "ON" : "OFF"}`,
+                );
+              } else if (parsed.event === "CHAT") {
                 const isLocal = parsed.senderId === jwtDecoder(jwt);
                 appendChatBubble(
                   eventPayload.text,
                   eventPayload.senderDisplayName || parsed.senderId,
                   isLocal,
+                );
+              } else if (parsed.event !== "SYNC") {
+                // For any other unexpected event types (sync is handled separately above)
+                log(
+                  `[EVENT: ${parsed.event}] -> ${JSON.stringify(eventPayload)}`,
                 );
               }
             });
@@ -649,7 +694,7 @@
       }
 
       function sendSync() {
-        const partyId = document.getElementById("partyId").value;
+        const partyId = document.getElementById("partyId").value.trim();
         const time = parseFloat(document.getElementById("videoTime").value);
         if (!stompClient || !stompClient.connected)
           return log("Error: Sequence requires active connection");
@@ -666,7 +711,7 @@
       }
 
       function requestSync() {
-        const partyId = document.getElementById("partyId").value;
+        const partyId = document.getElementById("partyId").value.trim();
         if (!stompClient || !stompClient.connected)
           return log("Error: Sequence requires active connection");
         stompClient.send(
@@ -678,7 +723,7 @@
       }
 
       function sendBuffering() {
-        const partyId = document.getElementById("partyId").value;
+        const partyId = document.getElementById("partyId").value.trim();
         if (!stompClient || !stompClient.connected)
           return log("Error: Sequence requires active connection");
         stompClient.send(
@@ -690,7 +735,7 @@
       }
 
       function sendBufferingComplete() {
-        const partyId = document.getElementById("partyId").value;
+        const partyId = document.getElementById("partyId").value.trim();
         if (!stompClient || !stompClient.connected)
           return log("Error: Sequence requires active connection");
         stompClient.send(
@@ -702,7 +747,7 @@
       }
 
       function toggleStrict() {
-        const partyId = document.getElementById("partyId").value;
+        const partyId = document.getElementById("partyId").value.trim();
         if (!stompClient || !stompClient.connected)
           return log("Error: Sequence requires active connection");
         stompClient.send(
