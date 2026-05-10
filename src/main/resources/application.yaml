@@ -65,41 +65,6 @@ springdoc:
     operations-sorter: method
     tags-sorter: alpha
     disable-swagger-default-url: true
-  group-configs:
-    - group: all
-      paths-to-match:
-        - /api/**
-    - group: explore
-      paths-to-match:
-        - /api/explore/**
-    - group: watchlist
-      paths-to-match:
-        - /api/watchlist/**
-    - group: profile
-      paths-to-match:
-        - /api/profile/**
-    - group: ai-features
-      paths-to-match:
-        - /api/ai/**
-    - group: banner
-      paths-to-match:
-        - /api/banner/**
-    - group: movies
-      paths-to-match:
-        - /api/movies/**
-    - group: tv
-      paths-to-match:
-        - /api/tv/**
-    - group: anime
-      paths-to-match:
-        - /api/anime/**
-    - group: party
-      paths-to-match:
-        - /api/party/**
-    - group: testing
-      paths-to-match:
-        - /api/test/**
-        - /api/test/health
 
 # Application Configuration
 app:

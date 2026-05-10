@@ -16,7 +16,7 @@ public class RateLimitTierService {
         DEFAULT,
         // Expensive, fan-out endpoints (Explore, Search, Anime)
         HEAVY,
-        // Party/WebSocket handshake endpoints — tightest limit
+        // Watchalong party/WebSocket handshake endpoints — tightest limit
         PARTY
     }
 
@@ -25,7 +25,7 @@ public class RateLimitTierService {
         if (uri.startsWith("/api/explore") || uri.startsWith("/api/search") || uri.startsWith("/api/anime")) {
             return Tier.HEAVY;
         }
-        if (uri.startsWith("/api/party") || uri.startsWith("/ws")) {
+        if (uri.startsWith("/api/watchalong/party") || uri.startsWith("/ws")) {
             return Tier.PARTY;
         }
         return Tier.DEFAULT;

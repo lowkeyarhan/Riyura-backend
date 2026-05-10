@@ -1,30 +1,20 @@
 package com.riyura.backend.modules.content.controller;
 
 import com.riyura.backend.common.dto.media.MediaGridResponse;
-import com.riyura.backend.common.model.MediaType;
-import com.riyura.backend.modules.content.dto.stream.StreamProviderRequest;
-import com.riyura.backend.modules.content.dto.stream.StreamUrlResponse;
-import com.riyura.backend.modules.content.dto.tv.TvPlayerResponse;
 import com.riyura.backend.modules.content.dto.tv.TvShowDetails;
-import com.riyura.backend.modules.content.port.StreamUrlServicePort;
 import com.riyura.backend.modules.content.port.TvDetailsServicePort;
-import com.riyura.backend.modules.content.port.TvPlayerServicePort;
 import com.riyura.backend.modules.content.port.TvServicePort;
 
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Validated
 @RestController
@@ -34,8 +24,6 @@ public class TvController {
 
     private final TvServicePort tvService;
     private final TvDetailsServicePort tvDetailsService;
-    private final TvPlayerServicePort tvPlayerService;
-    private final StreamUrlServicePort streamUrlService;
 
     // Get Airing Today TV Shows (Now Playing) with a limit (e.g., top 12)
     @GetMapping("/now-playing")
@@ -79,24 +67,6 @@ public class TvController {
     @GetMapping("details/{id}/similar")
     public ResponseEntity<Map<String, List<MediaGridResponse>>> getSimilarTvShows(@PathVariable Long id) {
         return wrapResponse(tvDetailsService.getSimilarTvShows(String.valueOf(id)));
-    }
-
-    @GetMapping("/player/{id}")
-    public ResponseEntity<TvPlayerResponse> getTvPlayer(@PathVariable Long id) {
-        TvPlayerResponse playerResponse = tvPlayerService.getTvPlayer(String.valueOf(id));
-        if (playerResponse == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(playerResponse);
-    }
-
-    // Build fully-constructed stream URLs for a specific TV show episode
-    @PostMapping("/stream")
-    public ResponseEntity<List<StreamUrlResponse>> getTvStream(
-            @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody StreamProviderRequest request) {
-        UUID userId = jwt != null ? UUID.fromString(jwt.getSubject()) : null;
-        return ResponseEntity.ok(streamUrlService.buildStreamUrls(request, MediaType.TV, userId));
     }
 
     // Helper method to wrap the list in a response map

@@ -50,7 +50,9 @@ public class SecurityConfig {
                                                 // Protected stream endpoints (history-based resume needs user context)
                                                 .requestMatchers(
                                                                 "/api/movies/stream",
-                                                                "/api/tv/stream")
+                                                                "/api/tv/stream",
+                                                                "/api/watchalong/movies/stream",
+                                                                "/api/watchalong/tv/stream")
                                                 .authenticated()
 
                                                 // Public Endpoints
@@ -62,6 +64,8 @@ public class SecurityConfig {
                                                                 "/api/banner/**",
                                                                 "/api/movies/**",
                                                                 "/api/tv/**",
+                                                                "/api/watchalong/movies/player/**",
+                                                                "/api/watchalong/tv/player/**",
                                                                 "/api/search/**",
                                                                 "/api/anime/**",
                                                                 "/api/explore/**",
@@ -85,7 +89,7 @@ public class SecurityConfig {
                                                 .requestMatchers(
                                                                 "/api/profile/**",
                                                                 "/api/watchlist/**",
-                                                                "/api/party/**")
+                                                                "/api/watchalong/party/**")
                                                 .authenticated()
 
                                                 .anyRequest().authenticated())
