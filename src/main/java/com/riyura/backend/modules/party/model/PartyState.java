@@ -20,7 +20,7 @@ public class PartyState implements Serializable {
     private int seasonNo;
     private int episodeNo;
     private String providerId;
-    private int startAt;
+    private double startAt;
     private long partyStartedAt;
     private boolean strictSync;
     private List<String> participantIds = new ArrayList<>();

@@ -1,5 +1,6 @@
 package com.riyura.backend.modules.party.dto;
 
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -7,6 +8,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import lombok.Builder.Default;
 
 // What the frontend sends when someone is creating a party
 
@@ -31,6 +33,6 @@ public class PartyCreateRequest {
     @Size(max = 255, message = "providerId must not exceed 255 characters")
     private String providerId;
 
-    @Min(value = 0, message = "startAt must not be negative")
-    private Integer startAt = 0;
+    @DecimalMin(value = "0.0", message = "startAt must not be negative")
+    private Double startAt;
 }

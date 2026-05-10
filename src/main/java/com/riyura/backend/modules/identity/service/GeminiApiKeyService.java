@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -56,7 +57,10 @@ public class GeminiApiKeyService implements com.riyura.backend.modules.identity.
                     "keyPreview", keyOpt.get().getKeyPreview());
         }
 
-        return Map.of("hasKey", false, "keyPreview", null);
+        Map<String, Object> result = new HashMap<>();
+        result.put("hasKey", false);
+        result.put("keyPreview", null);
+        return result;
     }
 
     // Deletes the API key for a user.

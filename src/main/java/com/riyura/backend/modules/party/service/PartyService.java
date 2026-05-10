@@ -4,6 +4,7 @@ import com.riyura.backend.common.config.RedisConfig;
 import com.riyura.backend.modules.party.dto.ChatMessage;
 import com.riyura.backend.modules.party.dto.PartyCreateRequest;
 import com.riyura.backend.modules.party.dto.PartyStateResponse;
+import com.riyura.backend.modules.party.dto.SyncCommand;
 import com.riyura.backend.modules.party.model.PartyState;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +47,7 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
         state.setSeasonNo(request.getSeasonNo());
         state.setEpisodeNo(request.getEpisodeNo());
         state.setProviderId(request.getProviderId());
-        state.setStartAt(request.getStartAt() != null ? request.getStartAt() : 0);
+        state.setStartAt(request.getStartAt() != null ? request.getStartAt() : 0.0);
         state.setPartyStartedAt(Instant.now().toEpochMilli());
         state.setStrictSync(false);
         state.getParticipantIds().add(hostId);
@@ -169,30 +170,46 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
         return state;
     }
 
-    // This is the method that is used to apply a seek command to a party
-    public PartyState applySeek(String partyId, String hostId, int startAt, long clientTime) {
+    // Applies a playback sync command and persists the latest party position.
+    public PartyState applySync(String partyId, String userId, SyncCommand command) {
         validatePartyId(partyId);
         PartyState state = load(partyId);
 
-        // Only the host can issue sync commands
-        if (!hostId.equals(state.getHostId())) {
+        if (command == null || command.getAction() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sync action is required");
+        }
+
+        // In strict sync only the host can push timeline changes. When strict sync is
+        // off, participants may push their position too.
+        if (!userId.equals(state.getHostId()) && state.isStrictSync()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the host can issue sync commands");
         }
 
-        // Calculate the server time
-        long serverTime = Instant.now().toEpochMilli();
+        state.setStartAt(requireValidStartAt(command.getStartAt()));
+        state.setPartyStartedAt(Instant.now().toEpochMilli());
 
-        // Only apply latency compensation if the client time is plausible
-        long latencyMs = 0;
-        if (clientTime > 0 && clientTime <= serverTime && (serverTime - clientTime) < 30_000L) {
-            latencyMs = serverTime - clientTime;
+        if (command.getProviderId() != null && !command.getProviderId().isBlank()) {
+            state.setProviderId(command.getProviderId().trim());
         }
 
-        // Apply the latency compensation
-        double compensatedStartAt = startAt + (latencyMs / 2000.0);
-        state.setStartAt((int) Math.round(compensatedStartAt));
-        state.setPartyStartedAt(serverTime);
-        // Save the state
+        save(state);
+        return state;
+    }
+
+    // Persists a host-driven provider/server switch for the party.
+    public PartyState changeProvider(String partyId, String userId, String providerId) {
+        validatePartyId(partyId);
+        PartyState state = load(partyId);
+
+        if (!userId.equals(state.getHostId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the host can change provider");
+        }
+
+        if (providerId == null || providerId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "providerId is required");
+        }
+
+        state.setProviderId(providerId.trim());
         save(state);
         return state;
     }
@@ -256,6 +273,13 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
         if (partyId == null || !PARTY_ID_PATTERN.matcher(partyId).matches()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid party ID");
         }
+    }
+
+    private double requireValidStartAt(Double startAt) {
+        if (startAt == null || !Double.isFinite(startAt) || startAt < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startAt must not be negative");
+        }
+        return startAt;
     }
 
     // Helper method to load a party state from the database

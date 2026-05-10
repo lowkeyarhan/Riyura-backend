@@ -3,6 +3,7 @@ package com.riyura.backend.modules.party.port;
 import com.riyura.backend.modules.party.dto.ChatMessage;
 import com.riyura.backend.modules.party.dto.PartyCreateRequest;
 import com.riyura.backend.modules.party.dto.PartyStateResponse;
+import com.riyura.backend.modules.party.dto.SyncCommand;
 import com.riyura.backend.modules.party.model.PartyState;
 
 public interface PartyServicePort {
@@ -20,7 +21,9 @@ public interface PartyServicePort {
 
     PartyState evictZombies(String partyId);
 
-    PartyState applySeek(String partyId, String hostId, int startAt, long clientTime);
+    PartyState applySync(String partyId, String userId, SyncCommand command);
+
+    PartyState changeProvider(String partyId, String userId, String providerId);
 
     PartyState appendChat(String partyId, ChatMessage message);
 

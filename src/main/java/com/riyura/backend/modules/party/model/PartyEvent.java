@@ -6,10 +6,12 @@ public enum PartyEvent {
     NEW_HOST_ASSIGNED,
     CHAT,
     SYNC,
+    SYNC_REQUESTED,
     FORCE_PAUSE,
     RESUME,
     HEARTBEAT_ACK,
     PARTY_CLOSED,
     STRICT_SYNC_TOGGLED,
+    PROVIDER_CHANGED,
     ERROR
 }

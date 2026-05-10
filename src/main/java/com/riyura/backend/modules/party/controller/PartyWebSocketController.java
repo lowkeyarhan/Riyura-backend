@@ -9,14 +9,17 @@ import com.riyura.backend.modules.party.security.WebSocketAuthInterceptor;
 import com.riyura.backend.modules.party.port.PartyServicePort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 
 @Slf4j
@@ -56,7 +59,7 @@ public class PartyWebSocketController {
         messaging.convertAndSendToUser(headerAccessor.getUser().getName(), "/queue/sync",
                 new PartyMessage(
                         PartyEvent.SYNC,
-                        Map.of("startAt", state.getStartAt(), "partyStartedAt", state.getPartyStartedAt()),
+                        syncPayload(state, SyncCommand.Action.SEEK),
                         "system",
                         now()));
     }
@@ -68,15 +71,20 @@ public class PartyWebSocketController {
             SimpMessageHeaderAccessor headerAccessor) {
 
         String userId = resolveUserId(headerAccessor);
-        PartyState state = partyService.applySeek(partyId, userId, command.getStartAt(), command.getClientTime());
+        SyncCommand.Action action = command != null ? command.getAction() : null;
+        if (action == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sync action is required");
+        }
+
+        PartyState state = switch (action) {
+            case SEEK, UPDATE, PLAY, PAUSE -> partyService.applySync(partyId, userId, command);
+        };
 
         // Broadcast the new sync position to all members, along with the server time
         // for latency compensation
         broadcast(partyId, new PartyMessage(
                 PartyEvent.SYNC,
-                Map.of(
-                        "startAt", state.getStartAt(),
-                        "partyStartedAt", state.getPartyStartedAt()),
+                syncPayload(state, action),
                 userId,
                 now()));
     }
@@ -96,13 +104,39 @@ public class PartyWebSocketController {
                     "The request sync is only for participants, host cannot do it");
         }
 
+        broadcast(partyId, new PartyMessage(
+                PartyEvent.SYNC_REQUESTED,
+                Map.of("requesterId", userId),
+                "system",
+                now()));
+
         // Send the current party position only to the requesting participant
         messaging.convertAndSendToUser(headerAccessor.getUser().getName(), "/queue/sync",
                 new PartyMessage(
                         PartyEvent.SYNC,
-                        Map.of("startAt", state.getStartAt(), "partyStartedAt", state.getPartyStartedAt()),
+                        syncPayload(state, SyncCommand.Action.SEEK),
                         "system",
                         now()));
+    }
+
+    // Host-triggered provider/server switch. The updated provider is persisted so
+    // late joiners and request-sync responses receive the current server too.
+    @MessageMapping("/party/{partyId}/change-provider")
+    public void changeProvider(@DestinationVariable String partyId,
+            @Payload Map<String, Object> command,
+            SimpMessageHeaderAccessor headerAccessor) {
+
+        String userId = resolveUserId(headerAccessor);
+        Object providerValue = command != null ? command.get("providerId") : null;
+        String providerId = providerValue != null ? providerValue.toString() : null;
+
+        PartyState state = partyService.changeProvider(partyId, userId, providerId);
+
+        broadcast(partyId, new PartyMessage(
+                PartyEvent.PROVIDER_CHANGED,
+                Map.of("providerId", state.getProviderId()),
+                userId,
+                now()));
     }
 
     // Chat message from a client to be appended to the party's chat history and
@@ -223,6 +257,15 @@ public class PartyWebSocketController {
     // Helper method to broadcast a message to all members of a party
     private void broadcast(String partyId, PartyMessage message) {
         messaging.convertAndSend("/topic/party/" + partyId, message);
+    }
+
+    private Map<String, Object> syncPayload(PartyState state, SyncCommand.Action action) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("startAt", state.getStartAt());
+        payload.put("partyStartedAt", state.getPartyStartedAt());
+        payload.put("action", action.name());
+        payload.put("providerId", state.getProviderId());
+        return payload;
     }
 
     // Helper method to get the current server time in milliseconds
