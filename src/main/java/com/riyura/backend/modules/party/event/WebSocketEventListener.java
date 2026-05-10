@@ -31,6 +31,8 @@ public class WebSocketEventListener {
         // Get the user id and party id from the session attributes
         String userId = (String) sessionAttributes.get(WebSocketAuthInterceptor.SESSION_USER_ID);
         String partyId = (String) sessionAttributes.get("partyId");
+        Object userNameValue = sessionAttributes.get("userName");
+        String userName = userNameValue != null ? userNameValue.toString() : null;
 
         // If the user id or party id is null, return
         if (userId == null || partyId == null) {
@@ -38,6 +40,6 @@ public class WebSocketEventListener {
         }
 
         log.info("Disconnect detected — user [{}] leaving party [{}]", userId, partyId);
-        partyService.handleDisconnect(partyId, userId);
+        partyService.handleDisconnect(partyId, userId, userName);
     }
 }

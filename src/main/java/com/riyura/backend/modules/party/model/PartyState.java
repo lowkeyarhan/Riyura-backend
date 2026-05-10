@@ -4,7 +4,9 @@ import com.riyura.backend.modules.party.dto.ChatMessage;
 import lombok.Data;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 // This is the state of the party
 // It is stored in the database and can be used to reconstruct the party state
@@ -24,7 +26,8 @@ public class PartyState implements Serializable {
     private long partyStartedAt;
     private boolean strictSync;
     private List<String> participantIds = new ArrayList<>();
+    private Map<String, String> participantNames = new HashMap<>();
     private List<String> bufferingParticipants = new ArrayList<>();
     private List<ChatMessage> recentChat = new ArrayList<>();
-    private java.util.Map<String, Long> lastHeartbeat = new java.util.HashMap<>();
+    private Map<String, Long> lastHeartbeat = new HashMap<>();
 }

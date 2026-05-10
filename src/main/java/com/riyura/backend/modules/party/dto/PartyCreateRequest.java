@@ -8,7 +8,6 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import lombok.Builder.Default;
 
 // What the frontend sends when someone is creating a party
 

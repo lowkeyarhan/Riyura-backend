@@ -1,6 +1,7 @@
 package com.riyura.backend.modules.party.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -29,4 +30,7 @@ public class ChatMessage implements Serializable {
     private String senderProfilePhoto;
 
     private long serverTime;
+
+    @JsonProperty("isSystemMessage")
+    private Boolean isSystemMessage = false;
 }

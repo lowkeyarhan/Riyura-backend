@@ -3,8 +3,10 @@ package com.riyura.backend.modules.party.service;
 import com.riyura.backend.common.config.RedisConfig;
 import com.riyura.backend.modules.party.dto.ChatMessage;
 import com.riyura.backend.modules.party.dto.PartyCreateRequest;
+import com.riyura.backend.modules.party.dto.PartyMessage;
 import com.riyura.backend.modules.party.dto.PartyStateResponse;
 import com.riyura.backend.modules.party.dto.SyncCommand;
+import com.riyura.backend.modules.party.model.PartyEvent;
 import com.riyura.backend.modules.party.model.PartyState;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.HtmlUtils;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -51,6 +54,7 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
         state.setPartyStartedAt(Instant.now().toEpochMilli());
         state.setStrictSync(false);
         state.getParticipantIds().add(hostId);
+        state.getParticipantNames().put(hostId, hostId);
         state.getLastHeartbeat().put(hostId, Instant.now().toEpochMilli());
 
         save(state);
@@ -72,7 +76,7 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
     }
 
     // This is the method that is used to add a participant to a party
-    public PartyState addParticipant(String partyId, String userId) {
+    public PartyState addParticipant(String partyId, String userId, String userName) {
         validatePartyId(partyId);
         PartyState state = load(partyId);
 
@@ -84,18 +88,20 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
             state.getParticipantIds().add(userId);
             log.info("User [{}] joined party [{}]", userId, partyId);
         }
+        participantNames(state).put(userId, displayName(userId, userName));
         state.getLastHeartbeat().put(userId, Instant.now().toEpochMilli());
         save(state);
         return state;
     }
 
     // This is the method that is used to remove a participant from a party
-    public PartyState handleDisconnect(String partyId, String userId) {
+    public PartyState handleDisconnect(String partyId, String userId, String userName) {
         validatePartyId(partyId);
         PartyState state = loadOrNull(partyId);
         if (state == null)
             return null;
 
+        String departingName = displayName(userId, userName, state);
         state.getParticipantIds().remove(userId);
         state.getBufferingParticipants().remove(userId);
         state.getLastHeartbeat().remove(userId);
@@ -107,17 +113,17 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
             // Last participant — destroy the party
             delete(partyId);
             log.info("Party [{}] destroyed — no participants remaining.", partyId);
-            messagingTemplate.convertAndSend(topic, new com.riyura.backend.modules.party.dto.PartyMessage(
-                    com.riyura.backend.modules.party.model.PartyEvent.PARTY_CLOSED,
-                    java.util.Map.of("reason", "All participants left"),
+            messagingTemplate.convertAndSend(topic, new PartyMessage(
+                    PartyEvent.PARTY_CLOSED,
+                    Map.of("reason", "All participants left"),
                     userId,
                     Instant.now().toEpochMilli()));
             return null;
         }
 
-        messagingTemplate.convertAndSend(topic, new com.riyura.backend.modules.party.dto.PartyMessage(
-                com.riyura.backend.modules.party.model.PartyEvent.USER_LEFT,
-                java.util.Map.of("userId", userId, "participantIds", state.getParticipantIds()),
+        messagingTemplate.convertAndSend(topic, new PartyMessage(
+                PartyEvent.USER_LEFT,
+                Map.of("userId", userId, "userName", departingName, "participantIds", state.getParticipantIds()),
                 userId,
                 Instant.now().toEpochMilli()));
 
@@ -126,13 +132,14 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
             String newHost = state.getParticipantIds().get(0);
             state.setHostId(newHost);
             log.info("Party [{}] host migrated from [{}] to [{}]", partyId, userId, newHost);
-            messagingTemplate.convertAndSend(topic, new com.riyura.backend.modules.party.dto.PartyMessage(
-                    com.riyura.backend.modules.party.model.PartyEvent.NEW_HOST_ASSIGNED,
-                    java.util.Map.of("newHostId", newHost),
+            messagingTemplate.convertAndSend(topic, new PartyMessage(
+                    PartyEvent.NEW_HOST_ASSIGNED,
+                    Map.of("newHostId", newHost, "newHostName", displayName(newHost, null, state)),
                     "system",
                     Instant.now().toEpochMilli()));
         }
 
+        participantNames(state).remove(userId);
         save(state);
         return state;
     }
@@ -163,7 +170,7 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
 
         for (String zombie : zombies) {
             log.warn("Evicting zombie participant [{}] from party [{}]", zombie, partyId);
-            state = handleDisconnect(partyId, zombie);
+            state = handleDisconnect(partyId, zombie, null);
             if (state == null)
                 return null; // party destroyed
         }
@@ -186,7 +193,6 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
         }
 
         state.setStartAt(requireValidStartAt(command.getStartAt()));
-        state.setPartyStartedAt(Instant.now().toEpochMilli());
 
         if (command.getProviderId() != null && !command.getProviderId().isBlank()) {
             state.setProviderId(command.getProviderId().trim());
@@ -237,23 +243,26 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
     }
 
     // This is the method that is used to mark a participant as buffering
-    public boolean markBuffering(String partyId, String userId) {
+    public PartyState markBuffering(String partyId, String userId) {
         validatePartyId(partyId);
         PartyState state = load(partyId);
-        if (!state.getBufferingParticipants().contains(userId)) {
-            state.getBufferingParticipants().add(userId);
-            save(state);
+        if (state.getBufferingParticipants().contains(userId)) {
+            return null;
         }
-        return state.isStrictSync();
+        state.getBufferingParticipants().add(userId);
+        save(state);
+        return state.isStrictSync() ? state : null;
     }
 
     // This is the method that is used to clear a participant's buffering status
-    public boolean markBufferingComplete(String partyId, String userId) {
+    public PartyState markBufferingComplete(String partyId, String userId) {
         validatePartyId(partyId);
         PartyState state = load(partyId);
-        state.getBufferingParticipants().remove(userId);
+        if (!state.getBufferingParticipants().remove(userId)) {
+            return null;
+        }
         save(state);
-        return state.isStrictSync() && state.getBufferingParticipants().isEmpty();
+        return state.isStrictSync() && state.getBufferingParticipants().isEmpty() ? state : null;
     }
 
     // This is the method that is used to toggle strict-sync mode
@@ -280,6 +289,31 @@ public class PartyService implements com.riyura.backend.modules.party.port.Party
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startAt must not be negative");
         }
         return startAt;
+    }
+
+    private String displayName(String userId, String suppliedName) {
+        if (suppliedName != null && !suppliedName.isBlank()) {
+            return suppliedName.trim();
+        }
+        return userId;
+    }
+
+    private String displayName(String userId, String suppliedName, PartyState state) {
+        if (suppliedName != null && !suppliedName.isBlank()) {
+            return suppliedName.trim();
+        }
+        String storedName = participantNames(state).get(userId);
+        if (storedName != null && !storedName.isBlank()) {
+            return storedName.trim();
+        }
+        return userId;
+    }
+
+    private Map<String, String> participantNames(PartyState state) {
+        if (state.getParticipantNames() == null) {
+            state.setParticipantNames(new java.util.HashMap<>());
+        }
+        return state.getParticipantNames();
     }
 
     // Helper method to load a party state from the database

@@ -1,5 +1,6 @@
 package com.riyura.backend.modules.party.controller;
 
+import com.riyura.backend.modules.party.dto.ChangeProviderCommand;
 import com.riyura.backend.modules.party.dto.ChatMessage;
 import com.riyura.backend.modules.party.dto.PartyMessage;
 import com.riyura.backend.modules.party.dto.SyncCommand;
@@ -7,6 +8,7 @@ import com.riyura.backend.modules.party.model.PartyEvent;
 import com.riyura.backend.modules.party.model.PartyState;
 import com.riyura.backend.modules.party.security.WebSocketAuthInterceptor;
 import com.riyura.backend.modules.party.port.PartyServicePort;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -36,16 +38,14 @@ public class PartyWebSocketController {
             SimpMessageHeaderAccessor headerAccessor) {
 
         String userId = resolveUserId(headerAccessor);
-        PartyState state = partyService.addParticipant(partyId, userId);
-
-        // Store partyId in WebSocket session attributes for later use
         Map<String, Object> attrs = headerAccessor.getSessionAttributes();
-        String userName = userId;
+        String userName = sessionString(attrs, "userName", userId);
+
+        PartyState state = partyService.addParticipant(partyId, userId, userName);
+
+        // Store partyId in WebSocket session attributes for disconnect cleanup.
         if (attrs != null) {
             attrs.put("partyId", partyId);
-            if (attrs.containsKey("userName")) {
-                userName = (String) attrs.get("userName");
-            }
         }
 
         // Broadcast the updated participant list to all members
@@ -67,7 +67,7 @@ public class PartyWebSocketController {
     // Sync command from a client to update the party's playback position
     @MessageMapping("/party/{partyId}/sync")
     public void sync(@DestinationVariable String partyId,
-            @Payload SyncCommand command,
+            @Valid @Payload SyncCommand command,
             SimpMessageHeaderAccessor headerAccessor) {
 
         String userId = resolveUserId(headerAccessor);
@@ -123,14 +123,14 @@ public class PartyWebSocketController {
     // late joiners and request-sync responses receive the current server too.
     @MessageMapping("/party/{partyId}/change-provider")
     public void changeProvider(@DestinationVariable String partyId,
-            @Payload Map<String, Object> command,
+            @Valid @Payload ChangeProviderCommand command,
             SimpMessageHeaderAccessor headerAccessor) {
 
         String userId = resolveUserId(headerAccessor);
-        Object providerValue = command != null ? command.get("providerId") : null;
-        String providerId = providerValue != null ? providerValue.toString() : null;
-
-        PartyState state = partyService.changeProvider(partyId, userId, providerId);
+        if (command == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "providerId is required");
+        }
+        PartyState state = partyService.changeProvider(partyId, userId, command.getProviderId());
 
         broadcast(partyId, new PartyMessage(
                 PartyEvent.PROVIDER_CHANGED,
@@ -143,10 +143,13 @@ public class PartyWebSocketController {
     // broadcast to all members
     @MessageMapping("/party/{partyId}/chat")
     public void chat(@DestinationVariable String partyId,
-            @Payload ChatMessage incomingMessage,
+            @Valid @Payload ChatMessage incomingMessage,
             SimpMessageHeaderAccessor headerAccessor) {
 
         String userId = resolveUserId(headerAccessor);
+        if (incomingMessage == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chat message is required");
+        }
         incomingMessage.setSenderId(userId);
 
         // Retrieve optional display name and photo from session attributes set during
@@ -154,10 +157,10 @@ public class PartyWebSocketController {
         Map<String, Object> attrs = headerAccessor.getSessionAttributes();
         if (attrs != null) {
             if (attrs.containsKey("userName")) {
-                incomingMessage.setSenderDisplayName((String) attrs.get("userName"));
+                incomingMessage.setSenderDisplayName(sessionString(attrs, "userName", userId));
             }
             if (attrs.containsKey("userPhoto")) {
-                incomingMessage.setSenderProfilePhoto((String) attrs.get("userPhoto"));
+                incomingMessage.setSenderProfilePhoto(sessionString(attrs, "userPhoto", ""));
             }
         }
 
@@ -179,11 +182,11 @@ public class PartyWebSocketController {
             SimpMessageHeaderAccessor headerAccessor) {
 
         String userId = resolveUserId(headerAccessor);
-        boolean shouldForcePause = partyService.markBuffering(partyId, userId);
+        PartyState state = partyService.markBuffering(partyId, userId);
 
-        if (shouldForcePause) {
-            broadcast(partyId, new PartyMessage(PartyEvent.FORCE_PAUSE, Map.of("reason", "participant_buffering"),
-                    "system", now()));
+        if (state != null) {
+            broadcast(partyId, new PartyMessage(PartyEvent.FORCE_PAUSE,
+                    Map.of("startAt", state.getStartAt(), "reason", "participant_buffering"), "system", now()));
         }
     }
 
@@ -194,11 +197,13 @@ public class PartyWebSocketController {
             SimpMessageHeaderAccessor headerAccessor) {
 
         String userId = resolveUserId(headerAccessor);
-        boolean shouldResume = partyService.markBufferingComplete(partyId, userId);
+        PartyState state = partyService.markBufferingComplete(partyId, userId);
 
-        if (shouldResume) {
+        if (state != null) {
             broadcast(partyId,
-                    new PartyMessage(PartyEvent.RESUME, Map.of("reason", "all_buffering_resolved"), "system", now()));
+                    new PartyMessage(PartyEvent.RESUME,
+                            Map.of("startAt", state.getStartAt(), "reason", "all_buffering_resolved"), "system",
+                            now()));
         }
     }
 
@@ -230,13 +235,12 @@ public class PartyWebSocketController {
 
         // Send an ack back to the specific user to confirm the heartbeat was received
         messaging.convertAndSendToUser(headerAccessor.getUser().getName(), "/queue/heartbeat-ack",
-                new PartyMessage(PartyEvent.HEARTBEAT_ACK, Map.of("ack", now()), "system", now()));
+                new PartyMessage(PartyEvent.HEARTBEAT_ACK, Map.of(), "system", now()));
     }
 
     @org.springframework.messaging.handler.annotation.MessageExceptionHandler
     public void handleException(Exception ex, SimpMessageHeaderAccessor headerAccessor) {
         try {
-            String userId = resolveUserId(headerAccessor);
             String errorMessage = ex.getMessage();
             if (ex instanceof org.springframework.web.server.ResponseStatusException rse) {
                 errorMessage = rse.getReason();
@@ -271,6 +275,18 @@ public class PartyWebSocketController {
     // Helper method to get the current server time in milliseconds
     private long now() {
         return Instant.now().toEpochMilli();
+    }
+
+    private String sessionString(Map<String, Object> attrs, String key, String fallback) {
+        if (attrs == null) {
+            return fallback;
+        }
+        Object value = attrs.get(key);
+        if (value == null) {
+            return fallback;
+        }
+        String stringValue = value.toString();
+        return stringValue.isBlank() ? fallback : stringValue;
     }
 
     // Helper method to resolve the user ID from the WebSocket session attributes or

@@ -13,9 +13,9 @@ public interface PartyServicePort {
 
     PartyState getPartyState(String partyId);
 
-    PartyState addParticipant(String partyId, String userId);
+    PartyState addParticipant(String partyId, String userId, String userName);
 
-    PartyState handleDisconnect(String partyId, String userId);
+    PartyState handleDisconnect(String partyId, String userId, String userName);
 
     void recordHeartbeat(String partyId, String userId);
 
@@ -27,9 +27,9 @@ public interface PartyServicePort {
 
     PartyState appendChat(String partyId, ChatMessage message);
 
-    boolean markBuffering(String partyId, String userId);
+    PartyState markBuffering(String partyId, String userId);
 
-    boolean markBufferingComplete(String partyId, String userId);
+    PartyState markBufferingComplete(String partyId, String userId);
 
     boolean toggleStrictSync(String partyId, String hostId);
 }
