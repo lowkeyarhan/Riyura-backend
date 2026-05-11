@@ -1,4 +1,4 @@
-package com.riyura.backend.modules.content.port;
+package com.riyura.backend.modules.content.interfaces;
 
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.modules.content.dto.tv.TvShowDetails;

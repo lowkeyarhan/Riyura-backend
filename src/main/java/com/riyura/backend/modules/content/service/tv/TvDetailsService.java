@@ -12,7 +12,7 @@ import com.riyura.backend.modules.content.dto.global.CastResponse;
 import com.riyura.backend.modules.content.dto.global.CrewResponse;
 import com.riyura.backend.modules.content.dto.tv.TmdbTvShowDetailsResponse;
 import com.riyura.backend.modules.content.dto.tv.TvShowDetails;
-import com.riyura.backend.modules.content.port.TvDetailsServicePort;
+import com.riyura.backend.modules.content.interfaces.TvDetailsServicePort;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;

@@ -1,4 +1,4 @@
-package com.riyura.backend.modules.content.port;
+package com.riyura.backend.modules.content.interfaces;
 
 import com.riyura.backend.modules.content.dto.search.SearchResponse;
 import com.riyura.backend.modules.content.dto.search.SearchSortOrder;

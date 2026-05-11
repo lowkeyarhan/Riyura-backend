@@ -10,7 +10,7 @@ import com.riyura.backend.common.util.GenreMapper;
 import com.riyura.backend.common.util.LanguageMapper;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.explore.ExploreResponse;
-import com.riyura.backend.modules.content.port.ExploreServicePort;
+import com.riyura.backend.modules.content.interfaces.ExploreServicePort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

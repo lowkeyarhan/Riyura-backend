@@ -1,7 +1,7 @@
 package com.riyura.backend.modules.content.controller;
 
 import com.riyura.backend.modules.content.dto.explore.ExploreResponse;
-import com.riyura.backend.modules.content.port.ExploreServicePort;
+import com.riyura.backend.modules.content.interfaces.ExploreServicePort;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

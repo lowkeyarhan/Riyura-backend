@@ -1,7 +1,7 @@
 package com.riyura.backend.modules.content.controller;
 
 import com.riyura.backend.modules.content.dto.banner.BannerResponse;
-import com.riyura.backend.modules.content.port.BannerServicePort;
+import com.riyura.backend.modules.content.interfaces.BannerServicePort;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

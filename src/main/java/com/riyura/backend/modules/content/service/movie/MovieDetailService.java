@@ -12,7 +12,7 @@ import com.riyura.backend.modules.content.dto.global.CastResponse;
 import com.riyura.backend.modules.content.dto.global.CrewResponse;
 import com.riyura.backend.modules.content.dto.movie.MovieDetail;
 import com.riyura.backend.modules.content.dto.movie.TmdbMovieDetailResponse;
-import com.riyura.backend.modules.content.port.MovieDetailServicePort;
+import com.riyura.backend.modules.content.interfaces.MovieDetailServicePort;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;

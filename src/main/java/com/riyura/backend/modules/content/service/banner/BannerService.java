@@ -9,7 +9,7 @@ import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.modules.content.dto.banner.BannerResponse;
-import com.riyura.backend.modules.content.port.BannerServicePort;
+import com.riyura.backend.modules.content.interfaces.BannerServicePort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
