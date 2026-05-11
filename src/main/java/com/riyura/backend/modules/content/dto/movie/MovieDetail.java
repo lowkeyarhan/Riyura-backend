@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.riyura.backend.common.util.GenreLike;
 import com.riyura.backend.modules.content.dto.global.CastResponse;
+import com.riyura.backend.modules.content.dto.global.CrewResponse;
 
 import lombok.Data;
 
@@ -23,7 +24,6 @@ public class MovieDetail {
     private String backdropPath;
 
     private Long budget;
-    private boolean adult;
 
     private String maturityRating;
 
@@ -47,6 +47,9 @@ public class MovieDetail {
     private Double voteAverage;
 
     private List<CastResponse> casts;
+
+    private List<CrewResponse> directors;
+    private List<CrewResponse> writers;
 
     @JsonProperty("is_anime")
     private boolean anime;

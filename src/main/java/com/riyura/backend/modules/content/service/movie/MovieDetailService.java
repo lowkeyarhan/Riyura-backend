@@ -9,12 +9,15 @@ import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.global.CastResponse;
+import com.riyura.backend.modules.content.dto.global.CrewResponse;
 import com.riyura.backend.modules.content.dto.movie.MovieDetail;
+import com.riyura.backend.modules.content.dto.movie.TmdbMovieDetailResponse;
 import com.riyura.backend.modules.content.port.MovieDetailServicePort;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -43,14 +46,16 @@ public class MovieDetailService implements MovieDetailServicePort {
                     String detailsUrl = TmdbUrlBuilder.from(tmdbProperties)
                             .path("/movie/" + id)
                             .param("language", "en-US")
+                            .param("append_to_response", "release_dates")
                             .build();
                     String creditsUrl = TmdbUrlBuilder.from(tmdbProperties)
                             .path("/movie/" + id + "/credits")
                             .param("language", "en-US")
                             .build();
                     try {
-                        CompletableFuture<MovieDetail> detailsTask = CompletableFuture
-                                .supplyAsync(() -> tmdbClient.fetchWithRetry(detailsUrl, MovieDetail.class));
+                        CompletableFuture<TmdbMovieDetailResponse> detailsTask = CompletableFuture
+                                .supplyAsync(
+                                        () -> tmdbClient.fetchWithRetry(detailsUrl, TmdbMovieDetailResponse.class));
                         CompletableFuture<CreditsResponse> creditsTask = CompletableFuture.supplyAsync(() -> {
                             try {
                                 return tmdbClient.fetchWithRetry(creditsUrl, CreditsResponse.class);
@@ -59,14 +64,29 @@ public class MovieDetailService implements MovieDetailServicePort {
                             }
                         });
 
-                        MovieDetail details = detailsTask.orTimeout(8, TimeUnit.SECONDS).join();
+                        TmdbMovieDetailResponse tmdbDetails = detailsTask.orTimeout(8, TimeUnit.SECONDS).join();
                         CreditsResponse credits = creditsTask.orTimeout(8, TimeUnit.SECONDS).join();
+                        MovieDetail details = mapToMovieDetail(tmdbDetails);
                         if (details != null) {
                             details.setCasts(credits != null && credits.getCast() != null
                                     ? credits.getCast()
                                     : Collections.emptyList());
+                            if (credits != null && credits.getCrew() != null) {
+                                details.setDirectors(credits.getCrew().stream()
+                                        .filter(c -> "Director".equals(c.getJob()))
+                                        .toList());
+                                details.setWriters(credits.getCrew().stream()
+                                        .filter(c -> "Writer".equals(c.getJob()) || "Screenplay".equals(c.getJob())
+                                                || "Story".equals(c.getJob()) || "Author".equals(c.getJob()))
+                                        .toList());
+                            } else {
+                                details.setDirectors(Collections.emptyList());
+                                details.setWriters(Collections.emptyList());
+                            }
                             details.setAnime(TmdbUtils.isAnime(details.getOriginalLanguage(), details.getGenres()));
-                            details.setMaturityRating(details.isAdult() ? "A" : "U/A");
+                            details.setMaturityRating(TmdbUtils.getMovieMaturityRating(
+                                    tmdbDetails != null ? tmdbDetails.getReleaseDates() : null,
+                                    details.getGenres(), details.getOverview()));
                         }
                         return details;
                     } catch (Exception e) {
@@ -117,8 +137,18 @@ public class MovieDetailService implements MovieDetailServicePort {
         return dto;
     }
 
+    private MovieDetail mapToMovieDetail(TmdbMovieDetailResponse source) {
+        if (source == null) {
+            return null;
+        }
+        MovieDetail target = new MovieDetail();
+        BeanUtils.copyProperties(source, target);
+        return target;
+    }
+
     @Data
     private static class CreditsResponse {
         private List<CastResponse> cast;
+        private List<CrewResponse> crew;
     }
 }
