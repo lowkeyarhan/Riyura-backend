@@ -11,8 +11,9 @@ import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.movie.MovieDetail;
 import com.riyura.backend.modules.watchalong.dto.movie.MoviePlayerResponse;
+import com.riyura.backend.modules.watchalong.interfaces.MoviePlayerServicePort;
+
 import org.springframework.cache.annotation.Cacheable;
-import com.riyura.backend.modules.watchalong.port.MoviePlayerServicePort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

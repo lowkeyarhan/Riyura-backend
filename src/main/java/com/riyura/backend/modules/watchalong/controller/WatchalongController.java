@@ -5,9 +5,10 @@ import com.riyura.backend.modules.watchalong.dto.movie.MoviePlayerResponse;
 import com.riyura.backend.modules.watchalong.dto.stream.StreamProviderRequest;
 import com.riyura.backend.modules.watchalong.dto.stream.StreamUrlResponse;
 import com.riyura.backend.modules.watchalong.dto.tv.TvPlayerResponse;
-import com.riyura.backend.modules.watchalong.port.MoviePlayerServicePort;
-import com.riyura.backend.modules.watchalong.port.StreamUrlServicePort;
-import com.riyura.backend.modules.watchalong.port.TvPlayerServicePort;
+import com.riyura.backend.modules.watchalong.interfaces.MoviePlayerServicePort;
+import com.riyura.backend.modules.watchalong.interfaces.StreamUrlServicePort;
+import com.riyura.backend.modules.watchalong.interfaces.TvPlayerServicePort;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

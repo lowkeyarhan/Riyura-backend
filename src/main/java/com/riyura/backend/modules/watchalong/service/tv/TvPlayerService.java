@@ -17,7 +17,7 @@ import com.riyura.backend.modules.content.dto.tv.TvShowDetails;
 import com.riyura.backend.modules.content.model.Episode;
 import com.riyura.backend.modules.content.model.Season;
 import com.riyura.backend.modules.watchalong.dto.tv.TvPlayerResponse;
-import com.riyura.backend.modules.watchalong.port.TvPlayerServicePort;
+import com.riyura.backend.modules.watchalong.interfaces.TvPlayerServicePort;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
