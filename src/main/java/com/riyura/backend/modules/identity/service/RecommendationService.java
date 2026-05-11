@@ -11,6 +11,7 @@ import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.modules.identity.dto.recomendation.GeminiRecommendationItem;
+import com.riyura.backend.modules.identity.interfaces.RecommendationServicePort;
 import com.riyura.backend.modules.identity.model.Recommendation;
 import com.riyura.backend.modules.identity.model.WatchHistory;
 import com.riyura.backend.modules.identity.model.Watchlist;
@@ -33,8 +34,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
-
-import com.riyura.backend.modules.identity.port.RecommendationServicePort;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j

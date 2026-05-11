@@ -1,4 +1,4 @@
-package com.riyura.backend.modules.identity.port;
+package com.riyura.backend.modules.identity.interfaces;
 
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.model.MediaType;

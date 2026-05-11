@@ -21,7 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.riyura.backend.common.dto.media.MediaGridResponse;
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.modules.identity.dto.watchlist.WatchlistRequest;
-import com.riyura.backend.modules.identity.port.WatchlistServicePort;
+import com.riyura.backend.modules.identity.interfaces.WatchlistServicePort;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

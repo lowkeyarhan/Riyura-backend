@@ -20,7 +20,7 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ProfileService implements com.riyura.backend.modules.identity.port.ProfileServicePort {
+public class ProfileService implements com.riyura.backend.modules.identity.interfaces.ProfileServicePort {
 
     private final UserProfileRepository userProfileRepository;
 

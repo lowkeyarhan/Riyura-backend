@@ -2,7 +2,8 @@ package com.riyura.backend.modules.identity.controller;
 
 import com.riyura.backend.common.config.TmdbProperties;
 import com.riyura.backend.modules.identity.dto.recomendation.RecommendationsResponse;
-import com.riyura.backend.modules.identity.port.RecommendationServicePort;
+import com.riyura.backend.modules.identity.interfaces.RecommendationServicePort;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;

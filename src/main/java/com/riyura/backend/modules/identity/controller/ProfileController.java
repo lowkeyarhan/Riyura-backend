@@ -20,9 +20,9 @@ import com.riyura.backend.modules.identity.dto.history.DeleteWatchHistoryRequest
 import com.riyura.backend.modules.identity.dto.history.HistoryResponse;
 import com.riyura.backend.modules.identity.dto.history.HistoryRequest;
 import com.riyura.backend.modules.identity.dto.profile.OnboardRequest;
+import com.riyura.backend.modules.identity.interfaces.HistoryServicePort;
+import com.riyura.backend.modules.identity.interfaces.ProfileServicePort;
 import com.riyura.backend.modules.identity.model.UserProfile;
-import com.riyura.backend.modules.identity.port.HistoryServicePort;
-import com.riyura.backend.modules.identity.port.ProfileServicePort;
 
 import java.util.HashMap;
 import java.util.List;

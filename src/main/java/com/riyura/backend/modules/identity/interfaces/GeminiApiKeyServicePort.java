@@ -1,4 +1,4 @@
-package com.riyura.backend.modules.identity.port;
+package com.riyura.backend.modules.identity.interfaces;
 
 import java.util.Map;
 import java.util.UUID;

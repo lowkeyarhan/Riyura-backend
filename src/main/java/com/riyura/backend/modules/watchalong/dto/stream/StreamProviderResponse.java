@@ -4,10 +4,6 @@ import com.riyura.backend.modules.watchalong.model.StreamProvider;
 import lombok.Builder;
 import lombok.Data;
 
-/**
- * API DTO for stream provider data.
- * Stripped of JPA annotations — the entity is {@link StreamProvider}.
- */
 @Data
 @Builder
 public class StreamProviderResponse {
@@ -21,9 +17,6 @@ public class StreamProviderResponse {
     private Integer priority;
     private Boolean isActive;
 
-    /**
-     * Maps the JPA entity to this DTO.
-     */
     public static StreamProviderResponse from(StreamProvider entity) {
         return StreamProviderResponse.builder()
                 .providerId(entity.getProviderId())
