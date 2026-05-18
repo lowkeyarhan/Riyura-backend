@@ -23,6 +23,9 @@ public class MovieDetail {
     @JsonProperty("backdrop_path")
     private String backdropPath;
 
+    @JsonProperty("poster_path")
+    private String posterPath;
+
     private Long budget;
 
     private String maturityRating;
