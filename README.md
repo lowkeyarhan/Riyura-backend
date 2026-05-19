@@ -9,7 +9,7 @@
 - [Caching](#caching)
 - [Concurrency](#concurrency)
 - [AI Recommendations (Gemini)](#ai-recommendations-gemini)
-- [WebSocket & Watch Parties](#websocket--watch-parties)
+- [Real-Time Watch Parties](#real-time-watch-parties)
 - [Security & Authentication](#security--authentication)
 - [Rate Limiting](#rate-limiting)
 - [Health Check](#health-check)
