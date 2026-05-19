@@ -14,7 +14,20 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @Configuration
 public class RedisConfig {
 
-    public static final long PARTY_TTL_SECONDS = 3600L;
+    /** Active party TTL: 2 hours */
+    public static final long PARTY_TTL_SECONDS = 7200L;
+
+    /** Ended party TTL: 5 minutes — deleted automatically after this */
+    public static final long PARTY_ENDED_TTL_SECONDS = 300L;
+
+    /** Max chat messages retained per party in Redis */
+    public static final int MAX_CHAT_MESSAGES = 200;
+
+    /** Participant heartbeat timeout — evicted if silent for more than this */
+    public static final long HEARTBEAT_TIMEOUT_SECONDS = 300L;
+
+    /** Max participants per party */
+    public static final int MAX_PARTY_PARTICIPANTS = 20;
 
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {

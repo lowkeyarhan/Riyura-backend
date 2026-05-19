@@ -1,4 +1,4 @@
-package com.riyura.backend.modules.watchalong.dto.party;
+package com.riyura.backend.modules.watchalong.dto.party.requests;
 
 import java.util.UUID;
 

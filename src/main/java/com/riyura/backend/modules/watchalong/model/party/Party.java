@@ -1,45 +1,58 @@
 package com.riyura.backend.modules.watchalong.model.party;
 
-import java.util.UUID;
-
 import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.modules.watchalong.model.enums.PartyStatus;
-
-import java.util.List;
-
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
 
-// The main party state that will be stored in the database and used for all party-related operations
-// This class contains all the necessary information about a watch-along party, including the host, media being watched, participants, and their progress.
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+
+// Core party state stored as a JSON blob in Redis at key: party:{partyId}
+// partyId is an 8-char alphanumeric code — this is what users share to join
 @Getter
 @Setter
 public class Party {
 
     @NotBlank(message = "Party ID cannot be blank")
-    private UUID partyId;
+    @Size(min = 8, max = 8, message = "Party ID must be exactly 8 characters")
+    private String partyId;
 
-    @NotBlank(message = "Host ID cannot be blank")
-    private UUID hostId;
+    @NotNull(message = "Host user ID cannot be null")
+    private java.util.UUID hostId;
 
-    @NotBlank(message = "Media ID cannot be blank")
+    @NotNull(message = "Media type cannot be null")
     private MediaType mediaType;
 
     @NotBlank(message = "Provider ID cannot be blank")
     private String providerId;
 
-    @NotBlank(message = "TMDb ID cannot be blank")
+    // StreamUrl is NOT stored — built on-demand at join/sync via StreamUrlService
+    @Positive(message = "TMDB ID must be positive")
     private long tmdbId;
 
-    @NotBlank(message = "Party status cannot be blank")
-    private PartyStatus status = PartyStatus.ACTIVE;
-
-    @NotBlank(message = "Watch progress cannot be blank")
-    private double progress;
+    @Min(value = 0, message = "Season number cannot be negative")
     private int seasonNo;
+
+    @Min(value = 0, message = "Episode number cannot be negative")
     private int episodeNo;
 
-    @NotBlank(message = "Participants list cannot be blank, host needs to be added as a participant")
-    private List<PartyParticipants> participants;
+    @NotNull(message = "Party status cannot be null")
+    private PartyStatus status = PartyStatus.ACTIVE;
+
+    // Raw playback position in seconds — starts at 0.0 on party creation
+    @DecimalMin(value = "0.0", message = "Progress cannot be negative")
+    private double progress = 0.0;
+
+    @NotEmpty(message = "Participants list cannot be empty")
+    @Valid
+    private List<PartyParticipants> participants = new ArrayList<>();
+
+    @NotNull(message = "Created-at timestamp cannot be null")
+    private Instant createdAt;
+
+    private Instant endedAt;
 }

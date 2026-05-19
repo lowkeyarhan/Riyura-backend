@@ -41,6 +41,11 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  # MVC content negotiation — default to JSON so SSE error responses don't fail
+  mvc:
+    contentnegotiation:
+      default-content-type: application/json
+
 # TMDB Configuration
 tmdb:
   api-key: ${TMDB_API_KEY}
@@ -78,6 +83,7 @@ server:
   compression:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/plain
+    # text/event-stream is intentionally excluded — compression buffers SSE and breaks streaming
     min-response-size: 1024
   tomcat:
     max-connections: 8192
