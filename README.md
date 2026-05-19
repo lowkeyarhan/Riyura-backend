@@ -9,7 +9,7 @@
 - [Caching](#caching)
 - [Concurrency](#concurrency)
 - [AI Recommendations (Gemini)](#ai-recommendations-gemini)
-- [WebSocket & Watch Parties](#websocket--watch-parties)
+- [Real-Time Watch Parties](#real-time-watch-parties)
 - [Security & Authentication](#security--authentication)
 - [Rate Limiting](#rate-limiting)
 - [Health Check](#health-check)
@@ -209,31 +209,93 @@ Recommendations are cached in PostgreSQL and served instantly on subsequent call
 
 ---
 
-## WebSocket & Watch Parties
+## Real-Time Watch Parties
 
-Riyura supports real-time synchronized watch parties powered by **STOMP over WebSocket** with a SockJS fallback. The WebSocket endpoint is exposed at `/ws`; party state lives in Redis and messaging is handled via a simple in-memory broker broadcasting to `/topic` destinations. Transport limits are set to a 128 KB message size, 512 KB send buffer, and a 20 s send time limit.
+Riyura implements a robust, fault-tolerant, and horizontally scalable real-time watch party synchronization system. Decoupling command actions from real-time events, it uses stateless HTTP REST endpoints for client command requests and Server-Sent Events (SSE) for distributing downstream real-time updates. The system leverages **Redis** as a centralized, shared state store and **Redis Pub/Sub** for cross-instance event broadcasting, making the system inherently ready for multi-node deployments.
 
-### Authentication
+### System Architecture
 
-`WebSocketAuthInterceptor` intercepts every `CONNECT` frame, extracts the JWT from the `Authorization: Bearer` header, and validates it against the Supabase secret. On success it writes `userId` and `userName` into the STOMP session attributes and assigns a unique principal (`userId-sessionId`) per connection — allowing a user to hold multiple simultaneous connections.
+The architecture decouples downstream real-time messaging from upstream state mutation commands:
 
-### Party Messaging
+1. **State Mutation (REST Commands)**: Clients invoke standard REST endpoints (`/api/watchalong/party/**`) to perform actions such as joining, leaving, sending chat messages, or pushing playback progress.
+2. **Concurrency Serialization (JVM Locks)**: Per-party JVM `ReentrantLock` instances serialize participant list mutations to guarantee consistent state transitions.
+3. **Data Persistence (Redis)**: Party documents are stored in Redis as JSON blobs with configured TTLs.
+4. **Event Distribution (Redis Pub/Sub)**: When a mutation completes, a lightweight event envelope is published to Redis Pub/Sub (`party:{partyId}:events`).
+5. **Real-time Delivery (Server-Sent Events)**: Subscription containers fan out Redis Pub/Sub messages to connected SSE client streams (`SseEmitter`) across all running instances via a thread-safe registry.
 
-`PartyWebSocketController` handles all inbound STOMP messages under `/app/party/{partyId}/`. Participants can join a party, send chat messages, report buffering state, and send heartbeats. The host additionally controls playback sync and can toggle strict sync mode. All events are broadcast to `/topic/party/{partyId}` so every member receives them in real time. Per-user acknowledgments (e.g. heartbeat ACK) are sent to the user's private queue.
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Controller as PartyController
+    participant Service as PartyService
+    participant Redis as Redis Cache
+    participant PubSub as Redis Pub/Sub
+    participant Subscriber as PartyEventSubscriber
+    participant Registry as SseEmitterRegistry
 
-### Party Lifecycle & Features
+    Client->>Controller: POST /progress (progress DTO)
+    Controller->>Service: pushProgress()
+    Service->>Redis: Save updated Party state
+    Service->>PubSub: publishEvent(party:code:events)
+    PubSub-->>Subscriber: onMessage()
+    Subscriber->>Registry: broadcast(SSE event)
+    Registry-->>Client: Send event data (PARTY_STATE_UPDATED)
+```
 
-- **Host migration**: When the host disconnects, `WebSocketEventListener` automatically promotes the next participant to host and broadcasts `NEW_HOST_ASSIGNED`
-- **Participant cap**: Parties are limited to a maximum of **20 participants** — join attempts beyond this limit receive a 400 error
-- **Party ID validation**: All party IDs are validated against a strict alphanumeric regex (`^[A-Za-z0-9]{1,20}$`) to prevent Redis key injection
-- **Zombie eviction**: On each WebSocket heartbeat, participants inactive for more than **45 seconds** are removed from the party
-- **Auto-Sync on Join**: Newly joined participants immediately receive a directed `SYNC` event with the host's current playback position to synchronize instantly
-- **Participant Sync Pull**: A failsafe `/request-sync` button allows any participant to request a manual sync. The server reads the current state from Redis and returns a directed `SYNC` event exclusively to the requester without interrupting the host
-- **Buffering sync**: When a participant reports buffering, `PartyService` tracks all buffering participants. In strict sync mode this triggers a `FORCE_PAUSE` to all members; once all are ready a `RESUME` is broadcast
-- **Strict sync mode**: When enabled (host only), any participant buffering pauses playback for everyone
-- **Latency compensation**: Sync commands carry a `clientTime` timestamp that is validated for plausibility (positive, not in the future, within 30 s of server time). The service applies a compensation offset based on round-trip time before broadcasting the target playback position
-- **Chat history**: The last 50 chat messages are stored in the Redis party state and replayed on join
-- **Party cleanup**: When the last participant leaves or the party TTL expires, the party is removed from Redis
+### Redis Key Schema & Data Structures
+
+- **Party State Key**: `party:{partyId}`
+  - Type: `String` (JSON blob containing host metadata, participant list, media TMDB parameters, and current status).
+  - TTL: **2 hours** (`RedisConfig.PARTY_TTL_SECONDS`) for active parties; **5 minutes** (`RedisConfig.PARTY_ENDED_TTL_SECONDS`) for ended parties.
+- **User Location Tracker Key**: `party:user:{userId}:activeParty`
+  - Type: `String` (stores the active `partyId` code).
+  - Purpose: Tracks the exact location of each active user across all parties to enforce single-party membership rules and prevent ghost session states.
+- **Chat Messages List Key**: `party:{partyId}:messages`
+  - Type: `List` (array of JSON message envelopes containing sender UUID, name, avatar URL, content, and timestamp).
+  - Capacity: Capped at **200 messages** (`RedisConfig.MAX_CHAT_MESSAGES`) via Redis `LTRIM` operations.
+- **Pub/Sub Channel**: `party:{partyId}:events`
+  - Topic pattern: `party:*:events` for subscriber listener container.
+
+### SSE Event Types & Payloads
+
+Downstream events are sent as standard Server-Sent Events with the event type name in the `event` field, and the full event envelope in the `data` field:
+
+- `USER_JOINED`: Emitted when a new participant joins the party room. Payload contains the joining user's profile and join timestamp.
+- `USER_LEFT`: Emitted when a participant leaves. Payload contains the user's UUID.
+- `USER_EVICTED`: Emitted when a participant is swept due to heartbeat expiration. Payload contains user ID and eviction reason (`HEARTBEAT_TIMEOUT`).
+- `HOST_MIGRATED`: Emitted when host duties are migrated. Payload contains new host ID and name.
+- `PARTY_ENDED`: Emitted when the party is terminated. Payload contains end timestamp. All active client SSE connections are terminated automatically upon receipt.
+- `NEW_CHAT`: Emitted when a new chat message is submitted. Payload contains the message envelope.
+- `HEARTBEAT`: Emitted as a keepalive verification payload.
+- `PARTY_STATE_UPDATED`: Emitted when the host updates playback state (progress time, provider changes). Payload contains raw progress and provider ID.
+
+### Downstream Synchronization & Resiliency Mechanics
+
+#### 1. Dynamic Stream URL Generation
+
+Unlike architectures that persist stream links inside Redis, Riyura constructs streaming endpoints dynamically upon request. When a user joins or calls the `/sync` endpoint, `StreamUrlService` retrieves active provider configurations, evaluates media parameters (episode/season), formats template placeholders, and returns a signed stream URL starting at the party's current progress timestamp. If a provider service falls offline or is modified, existing party sessions fail open or switch providers gracefully.
+
+#### 2. Auto-Cleanup on Session Re-entry
+
+If a participant creates or joins a new party while actively associated with an existing session, `PartyService` detects the active association via `party:user:{userId}:activeParty` and programmatically invokes `leaveParty` on the stale party code. This completely eliminates orphaned "ghost" references and guarantees clean user states.
+
+#### 3. Idempotent Joins
+
+To recover from sudden client network drops, the join logic is designed to be idempotent. If a user sends a join request for a party they are already marked as participating in, the system skips mutations and returns the current party metadata and history, allowing the client player to resynchronize without triggering duplicate events or errors.
+
+#### 4. Heartbeat Zombie Sweeper
+
+A scheduled task runs every **2 minutes** (`PartyZombieSweeper.sweep()`) to scan active party keys using non-blocking Redis `SCAN` commands. It checks each participant's `lastHeartbeat`. If a participant has been silent for more than **5 minutes** (`RedisConfig.HEARTBEAT_TIMEOUT_SECONDS`), they are evicted:
+
+- The user is removed from the participant list.
+- Their active party tracker key is deleted.
+- A `USER_EVICTED` event is broadcasted.
+- If the zombie was the host, the sweeper triggers a host migration.
+- If the party becomes empty, it is ended and cleaned up.
+
+#### 5. Host Migration Workflow
+
+If the host leaves or is swept as a zombie, host duties are transferred to the earliest remaining participant (evaluated via `joinedAt`). The system changes the host ID in the state, logs the transition, and broadcasts a `HOST_MIGRATED` event so client players re-register the correct commander node.
 
 ---
 

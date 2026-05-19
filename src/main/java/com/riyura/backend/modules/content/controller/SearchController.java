@@ -2,7 +2,8 @@ package com.riyura.backend.modules.content.controller;
 
 import com.riyura.backend.modules.content.dto.search.SearchResponse;
 import com.riyura.backend.modules.content.dto.search.SearchSortOrder;
-import com.riyura.backend.modules.content.port.SearchServicePort;
+import com.riyura.backend.modules.content.interfaces.SearchServicePort;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

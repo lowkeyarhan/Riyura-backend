@@ -10,7 +10,8 @@ import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.search.SearchResponse;
 import com.riyura.backend.modules.content.dto.search.SearchSortOrder;
-import com.riyura.backend.modules.content.port.SearchServicePort;
+import com.riyura.backend.modules.content.interfaces.SearchServicePort;
+
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

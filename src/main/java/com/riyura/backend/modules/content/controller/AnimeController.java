@@ -1,7 +1,7 @@
 package com.riyura.backend.modules.content.controller;
 
 import com.riyura.backend.common.dto.media.MediaGridResponse;
-import com.riyura.backend.modules.content.port.AnimeServicePort;
+import com.riyura.backend.modules.content.interfaces.AnimeServicePort;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

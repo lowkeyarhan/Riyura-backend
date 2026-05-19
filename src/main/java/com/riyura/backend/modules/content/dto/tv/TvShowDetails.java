@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.riyura.backend.common.util.GenreLike;
 import com.riyura.backend.modules.content.dto.global.CastResponse;
+import com.riyura.backend.modules.content.dto.global.CrewResponse;
 import com.riyura.backend.modules.content.model.Season;
 
 import lombok.Data;
@@ -25,16 +26,17 @@ public class TvShowDetails {
     @JsonProperty("backdrop_path")
     private String backdropPath;
 
-    private Long budget;
+    @JsonProperty("poster_path")
+    private String posterPath;
 
-    private boolean adult;
+    private Long budget;
 
     private String maturityRating;
 
     private List<Genre> genres;
 
     @JsonProperty("created_by")
-    private List<CreatedBy> createdBy;
+    private List<CrewResponse> writers;
 
     private List<Network> networks;
 
@@ -77,12 +79,6 @@ public class TvShowDetails {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Genre implements GenreLike {
         private Long id;
-        private String name;
-    }
-
-    @Data
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class CreatedBy {
         private String name;
     }
 

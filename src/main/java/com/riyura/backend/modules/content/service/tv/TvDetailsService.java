@@ -9,12 +9,15 @@ import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.common.util.TmdbUtils;
 import com.riyura.backend.modules.content.dto.global.CastResponse;
+import com.riyura.backend.modules.content.dto.global.CrewResponse;
+import com.riyura.backend.modules.content.dto.tv.TmdbTvShowDetailsResponse;
 import com.riyura.backend.modules.content.dto.tv.TvShowDetails;
-import com.riyura.backend.modules.content.port.TvDetailsServicePort;
+import com.riyura.backend.modules.content.interfaces.TvDetailsServicePort;
 
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -43,14 +46,16 @@ public class TvDetailsService implements TvDetailsServicePort {
                     String detailsUrl = TmdbUrlBuilder.from(tmdbProperties)
                             .path("/tv/" + id)
                             .param("language", "en-US")
+                            .param("append_to_response", "content_ratings")
                             .build();
                     String creditsUrl = TmdbUrlBuilder.from(tmdbProperties)
                             .path("/tv/" + id + "/credits")
                             .param("language", "en-US")
                             .build();
                     try {
-                        CompletableFuture<TvShowDetails> detailsTask = CompletableFuture
-                                .supplyAsync(() -> tmdbClient.fetchWithRetry(detailsUrl, TvShowDetails.class));
+                        CompletableFuture<TmdbTvShowDetailsResponse> detailsTask = CompletableFuture
+                                .supplyAsync(
+                                        () -> tmdbClient.fetchWithRetry(detailsUrl, TmdbTvShowDetailsResponse.class));
                         CompletableFuture<CreditsResponse> creditsTask = CompletableFuture.supplyAsync(() -> {
                             try {
                                 return tmdbClient.fetchWithRetry(creditsUrl, CreditsResponse.class);
@@ -59,14 +64,17 @@ public class TvDetailsService implements TvDetailsServicePort {
                             }
                         });
 
-                        TvShowDetails details = detailsTask.orTimeout(8, TimeUnit.SECONDS).join();
+                        TmdbTvShowDetailsResponse tmdbDetails = detailsTask.orTimeout(8, TimeUnit.SECONDS).join();
                         CreditsResponse credits = creditsTask.orTimeout(8, TimeUnit.SECONDS).join();
+                        TvShowDetails details = mapToTvShowDetails(tmdbDetails);
                         if (details != null) {
                             details.setCasts(credits != null && credits.getCast() != null
                                     ? credits.getCast()
                                     : Collections.emptyList());
                             details.setAnime(TmdbUtils.isAnime(details.getOriginalLanguage(), details.getGenres()));
-                            details.setMaturityRating(details.isAdult() ? "A" : "U/A");
+                            details.setMaturityRating(TmdbUtils.getTvMaturityRating(
+                                    tmdbDetails != null ? tmdbDetails.getContentRatings() : null,
+                                    details.getGenres(), details.getOverview()));
                         }
                         return details;
                     } catch (Exception e) {
@@ -117,8 +125,18 @@ public class TvDetailsService implements TvDetailsServicePort {
         return dto;
     }
 
+    private TvShowDetails mapToTvShowDetails(TmdbTvShowDetailsResponse source) {
+        if (source == null) {
+            return null;
+        }
+        TvShowDetails target = new TvShowDetails();
+        BeanUtils.copyProperties(source, target);
+        return target;
+    }
+
     @Data
     private static class CreditsResponse {
         private List<CastResponse> cast;
+        private List<CrewResponse> crew;
     }
 }

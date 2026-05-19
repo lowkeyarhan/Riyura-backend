@@ -50,8 +50,16 @@ public class SecurityConfig {
                                                 // Protected stream endpoints (history-based resume needs user context)
                                                 .requestMatchers(
                                                                 "/api/movies/stream",
-                                                                "/api/tv/stream")
+                                                                "/api/tv/stream",
+                                                                "/api/watchalong/movies/stream",
+                                                                "/api/watchalong/tv/stream")
                                                 .authenticated()
+
+                                                // Static test assets (JS/HTML served directly by Spring's resource
+                                                // handler)
+                                                .requestMatchers("/party-test.js", "/party-test.html",
+                                                                "/cache-monitor.html", "/cache-monitor.js")
+                                                .permitAll()
 
                                                 // Public Endpoints
                                                 .requestMatchers(
@@ -62,18 +70,14 @@ public class SecurityConfig {
                                                                 "/api/banner/**",
                                                                 "/api/movies/**",
                                                                 "/api/tv/**",
+                                                                "/api/watchalong/movies/player/**",
+                                                                "/api/watchalong/tv/player/**",
                                                                 "/api/search/**",
                                                                 "/api/anime/**",
                                                                 "/api/explore/**",
                                                                 "/api/test/**",
                                                                 "/ws/**")
                                                 .permitAll()
-
-                                                // Testing endpoints — only for admins in production
-                                                .requestMatchers("/api/test/health")
-                                                .permitAll()
-                                                .requestMatchers("/api/test/**")
-                                                .hasAuthority("ROLE_ADMIN")
 
                                                 // Actuator — allow health, restrict the rest
                                                 .requestMatchers("/actuator/health", "/actuator/health/**")
@@ -85,7 +89,7 @@ public class SecurityConfig {
                                                 .requestMatchers(
                                                                 "/api/profile/**",
                                                                 "/api/watchlist/**",
-                                                                "/api/party/**")
+                                                                "/api/watchalong/party/**")
                                                 .authenticated()
 
                                                 .anyRequest().authenticated())
@@ -100,7 +104,10 @@ public class SecurityConfig {
                 CorsConfiguration configuration = new CorsConfiguration();
                 configuration.setAllowedOrigins(buildAllowedOrigins());
                 configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-                configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept"));
+                // Cache-Control and Last-Event-ID required for SSE
+                configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept",
+                                "Cache-Control", "Last-Event-ID"));
+                configuration.setExposedHeaders(Arrays.asList("Content-Type", "Cache-Control"));
                 configuration.setAllowCredentials(true);
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -8,7 +8,7 @@ import com.riyura.backend.common.model.MediaType;
 import com.riyura.backend.common.service.TmdbClient;
 import com.riyura.backend.common.service.TmdbUrlBuilder;
 import com.riyura.backend.common.util.TmdbUtils;
-import com.riyura.backend.modules.content.port.AnimeServicePort;
+import com.riyura.backend.modules.content.interfaces.AnimeServicePort;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

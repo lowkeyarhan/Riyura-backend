@@ -14,13 +14,13 @@ import com.riyura.backend.modules.identity.model.UserProfile;
 import com.riyura.backend.modules.identity.repository.UserProfileRepository;
 
 import java.time.OffsetDateTime;
-import java.util.Map;
 import java.util.UUID;
+import com.riyura.backend.common.util.JwtUtils;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ProfileService implements com.riyura.backend.modules.identity.port.ProfileServicePort {
+public class ProfileService implements com.riyura.backend.modules.identity.interfaces.ProfileServicePort {
 
     private final UserProfileRepository userProfileRepository;
 
@@ -61,11 +61,9 @@ public class ProfileService implements com.riyura.backend.modules.identity.port.
     private UserProfile createProfile(UUID userId, Jwt jwt) {
         log.info("Creating new profile for user {}", userId);
 
-        Map<String, Object> userMetadata = jwt.getClaimAsMap("user_metadata");
-
-        String name = extractString(userMetadata, "full_name", "name");
-        String email = jwt.getClaimAsString("email");
-        String photoUrl = extractString(userMetadata, "avatar_url", "picture");
+        String name = JwtUtils.extractName(jwt);
+        String email = JwtUtils.extractEmail(jwt);
+        String photoUrl = JwtUtils.extractAvatarUrl(jwt);
 
         UserProfile profile = new UserProfile();
         profile.setId(userId);
@@ -85,18 +83,5 @@ public class ProfileService implements com.riyura.backend.modules.identity.port.
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                             "Failed to create profile"));
         }
-    }
-
-    // Extract a non-blank string from a map given multiple possible keys
-    private String extractString(Map<String, Object> map, String... keys) {
-        if (map == null)
-            return null;
-        for (String key : keys) {
-            Object value = map.get(key);
-            if (value instanceof String s && !s.isBlank()) {
-                return s;
-            }
-        }
-        return null;
     }
 }

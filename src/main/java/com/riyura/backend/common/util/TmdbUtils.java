@@ -2,7 +2,11 @@ package com.riyura.backend.common.util;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
+
+import com.riyura.backend.modules.content.dto.global.ContentRatingsResponse;
+import com.riyura.backend.modules.content.dto.global.ReleaseDatesResponse;
 
 public final class TmdbUtils {
 
@@ -69,5 +73,57 @@ public final class TmdbUtils {
 
     public static boolean isAnime(String originalLanguage, List<? extends GenreLike> genres) {
         return isAnimeByIds(originalLanguage, extractIds(genres));
+    }
+
+    public static String getMovieMaturityRating(ReleaseDatesResponse releaseDates,
+            List<? extends GenreLike> genres, String overview) {
+        List<ContentRatingSummaryEngine.RatingEntry> ratings = new ArrayList<>();
+        if (releaseDates != null && releaseDates.getResults() != null) {
+            for (ReleaseDatesResponse.Result result : releaseDates.getResults()) {
+                String certification = selectMostRestrictiveCertification(result.getIso_3166_1(),
+                        result.getRelease_dates());
+                if (certification != null && !certification.isBlank()) {
+                    ratings.add(new ContentRatingSummaryEngine.RatingEntry(result.getIso_3166_1(), certification));
+                }
+            }
+        }
+        return ContentRatingSummaryEngine.summarizeLabel(ratings, genres, overview);
+    }
+
+    public static String getTvMaturityRating(ContentRatingsResponse contentRatings,
+            List<? extends GenreLike> genres, String overview) {
+        List<ContentRatingSummaryEngine.RatingEntry> ratings = new ArrayList<>();
+        if (contentRatings != null && contentRatings.getResults() != null) {
+            for (ContentRatingsResponse.Result result : contentRatings.getResults()) {
+                if (result.getRating() != null && !result.getRating().isBlank()) {
+                    ratings.add(new ContentRatingSummaryEngine.RatingEntry(result.getIso_3166_1(), result.getRating()));
+                }
+            }
+        }
+        return ContentRatingSummaryEngine.summarizeLabel(ratings, genres, overview);
+    }
+
+    private static String selectMostRestrictiveCertification(String country,
+            List<ReleaseDatesResponse.ReleaseDate> releaseDates) {
+        if (releaseDates == null || releaseDates.isEmpty()) {
+            return null;
+        }
+        ContentRatingSummaryEngine.Level bestLevel = null;
+        String bestRating = null;
+        for (ReleaseDatesResponse.ReleaseDate releaseDate : releaseDates) {
+            if (releaseDate == null || releaseDate.getCertification() == null) {
+                continue;
+            }
+            String certification = releaseDate.getCertification();
+            ContentRatingSummaryEngine.Level level = ContentRatingSummaryEngine.mapToLevel(country, certification);
+            if (level == null) {
+                continue;
+            }
+            if (level.moreRestrictiveThan(bestLevel)) {
+                bestLevel = level;
+                bestRating = certification;
+            }
+        }
+        return bestRating;
     }
 }
