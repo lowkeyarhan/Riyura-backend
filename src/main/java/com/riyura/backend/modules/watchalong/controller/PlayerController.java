@@ -27,13 +27,13 @@ import java.util.UUID;
 @Validated
 @RestController
 @RequiredArgsConstructor
-public class WatchalongController {
+public class PlayerController {
 
     private final MoviePlayerServicePort moviePlayerService;
     private final TvPlayerServicePort tvPlayerService;
     private final StreamUrlServicePort streamUrlService;
 
-    @GetMapping({ "/api/movies/player/{id}" })
+    @GetMapping("/api/movies/player/{id}")
     public ResponseEntity<MoviePlayerResponse> getMoviePlayer(@PathVariable Long id) {
         MoviePlayerResponse playerResponse = moviePlayerService.getMoviePlayer(String.valueOf(id));
         if (playerResponse == null) {
@@ -42,7 +42,7 @@ public class WatchalongController {
         return ResponseEntity.ok(playerResponse);
     }
 
-    @GetMapping({ "/api/tv/player/{id}" })
+    @GetMapping("/api/tv/player/{id}")
     public ResponseEntity<TvPlayerResponse> getTvPlayer(@PathVariable Long id) {
         TvPlayerResponse playerResponse = tvPlayerService.getTvPlayer(String.valueOf(id));
         if (playerResponse == null) {
@@ -51,14 +51,14 @@ public class WatchalongController {
         return ResponseEntity.ok(playerResponse);
     }
 
-    @PostMapping({ "/api/movies/stream" })
+    @PostMapping("/api/movies/stream")
     public ResponseEntity<List<StreamUrlResponse>> getMovieStream(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody StreamProviderRequest request) {
         return ResponseEntity.ok(streamUrlService.buildStreamUrls(request, MediaType.Movie, resolveUserId(jwt)));
     }
 
-    @PostMapping({ "/api/tv/stream" })
+    @PostMapping("/api/tv/stream")
     public ResponseEntity<List<StreamUrlResponse>> getTvStream(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody StreamProviderRequest request) {
