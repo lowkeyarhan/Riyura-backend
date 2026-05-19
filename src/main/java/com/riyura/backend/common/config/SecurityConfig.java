@@ -58,7 +58,7 @@ public class SecurityConfig {
                                                 // Static test assets (JS/HTML served directly by Spring's resource
                                                 // handler)
                                                 .requestMatchers("/party-test.js", "/party-test.html",
-                                                                "/cache-monitor.html")
+                                                                "/cache-monitor.html", "/cache-monitor.js")
                                                 .permitAll()
 
                                                 // Public Endpoints
