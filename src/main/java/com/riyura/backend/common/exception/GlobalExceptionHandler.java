@@ -86,8 +86,22 @@ public class GlobalExceptionHandler {
                         "The requested media type is not supported by this endpoint."));
     }
 
+    @ExceptionHandler(org.springframework.web.context.request.async.AsyncRequestNotUsableException.class)
+    public void handleAsyncRequestNotUsableException(org.springframework.web.context.request.async.AsyncRequestNotUsableException ex) {
+        // Client disconnected during an SSE or async request stream.
+        // No need to return an ApiErrorResponse because the connection is already gone,
+        // and doing so causes HttpMessageNotWritableException because content type is text/event-stream.
+        log.warn("Client disconnected during async request: {}", ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiErrorResponse> handleUnexpected(Exception ex) {
+    public ResponseEntity<?> handleUnexpected(Exception ex) {
+        // If the response is already committed (e.g. SSE stream), we can't write a JSON response anymore.
+        if (ex instanceof org.springframework.http.converter.HttpMessageNotWritableException) {
+            log.warn("Failed to write error response (connection likely closed): {}", ex.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+        
         log.error("Unhandled exception", ex);
         return ApiErrorResponse.respond(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
     }

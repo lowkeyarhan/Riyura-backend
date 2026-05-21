@@ -173,6 +173,8 @@ async function fetchSSE(partyId, token, signal) {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let eventName = "message";
+    let dataLine = "";
 
     // Also abort reading when the signal fires
     signal.addEventListener("abort", () => {
@@ -186,12 +188,12 @@ async function fetchSSE(partyId, token, signal) {
       const lines = buffer.split("\n");
       buffer = lines.pop();
 
-      let eventName = "message",
-        dataLine = "";
       for (const line of lines) {
         const cleanLine = line.trim();
-        if (cleanLine.startsWith("event:")) eventName = cleanLine.slice(6).trim();
-        else if (cleanLine.startsWith("data:")) dataLine = cleanLine.slice(5).trim();
+        if (cleanLine.startsWith("event:"))
+          eventName = cleanLine.slice(6).trim();
+        else if (cleanLine.startsWith("data:"))
+          dataLine = cleanLine.slice(5).trim();
         else if (cleanLine === "" && dataLine) {
           handleSSEEvent(eventName, dataLine);
           eventName = "message";
@@ -242,12 +244,28 @@ function handleSSEEvent(eventName, dataStr) {
 }
 
 // ---- UI State ----
+function copyShareLink() {
+  if (!currentPartyId) return;
+  const url = new URL(window.location.href);
+  url.searchParams.set("party", currentPartyId);
+  navigator.clipboard
+    .writeText(url.toString())
+    .then(() => {
+      addEvent("SYSTEM", { message: "Share link copied to clipboard!" });
+    })
+    .catch((err) => {
+      alert("Failed to copy link: " + err);
+    });
+}
+
 function onPartyJoined(data, host) {
   currentPartyId = data.partyId;
   isHost = host;
 
   document.getElementById("activeParty").style.display = "flex";
-  document.getElementById("hostControls").style.display = host ? "flex" : "none";
+  document.getElementById("hostControls").style.display = host
+    ? "flex"
+    : "none";
   document.getElementById("joinCode").value = data.partyId;
 
   updatePartyUI(data);
@@ -257,11 +275,10 @@ function onPartyJoined(data, host) {
   chatArea.innerHTML = "";
   if (data.recentMessages && data.recentMessages.length > 0) {
     data.recentMessages.forEach((m) =>
-      appendChatMessage(m, m.senderId === currentUserId)
+      appendChatMessage(m, m.senderId === currentUserId),
     );
   } else {
-    chatArea.innerHTML =
-      '<div class="placeholder">No messages yet</div>';
+    chatArea.innerHTML = '<div class="placeholder">No messages yet</div>';
   }
 
   connectSSE(currentPartyId);
@@ -294,8 +311,9 @@ function onPartyLeft() {
 
 function updatePartyUI(data) {
   document.getElementById("partyCodeDisplay").textContent = data.partyId || "—";
-  document.getElementById("infoHost").textContent =
-    data.hostId ? data.hostId.substring(0, 8) + "..." : "—";
+  document.getElementById("infoHost").textContent = data.hostId
+    ? data.hostId.substring(0, 8) + "..."
+    : "—";
   document.getElementById("infoProgress").textContent =
     (data.progress ?? 0) + "s";
 }
@@ -384,3 +402,11 @@ document
     document.getElementById("tvFields").style.display =
       this.value !== "Movie" ? "grid" : "none";
   });
+
+window.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  const partyId = params.get("party");
+  if (partyId) {
+    document.getElementById("joinCode").value = partyId;
+  }
+});
