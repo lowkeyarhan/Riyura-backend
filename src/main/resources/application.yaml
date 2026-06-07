@@ -95,7 +95,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus # prometheus exposed for observability stack
   endpoint:
     health:
       show-details: always
@@ -122,3 +122,30 @@ resilience4j:
     instances:
       tmdb:
         baseConfig: default
+
+---
+# ─── Production profile overrides ──────────────────────────────────────────────
+# Activated when SPRING_PROFILES_ACTIVE=prod (set by docker-compose.prod.yml)
+spring:
+  config:
+    activate:
+      on-profile: prod
+    # Disable .env file import in prod — secrets come from platform env vars
+    import: ""
+
+# Tighten actuator in prod (no swagger-ui exposure)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized # Don't leak internals to unauthenticated callers
+
+# Disable Swagger UI in production
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false

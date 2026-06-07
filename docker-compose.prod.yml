@@ -1,0 +1,55 @@
+# ─── Production overlay ────────────────────────────────────────────────────────
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# This file overrides only what differs from docker-compose.yml for production.
+# All env vars must be injected by the platform (ECS task def / OCI container env
+# / docker-compose --env-file) — .env is NOT bind-mounted in production.
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  redis:
+    # Harden Redis in prod: no port exposure to host, restart always
+    ports: !reset [] # Remove host port binding — internal only
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.25"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prod # Switches to the JRE-only prod stage
+    container_name: riyura_app_prod
+    image: riyura-backend:latest # Tag used when pushing to ECR / OCIR
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - REDIS_HOST=redis
+      # Container-aware JVM: respects cgroup limits; heap = 75 % of mem_limit
+      - JAVA_OPTS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom
+      # Loki logging enabled in prod (assumes observability stack is running)
+      - LOKI_ENABLED=${LOKI_ENABLED:-false}
+      - LOKI_URL=${LOKI_URL:-http://loki:3100/loki/api/v1/push}
+    # NO env_file in prod — secrets come from platform secret manager / task env
+    volumes: !reset [] # Remove all dev bind-mounts (src, pom.xml, .env)
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
+        reservations:
+          memory: 256m
+          cpus: "0.5"
+    # Stricter healthcheck for prod — faster failure detection
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 20s
+      timeout: 10s
+      start_period: 90s # Allow extra time for JPA schema validation
+      retries: 3
+    # No devtools sysctls needed in prod
+    sysctls: !reset {}

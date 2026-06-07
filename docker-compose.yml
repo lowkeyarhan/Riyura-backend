@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   # ─── Core services (always required) ────────────────────────────────────────
   redis:
@@ -11,10 +10,44 @@ services:
       - redis_data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # ─── Spring Boot Application (dev / hot-reload) ──────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev # Uses the dev stage — JDK + Maven, no fat JAR
+    image: riyura-backend:dev
+    container_name: riyura_app_dev
+    ports:
+      - "8080:8080"
+    environment:
+      # Override REDIS_HOST so the app connects to the redis service, not localhost
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      # Spring Boot DevTools — poll interval for file-change detection
+      - SPRING_DEVTOOLS_RESTART_POLL_INTERVAL=1000ms
+      - SPRING_DEVTOOLS_RESTART_QUIET_PERIOD=400ms
+    env_file:
+      - .env # All other secrets loaded from local .env
+    volumes:
+      # ── Hot-reload bind mounts ──
+      # Maven reads source from the host; any .java change triggers DevTools reload
+      - ./src:/app/src
+      - ./pom.xml:/app/pom.xml
+      # ── Maven dependency cache (named volume) ──
+      # Persisted across container restarts so deps aren't re-downloaded every time
+      - maven_cache:/root/.m2
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   redis_data:
+  maven_cache: # Persists downloaded Maven artifacts between dev restarts

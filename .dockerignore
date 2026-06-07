@@ -1,0 +1,48 @@
+# ─── Docker build context exclusions ──────────────────────────────────────────
+# Keep the build context lean so `docker build` is fast and the prod image
+# never accidentally contains local secrets, IDE files, or compiled artifacts.
+
+# Maven build output — the builder stage compiles from source, not from target/
+target/
+
+# Git history — not needed in any image
+.git/
+.gitattributes
+.gitignore
+
+# IDE / editor files
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+.eclipse/
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+
+# macOS artefacts
+.DS_Store
+
+# Secrets — NEVER bake the .env into an image
+.env
+.env.*
+!.env.example
+
+# Documentation (not needed at runtime)
+*.md
+grafana/
+prometheus/
+loki/
+response/
+
+# Claude / AI tooling
+.claude/
+
+# Test output
+**/__tests__/
+**/test-results/
