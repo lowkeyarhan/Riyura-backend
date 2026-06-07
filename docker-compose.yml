@@ -9,6 +9,8 @@ services:
     volumes:
       - redis_data:/data
     restart: unless-stopped
+    networks:
+      - backend
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-}", "ping"]
       interval: 10s
@@ -47,10 +49,17 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      backend:
+      frontend:
+        aliases:
+          - riyura-api
 
 networks:
-  default:
-    name: riyura-frontend_default
+  backend:
+    name: riyura-backend_default # internal network for redis ↔ app
+  frontend:
+    name: riyura-frontend_default # shared network with the Next.js container
     external: true
 
 volumes:
