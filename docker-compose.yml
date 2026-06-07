@@ -48,6 +48,11 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+networks:
+  default:
+    name: riyura-frontend_default
+    external: true
+
 volumes:
   redis_data:
   maven_cache: # Persists downloaded Maven artifacts between dev restarts

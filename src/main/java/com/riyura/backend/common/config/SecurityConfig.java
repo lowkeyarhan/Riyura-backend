@@ -132,13 +132,24 @@ public class SecurityConfig {
         }
 
         private List<String> buildAllowedOrigins() {
+                String cleanFrontendUrl = frontendUrl;
+                if (cleanFrontendUrl != null) {
+                        cleanFrontendUrl = cleanFrontendUrl.replaceAll("/+$", "");
+                        if (cleanFrontendUrl.startsWith("http")) {
+                                String[] parts = cleanFrontendUrl.split("/");
+                                if (parts.length >= 3) {
+                                        cleanFrontendUrl = parts[0] + "//" + parts[2];
+                                }
+                        }
+                }
+
                 boolean isDev = Arrays.asList(environment.getActiveProfiles()).contains("dev")
-                                || frontendUrl.contains("localhost");
+                                || (cleanFrontendUrl != null && cleanFrontendUrl.contains("localhost"));
 
                 if (isDev) {
-                        return Arrays.asList("http://localhost:3000", "http://localhost:8080");
+                        return Arrays.asList("http://localhost:3000", "http://localhost:8080", cleanFrontendUrl);
                 }
-                // Production: only the configured frontend URL
-                return List.of(frontendUrl);
+                // Production: only the configured frontend URL origin
+                return cleanFrontendUrl != null ? List.of(cleanFrontendUrl) : List.of();
         }
 }
