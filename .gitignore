@@ -41,3 +41,6 @@ build/
 
 # Response files with sensitive data
 response/supabase
+
+# AWS key
+riyura-backend-key.pem
