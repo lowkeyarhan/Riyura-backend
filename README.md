@@ -15,6 +15,7 @@
 - [Health Check](#health-check)
 - [Observability & Resilience](#observability--resilience)
 - [Performance](#performance)
+- [Local & Production Configuration](#local--production-configuration)
 
 ---
 
@@ -111,13 +112,43 @@ Riyura uses **Redis** as its distributed cache, combining Spring's `@Cacheable` 
 
 - **Serialization**: String keys with JSON values. Uses `BasicPolymorphicTypeValidator` to strictly allowlist classes for safe polymorphic deserialization, mitigating RCE vulnerabilities.
 - **Null caching**: Disabled — absent values are never cached so transient errors don't poison the cache
-- **Background refresh pool**: Dedicated `cacheRefreshExecutor` (4–16 threads) for SWR background refreshes, explicitly using **Virtual Threads** to prevent carrier thread pinning. `CallerRunsPolicy` provides back-pressure if the queue is full
+- **Background refresh pool**: Dedicated virtual-thread workers scale with available CPUs for SWR refreshes. Its bounded queue and caller-runs fallback absorb bursts without retaining unlimited work in memory.
 
 Content caches use `CacheStampedeGuard` and are keyed by their natural discriminator (e.g. `limit`, `query`, `id`). User-specific caches (`watchlist`, `history`) use `@Cacheable` with `sync = true` and are keyed by `userId + ':' + page`. Writes trigger targeted `@CacheEvict` using specific user keys to invalidate only the affected user's data without wiping the entire cache.
 
 ### Redis Party State
 
 Beyond Spring Cache, Redis is also used directly for **watch party state** (via `RedisTemplate`). Party objects are serialized as JSON and stored with a fixed party TTL constant defined in `RedisConfig`. This keeps party state distributed and resilient without requiring an in-memory server-side session.
+
+### Redis Provider Configuration
+
+Set `REDIS_URL` to any Redis-compatible TCP connection URL. The TLS scheme is encoded in the URL, so an Upstash connection copied from **Connect → TCP** works directly:
+
+```properties
+REDIS_URL=rediss://default:<upstash-token>@<upstash-endpoint>:6379
+```
+
+For a direct local Redis instance, use `REDIS_URL=redis://localhost:6379`. Do not use Upstash's HTTP REST URL here: this application uses Redis' standard TCP protocol for caching, rate limiting, and party Pub/Sub.
+
+---
+
+## Local & Production Configuration
+
+Copy `.env.example` to `.env` and provide the database, Supabase, TMDB, and encryption values. The database configuration remains unchanged. Local runs default to the `dev` profile and load `.env`; start the backend without Docker with Java 21 installed:
+
+```bash
+./mvnw spring-boot:run
+```
+
+Use the frontend's browser origin—not its API path—for CORS. Development defaults to `http://localhost:3000` and `http://127.0.0.1:3000`. Set the deployed frontend explicitly in production:
+
+```properties
+SPRING_PROFILES_ACTIVE=prod
+CORS_ALLOWED_ORIGINS=https://app.example.com,https://www.example.com
+REDIS_URL=rediss://default:<upstash-token>@<upstash-endpoint>:6379
+```
+
+The `prod` profile deliberately does not load `.env`; supply these values through the hosting platform's environment variables or secret manager. Hosting platforms can set `PORT`; it defaults to `8080`.
 
 ### Redis Operational Safety (SCAN)
 
@@ -306,7 +337,7 @@ Riyura uses **Spring Security** configured as an **OAuth2 Resource Server** with
 - **Algorithm**: HS256 (HMAC-SHA256) with a custom `NimbusJwtDecoder`
 - **Issuer validation**: Supabase project URL
 - **JWT subject**: Used as `userId` throughout the system (UUID format)
-- **CORS**: Configured globally via `SecurityConfig` using the `APP_FRONTEND_URL` environment variable — no per-controller `@CrossOrigin` annotations. Allowed headers are narrowed to `Authorization`, `Content-Type`, and `Accept`
+- **CORS**: Configured globally via `SecurityConfig` using `CORS_ALLOWED_ORIGINS` — no per-controller `@CrossOrigin` annotations. Allowed headers are narrowed to `Authorization`, `Content-Type`, and `Accept`
 
 Content discovery endpoints (`/api/movies/**`, `/api/tv/**`, `/api/anime/**`, `/api/search/**`, `/api/banner/**`, `/api/explore/**`) are fully public. User-specific endpoints (`/api/profile/**`, `/api/watchlist/**`, `/api/party/**`) require a valid Supabase-issued JWT. Observability and testing endpoints (`/api/test/**`) are strictly restricted to `ROLE_ADMIN` in production, with the exception of `/api/test/health` which remains public for frontend status checks. The WebSocket endpoint (`/ws/**`) is publicly reachable at the HTTP level, but authentication is enforced at the STOMP CONNECT frame by `WebSocketAuthInterceptor`.
 
@@ -611,6 +642,6 @@ All services use SLF4J (`@Slf4j`) instead of `System.out.println` / `System.err.
 
 ### CORS Configuration
 
-CORS is handled exclusively by the global `SecurityConfig` bean with a centralized `CorsConfigurationSource`. The allowed origin is read from the `APP_FRONTEND_URL` environment variable rather than being hardcoded. Allowed headers are explicitly narrowed to `Authorization`, `Content-Type`, and `Accept` instead of using a wildcard. Per-controller `@CrossOrigin` annotations are not used, avoiding redundant CORS header processing and ensuring consistent origin policy from a single configuration point.
+CORS is handled exclusively by the global `SecurityConfig` bean with a centralized `CorsConfigurationSource`. Allowed origins are read from the comma-separated `CORS_ALLOWED_ORIGINS` environment variable rather than hardcoded. Each value is normalized to a browser origin and invalid values are ignored. Allowed headers are explicitly narrowed to `Authorization`, `Content-Type`, and `Accept` instead of using a wildcard. Per-controller `@CrossOrigin` annotations are not used, avoiding redundant CORS header processing and ensuring consistent origin policy from a single configuration point.
 
 ---
