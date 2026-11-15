@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
 @EnableCaching
@@ -27,26 +28,22 @@ public class CacheConfig {
 
         RedisCacheWriter defaultWriter = RedisCacheWriter.nonLockingRedisCacheWriter(connectionFactory);
 
-        // Redis cache writer to add jitter to the TTL
         RedisCacheWriter jitterWriter = new RedisCacheWriter() {
             @Override
             public void put(String name, byte[] key, byte[] value, Duration ttl) {
                 defaultWriter.put(name, key, value, addJitter(ttl));
             }
 
-            // Get the value from the Redis cache
             @Override
             public byte[] get(String name, byte[] key) {
                 return defaultWriter.get(name, key);
             }
 
-            // Put the value into the Redis cache if it is not present
             @Override
             public byte[] putIfAbsent(String name, byte[] key, byte[] value, Duration ttl) {
                 return defaultWriter.putIfAbsent(name, key, value, addJitter(ttl));
             }
 
-            // Remove the value from the Redis cache
             @Override
             public void remove(String name, byte[] key) {
                 defaultWriter.remove(name, key);
@@ -56,25 +53,21 @@ public class CacheConfig {
             public void clear(String name, byte[] pattern) {
             }
 
-            // Clear the cache statistics from the Redis cache
             @Override
             public void clearStatistics(String name) {
                 defaultWriter.clearStatistics(name);
             }
 
-            // Add statistics collector to the Redis cache
             @Override
             public RedisCacheWriter withStatisticsCollector(CacheStatisticsCollector cacheStatisticsCollector) {
                 return defaultWriter.withStatisticsCollector(cacheStatisticsCollector);
             }
 
-            // Get the cache statistics from the Redis cache
             @Override
             public CacheStatistics getCacheStatistics(String cacheName) {
                 return defaultWriter.getCacheStatistics(cacheName);
             }
 
-            // Following methods might be needed in newer Spring Data Redis versions
             public CompletableFuture<Void> store(String name, byte[] key, byte[] value, Duration ttl) {
                 try {
                     put(name, key, value, ttl);
@@ -84,24 +77,20 @@ public class CacheConfig {
                 }
             }
 
-            // Retrieve the value from the Redis cache
             public CompletableFuture<byte[]> retrieve(String name, byte[] key) {
                 return CompletableFuture.completedFuture(get(name, key));
             }
 
             @Override
-            // Retrieve the value from the Redis cache with a TTL
             public CompletableFuture<byte[]> retrieve(String name, byte[] key, Duration ttl) {
                 return defaultWriter.retrieve(name, key, ttl);
             }
 
             @Override
-            // Evict the value from the Redis cache
             public void evict(String name, byte[] key) {
                 defaultWriter.remove(name, key);
             }
 
-            // Add jitter to the TTL
             private Duration addJitter(Duration ttl) {
                 if (ttl == null || ttl.isZero() || ttl.isNegative()) {
                     return ttl;
@@ -112,29 +101,28 @@ public class CacheConfig {
             }
         };
 
-        // Configuration for the Redis cache
         RedisCacheConfiguration config = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Duration.ofDays(1)) // Base TTL of 1 day
+                .entryTtl(Duration.ofDays(1))
                 .serializeKeysWith(
                         RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
                         .fromSerializer(new GenericJackson2JsonRedisSerializer()))
                 .disableCachingNullValues();
 
-        // Build the Redis cache manager
         return RedisCacheManager.builder(jitterWriter)
                 .cacheDefaults(config)
                 .build();
     }
 
-    // Dedicated thread pool for background cache refreshes
     @Bean(name = "cacheRefreshExecutor")
     public Executor cacheRefreshExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        int workers = Math.max(4, Runtime.getRuntime().availableProcessors() * 2);
         executor.setThreadFactory(Thread.ofVirtual().name("cache-refresh-", 0).factory());
         executor.setCorePoolSize(0);
-        executor.setMaxPoolSize(Integer.MAX_VALUE);
-        executor.setQueueCapacity(0);
+        executor.setMaxPoolSize(workers);
+        executor.setQueueCapacity(workers * 32);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();
         return executor;
     }

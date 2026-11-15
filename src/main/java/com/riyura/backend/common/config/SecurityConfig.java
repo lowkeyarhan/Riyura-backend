@@ -3,7 +3,6 @@ package com.riyura.backend.common.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -19,7 +18,9 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import javax.crypto.spec.SecretKeySpec;
-import java.util.Arrays;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 
 @Configuration
@@ -32,14 +33,8 @@ public class SecurityConfig {
         @Value("${supabase.issuer-uri}")
         private String issuerUrl;
 
-        @Value("${app.frontend-url}")
-        private String frontendUrl;
-
-        private final Environment environment;
-
-        public SecurityConfig(Environment environment) {
-                this.environment = environment;
-        }
+        @Value("${app.cors.allowed-origins:}")
+        private String corsAllowedOrigins;
 
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -47,7 +42,6 @@ public class SecurityConfig {
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .csrf(AbstractHttpConfigurer::disable)
                                 .authorizeHttpRequests(auth -> auth
-                                                // Protected stream endpoints (history-based resume needs user context)
                                                 .requestMatchers(
                                                                 "/api/movies/stream",
                                                                 "/api/tv/stream",
@@ -55,13 +49,10 @@ public class SecurityConfig {
                                                                 "/api/watchalong/tv/stream")
                                                 .authenticated()
 
-                                                // Static test assets (JS/HTML served directly by Spring's resource
-                                                // handler)
                                                 .requestMatchers("/party-test.js", "/party-test.html",
                                                                 "/cache-monitor.html", "/cache-monitor.js")
                                                 .permitAll()
 
-                                                // Public Endpoints
                                                 .requestMatchers(
                                                                 "/v3/api-docs/**",
                                                                 "/swagger-ui/**",
@@ -79,13 +70,11 @@ public class SecurityConfig {
                                                                 "/ws/**")
                                                 .permitAll()
 
-                                                // Actuator — allow health, restrict the rest
                                                 .requestMatchers("/actuator/health", "/actuator/health/**")
                                                 .permitAll()
                                                 .requestMatchers("/actuator/**")
                                                 .authenticated()
 
-                                                // Protected Endpoints
                                                 .requestMatchers(
                                                                 "/api/profile/**",
                                                                 "/api/watchlist/**",
@@ -103,11 +92,10 @@ public class SecurityConfig {
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration configuration = new CorsConfiguration();
                 configuration.setAllowedOrigins(buildAllowedOrigins());
-                configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-                // Cache-Control and Last-Event-ID required for SSE
-                configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept",
+                configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+                configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept",
                                 "Cache-Control", "Last-Event-ID"));
-                configuration.setExposedHeaders(Arrays.asList("Content-Type", "Cache-Control"));
+                configuration.setExposedHeaders(List.of("Content-Type", "Cache-Control"));
                 configuration.setAllowCredentials(true);
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -124,7 +112,6 @@ public class SecurityConfig {
                                 .macAlgorithm(MacAlgorithm.HS256)
                                 .build();
 
-                // Issuer URL is now configurable via application.yaml
                 OAuth2TokenValidator<Jwt> validator = JwtValidators.createDefaultWithIssuer(issuerUrl);
                 decoder.setJwtValidator(validator);
 
@@ -132,24 +119,33 @@ public class SecurityConfig {
         }
 
         private List<String> buildAllowedOrigins() {
-                String cleanFrontendUrl = frontendUrl;
-                if (cleanFrontendUrl != null) {
-                        cleanFrontendUrl = cleanFrontendUrl.replaceAll("/+$", "");
-                        if (cleanFrontendUrl.startsWith("http")) {
-                                String[] parts = cleanFrontendUrl.split("/");
-                                if (parts.length >= 3) {
-                                        cleanFrontendUrl = parts[0] + "//" + parts[2];
-                                }
+                if (corsAllowedOrigins == null || corsAllowedOrigins.isBlank()) {
+                        return List.of();
+                }
+
+                List<String> origins = new ArrayList<>();
+                for (String origin : corsAllowedOrigins.split(",")) {
+                        normalizeOrigin(origin).ifPresent(origins::add);
+                }
+                return origins.stream().distinct().toList();
+        }
+
+        private java.util.Optional<String> normalizeOrigin(String value) {
+                try {
+                        URI uri = new URI(value.trim());
+                        if (!("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))
+                                        || uri.getHost() == null
+                                        || uri.getUserInfo() != null
+                                        || uri.getRawQuery() != null
+                                        || uri.getRawFragment() != null
+                                        || (uri.getPath() != null && !uri.getPath().isEmpty() && !"/".equals(uri.getPath()))) {
+                                return java.util.Optional.empty();
                         }
+                        return java.util.Optional.of(uri.getScheme().toLowerCase() + "://"
+                                        + uri.getHost().toLowerCase()
+                                        + (uri.getPort() == -1 ? "" : ":" + uri.getPort()));
+                } catch (URISyntaxException | NullPointerException ex) {
+                        return java.util.Optional.empty();
                 }
-
-                boolean isDev = Arrays.asList(environment.getActiveProfiles()).contains("dev")
-                                || (cleanFrontendUrl != null && cleanFrontendUrl.contains("localhost"));
-
-                if (isDev) {
-                        return Arrays.asList("http://localhost:3000", "http://localhost:8080", cleanFrontendUrl);
-                }
-                // Production: only the configured frontend URL origin
-                return cleanFrontendUrl != null ? List.of(cleanFrontendUrl) : List.of();
         }
 }

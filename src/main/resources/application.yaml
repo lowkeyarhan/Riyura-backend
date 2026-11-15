@@ -3,28 +3,23 @@ spring:
     name: Riyura
   config:
     import: optional:file:.env[.properties]
+  profiles:
+    default: dev
 
-  # Virtual threads: every Tomcat request handler and @Async task runs on a
-  # JDK 21 virtual thread instead of a bounded platform-thread pool.
   threads:
     virtual:
       enabled: true
 
-  # Redis Configuration (Watch Party ephemeral state)
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      url: ${REDIS_URL:redis://localhost:6379}
 
-  # Supabase DataSource Configuration
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
-    # HikariCP Settings
     hikari:
       maximum-pool-size: 15
       minimum-idle: 2
@@ -32,7 +27,6 @@ spring:
       max-lifetime: 1800000
       connection-timeout: 5000
 
-  # JPA Settings
   jpa:
     hibernate:
       ddl-auto: validate
@@ -41,22 +35,18 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  # MVC content negotiation — default to JSON so SSE error responses don't fail
   mvc:
     contentnegotiation:
       default-content-type: application/json
 
-# TMDB Configuration
 tmdb:
   api-key: ${TMDB_API_KEY}
-  base-url: ${TMDB_BASE_URL:${TMDB_API_BASE_URL}}
+  base-url: ${TMDB_API_BASE_URL}
   image-base-url: ${TMDB_IMAGE_BASE_URL}
 
-# Supabase Security Configuration
 supabase:
   jwt-secret: ${SUPABASE_JWT_SECRET}
   issuer-uri: ${SUPABASE_ISSUER_URI:https://placeholder.supabase.co/auth/v1}
-# Application security configuration
 riyura:
   security:
     encryption-key: ${ENCRYPTION_KEY}
@@ -71,31 +61,30 @@ springdoc:
     tags-sorter: alpha
     disable-swagger-default-url: true
 
-# Application Configuration
 app:
-  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
 
 loki:
   enabled: ${LOKI_ENABLED:false}
   url: ${LOKI_URL:http://localhost:3100/loki/api/v1/push}
 
 server:
+  port: ${PORT:8080}
   compression:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/plain
-    # text/event-stream is intentionally excluded — compression buffers SSE and breaks streaming
     min-response-size: 1024
   tomcat:
     max-connections: 8192
     accept-count: 100
     connection-timeout: 60000
 
-# Actuator & Prometheus Configuration
 management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus # prometheus exposed for observability stack
+        include: health,prometheus
   endpoint:
     health:
       show-details: always
@@ -106,7 +95,6 @@ management:
       percentiles-histogram:
         http.server.requests: true
 
-# Resilience4j Configuration
 resilience4j:
   circuitbreaker:
     configs:
@@ -124,16 +112,22 @@ resilience4j:
         baseConfig: default
 
 ---
-# ─── Production profile overrides ──────────────────────────────────────────────
-# Activated when SPRING_PROFILES_ACTIVE=prod (set by docker-compose.prod.yml)
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
+
+---
 spring:
   config:
     activate:
       on-profile: prod
-    # Disable .env file import in prod — secrets come from platform env vars
     import: ""
 
-# Tighten actuator in prod (no swagger-ui exposure)
 management:
   endpoints:
     web:
@@ -141,9 +135,8 @@ management:
         include: health,prometheus
   endpoint:
     health:
-      show-details: when-authorized # Don't leak internals to unauthenticated callers
+      show-details: when-authorized
 
-# Disable Swagger UI in production
 springdoc:
   swagger-ui:
     enabled: false
