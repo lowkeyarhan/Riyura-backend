@@ -1,5 +1,4 @@
 services:
-  # ─── Core services (always required) ────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: riyura_redis
@@ -17,33 +16,24 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── Spring Boot Application (dev / hot-reload) ──────────────────────────────
   app:
     build:
       context: .
       dockerfile: Dockerfile
-      target: dev # Uses the dev stage — JDK + Maven, no fat JAR
+      target: dev
     image: riyura-backend:dev
     container_name: riyura_app_dev
     ports:
       - "8080:8080"
     environment:
-      # Override REDIS_HOST so the app connects to the redis service, not localhost
-      - REDIS_HOST=redis
-      - REDIS_PORT=${REDIS_PORT:-6379}
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      # Spring Boot DevTools — poll interval for file-change detection
+      - REDIS_URL=${REDIS_URL:-redis://:${REDIS_PASSWORD:-}@redis:6379}
       - SPRING_DEVTOOLS_RESTART_POLL_INTERVAL=1000ms
       - SPRING_DEVTOOLS_RESTART_QUIET_PERIOD=400ms
     env_file:
-      - .env # All other secrets loaded from local .env
+      - .env
     volumes:
-      # ── Hot-reload bind mounts ──
-      # Maven reads source from the host; any .java change triggers DevTools reload
       - ./src:/app/src
       - ./pom.xml:/app/pom.xml
-      # ── Maven dependency cache (named volume) ──
-      # Persisted across container restarts so deps aren't re-downloaded every time
       - maven_cache:/root/.m2
     depends_on:
       redis:
@@ -57,11 +47,11 @@ services:
 
 networks:
   backend:
-    name: riyura-backend_default # internal network for redis ↔ app
+    name: riyura-backend_default
   frontend:
-    name: riyura-frontend_default # shared network with the Next.js container
+    name: riyura-frontend_default
     external: true
 
 volumes:
   redis_data:
-  maven_cache: # Persists downloaded Maven artifacts between dev restarts
+  maven_cache:

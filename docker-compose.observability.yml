@@ -1,4 +1,3 @@
-# ─── Observability overlay ────────────────────────────────────────────────────
 
 services:
   redis-exporter:
@@ -7,8 +6,8 @@ services:
     ports:
       - "9121:9121"
     environment:
-      - REDIS_ADDR=redis:6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_ADDR=${REDIS_URL:-redis://:${REDIS_PASSWORD:-}@redis:6379}
+      - REDIS_EXPORTER_CONFIG_COMMAND=-
     restart: unless-stopped
 
   prometheus:
