@@ -6,18 +6,27 @@ import com.riyura.backend.modules.watchalong.dto.party.requests.PartyProgressReq
 import com.riyura.backend.modules.watchalong.dto.party.requests.SendChatRequest;
 import com.riyura.backend.modules.watchalong.dto.party.responses.PartyStateResponse;
 import com.riyura.backend.modules.watchalong.dto.party.responses.SyncResponse;
-
+import com.riyura.backend.modules.watchalong.model.party.Messages;
 import java.util.UUID;
 
 public interface PartyServicePort {
-
     // Creates a new party with the caller as host; progress=0, streamUrl built
     // immediately for response
-    PartyStateResponse createParty(CreatePartyRequest request, UUID userId, String username, String avatarUrl);
+    PartyStateResponse createParty(
+        CreatePartyRequest request,
+        UUID userId,
+        String username,
+        String avatarUrl
+    );
 
     // Adds the caller to an existing party by 8-char code; returns snapshot with
     // built streamUrl
-    PartyStateResponse joinParty(JoinPartyRequest request, UUID userId, String username, String avatarUrl);
+    PartyStateResponse joinParty(
+        JoinPartyRequest request,
+        UUID userId,
+        String username,
+        String avatarUrl
+    );
 
     // Removes the caller; triggers host migration or party end if no participants
     // remain
@@ -30,9 +39,13 @@ public interface PartyServicePort {
     // eviction
     void sendHeartbeat(String partyId, UUID userId);
 
-    // Stores a chat message in Redis and broadcasts NEW_CHAT event to all party SSE
-    // connections
-    void sendChat(SendChatRequest request, UUID senderId, String senderName, String avatarUrl);
+    // Idempotent; returns the stored message so the sender can render it immediately.
+    Messages sendChat(
+        SendChatRequest request,
+        UUID senderId,
+        String senderName,
+        String avatarUrl
+    );
 
     // Builds the current streamUrl from stored progress and returns it for
     // immediate player load
