@@ -4,6 +4,9 @@ let currentUserId = null;
 let isHost = false;
 let sseAbortController = null;
 let heartbeatTimer = null;
+// Message ids already rendered — makes the chat idempotent across the POST
+// response, the SSE echo, and history replays.
+const seenMessageIds = new Set();
 
 // ---- Auth ----
 function getToken() {
@@ -125,10 +128,18 @@ async function sendChat() {
   const res = await fetch(`${BASE}/chat`, {
     method: "POST",
     headers: headers(),
-    body: JSON.stringify({ partyId: currentPartyId, content }),
+    // clientMessageId makes a retry of this exact message a no-op on the server
+    body: JSON.stringify({
+      partyId: currentPartyId,
+      content,
+      clientMessageId: crypto.randomUUID(),
+    }),
   });
-  if (res.ok) input.value = "";
-  else {
+  if (res.ok) {
+    input.value = "";
+    // Render immediately from the canonical response; the SSE echo dedupes by id.
+    if (res.status === 200) appendChatMessage(await res.json(), true);
+  } else {
     const d = await res.json();
     alert("Error: " + JSON.stringify(d));
   }
@@ -155,6 +166,7 @@ function connectSSE(partyId) {
 }
 
 async function fetchSSE(partyId, token, signal) {
+  let reconnect = false;
   try {
     const res = await fetch(`${BASE}/events?partyId=${partyId}`, {
       signal,
@@ -169,6 +181,7 @@ async function fetchSSE(partyId, token, signal) {
       return;
     }
 
+    reconnect = true;
     document.getElementById("sseStatus").classList.add("on");
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -204,8 +217,14 @@ async function fetchSSE(partyId, token, signal) {
   } catch (e) {
     // AbortError is expected when we manually cancel — don't log it as an error
     if (e.name !== "AbortError") {
-      document.getElementById("sseStatus").classList.remove("on");
+      reconnect = true;
       addEvent("SSE_ERROR", { error: e.message });
+    }
+  } finally {
+    document.getElementById("sseStatus").classList.remove("on");
+    // A closed stream must self-heal; CONNECTED replays history on the new one.
+    if (reconnect && !signal.aborted && currentPartyId === partyId) {
+      setTimeout(() => connectSSE(partyId), 2000);
     }
   }
 }
@@ -216,8 +235,18 @@ function handleSSEEvent(eventName, dataStr) {
     addEvent(eventName, data.payload || data);
 
     switch (eventName) {
+      case "CONNECTED":
+        // History on every (re)connect: merge by message id so nothing is missed
+        // and nothing is rendered twice.
+        (data.payload?.recentMessages || []).forEach((m) =>
+          appendChatMessage(m, m.senderId === currentUserId),
+        );
+        break;
       case "NEW_CHAT":
-        appendChatMessage(data.payload, data.triggeredById === currentUserId);
+        appendChatMessage(
+          data.payload,
+          data.payload?.senderId === currentUserId,
+        );
         break;
       case "PARTY_STATE_UPDATED":
         document.getElementById("infoProgress").textContent =
@@ -273,6 +302,7 @@ function onPartyJoined(data, host) {
   // Render history; clear placeholder
   const chatArea = document.getElementById("chatArea");
   chatArea.innerHTML = "";
+  seenMessageIds.clear();
   if (data.recentMessages && data.recentMessages.length > 0) {
     data.recentMessages.forEach((m) =>
       appendChatMessage(m, m.senderId === currentUserId),
@@ -335,6 +365,10 @@ async function refreshPartyState() {
 
 // ---- Chat UI ----
 function appendChatMessage(msg, mine = false) {
+  if (!msg) return;
+  if (msg.id && seenMessageIds.has(msg.id)) return;
+  if (msg.id) seenMessageIds.add(msg.id);
+
   const area = document.getElementById("chatArea");
   // Remove the placeholder if present
   const placeholder = area.querySelector(".placeholder");
