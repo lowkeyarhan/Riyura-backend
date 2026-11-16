@@ -217,7 +217,7 @@ Cache-Control: no-cache
 **If party not found** — HTTP 404 JSON: `{ "error": "Party not found: AB3KF7NZ" }`.  
 **If not a participant** — HTTP 403 JSON: `{ "error": "You are not a participant in this party." }`.
 
-> The endpoint validates participation **before** creating the SSE emitter, so non-members receive plain JSON errors, not a half-opened stream.
+> The endpoint registers the stream before reading history, so a message sent while you connect is never lost. Non-members still receive plain JSON errors.
 
 ### Wire Format
 
@@ -238,7 +238,7 @@ Immediately after registration, the server sends a `CONNECTED` frame:
 
 ```
 event: CONNECTED
-data: {"partyId":"AB3KF7NZ","userId":"94310aa8-..."}
+data: {"partyId":"AB3KF7NZ","userId":"94310aa8-...","recentMessages":[{...}]}
 ```
 
 ---
@@ -631,15 +631,23 @@ async function syncPlayer() {
 ```js
 async function sendChat(content) {
   if (!content.trim() || !currentPartyId) return;
-  await fetch(`${BASE}/chat`, {
+  const res = await fetch(`${BASE}/chat`, {
     method: "POST",
     headers: headers(),
-    body: JSON.stringify({ partyId: currentPartyId, content }),
+    body: JSON.stringify({
+      partyId: currentPartyId,
+      content,
+      clientMessageId: crypto.randomUUID(), // reuse on retry → server dedupes
+    }),
   });
-  // Do NOT append the message locally — wait for the NEW_CHAT SSE event
-  // so all clients (including sender) render from the same source of truth.
+  // 200 returns the stored message. Append it immediately, then ignore the
+  // later NEW_CHAT echo by id so the sender never sees a duplicate.
+  if (res.ok) appendChatMessage(await res.json(), true);
 }
 ```
+
+Every message has a stable `id`. Dedupe the chat UI on that id across the POST response,
+NEW_CHAT events, and `recentMessages` history (sent on join and in the CONNECTED event).
 
 ### 11. Leave the Party
 
