@@ -2,6 +2,7 @@ package com.riyura.backend.modules.watchalong.dto.party.requests;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,4 +18,7 @@ public class SendChatRequest {
     @NotBlank(message = "Message content cannot be blank")
     @Size(max = 500, message = "Message cannot exceed 500 characters")
     private String content;
+
+    // Optional replay key: generate once, reuse on retry. Omit and retries are not deduped.
+    private UUID clientMessageId;
 }
